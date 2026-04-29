@@ -7,13 +7,31 @@
 }
 
 body {
-  background: #0f172a;
+  /* Fundo radial escuro para dar profundidade */
+  background: radial-gradient(circle at top center, #1e293b 0%, #020617 100%);
   color: #f8fafc;
   font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
+}
+
+/* Custom Scrollbar opcional para um visual mais limpo */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
 }
