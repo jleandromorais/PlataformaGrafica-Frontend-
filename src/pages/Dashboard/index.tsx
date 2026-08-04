@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
@@ -115,21 +117,26 @@ function KpiTile({
   varLabel?: string;
   accent: string;
 }) {
+  const isZero = value === brl(0);
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-6 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]">
+    <div className="group rounded-2xl border border-white/[0.07] bg-[#111113] p-6 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.12]">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-zinc-400">{label}</span>
+        <span className="text-sm font-medium tracking-wide text-zinc-400">{label}</span>
         <span
-          className="flex h-10 w-10 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${accent}1a`, color: accent }}
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
+          style={{ backgroundColor: `${accent}17`, color: accent }}
         >
-          <Icon size={17} />
+          <Icon size={16} />
         </span>
       </div>
-      <p className="mt-5 text-[1.75rem] font-bold leading-none tracking-tight text-white">{value}</p>
+      <p className={`mt-5 text-[1.75rem] font-bold leading-none tracking-tight ${isZero ? "text-zinc-600" : "text-white"}`}>
+        {value}
+      </p>
       {varPct !== null && varPct !== undefined ? (
         <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${varPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-          <span>{varPct >= 0 ? "↗" : "↘"} {pct(varPct)}</span>
+          <span className="flex items-center gap-1">
+            <span aria-hidden>{varPct >= 0 ? "↗" : "↘"}</span> {pct(varPct)}
+          </span>
           {varLabel && <span className="font-normal text-zinc-600">vs {varLabel}</span>}
         </p>
       ) : (
@@ -319,7 +326,13 @@ export default function DashboardPage() {
             />
             <div className="mt-7 h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={serieScg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                <AreaChart data={serieScg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="scgFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={COR_SCG} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={COR_SCG} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="periodo" tick={{ fill: "#52525b", fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis
@@ -328,11 +341,21 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickFormatter={brlCompact}
                     width={72}
+                    domain={["dataMin - dataMax * 0.15", "dataMax * 1.15"]}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
                   <ReferenceLine y={0} stroke="#27272a" strokeDasharray="4 4" />
-                  <Line type="monotone" dataKey="valor" name="SCG" stroke={COR_SCG} strokeWidth={2.5} dot={{ r: 3, fill: COR_SCG, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </LineChart>
+                  <Area
+                    type="monotone"
+                    dataKey="valor"
+                    name="SCG"
+                    stroke={COR_SCG}
+                    strokeWidth={2.5}
+                    fill="url(#scgFill)"
+                    dot={{ r: 3, fill: COR_SCG, strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
@@ -342,17 +365,19 @@ export default function DashboardPage() {
             {!ultimoTrimestre ? (
               <EmptyState label="Sem dados trimestrais ainda." className="py-8" />
             ) : (
-              <div className="mt-7 space-y-5">
-                {(["cgr", "ret", "rp", "rpv"] as const).map((chave) => (
-                  <CompositionRow
-                    key={chave}
-                    label={chave.toUpperCase()}
-                    value={ultimoTrimestre[chave]}
-                    maxAbs={maxAbsComposicao}
-                    color={stageColors[chave]}
-                  />
-                ))}
-                <div className="flex items-center justify-between border-t border-white/[0.07] pt-5">
+              <div className="mt-7 flex flex-col gap-6">
+                <div className="space-y-5">
+                  {(["cgr", "ret", "rp", "rpv"] as const).map((chave) => (
+                    <CompositionRow
+                      key={chave}
+                      label={chave.toUpperCase()}
+                      value={ultimoTrimestre[chave]}
+                      maxAbs={maxAbsComposicao}
+                      color={stageColors[chave]}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-4">
                   <span className="text-sm font-medium text-zinc-400">Total SCG</span>
                   <span className={`text-2xl font-bold tabular-nums ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
                     {brl(ultimoTrimestre.total)}
@@ -378,19 +403,33 @@ export default function DashboardPage() {
                     axisLine={false}
                     tickFormatter={(v) => v.toFixed(2)}
                     width={48}
+                    domain={["dataMin - 0.1", "dataMax + 0.1"]}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
-                  <Line type="monotone" dataKey="valor" name="PMPV" stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} />
+                  <Line type="monotone" dataKey="valor" name="PMPV" stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-7">
-            <SectionHeading title="CGR vs CGF por período" subtitle="Comparativo mensal" />
+            <SectionHeading
+              title="CGR vs CGF por período"
+              subtitle="Comparativo mensal"
+              right={
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_CGR }} /> CGR
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_CGF }} /> CGF
+                  </span>
+                </div>
+              }
+            />
             <div className="mt-7 h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={historicoCompleto} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+                <BarChart data={historicoCompleto} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="periodo" tick={{ fill: "#52525b", fontSize: 11 }} tickLine={false} axisLine={false} />
                   <YAxis
@@ -401,8 +440,8 @@ export default function DashboardPage() {
                     width={72}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <Bar dataKey="cgr" name="CGR" fill={COR_CGR} radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="cgf" name="CGF" fill={COR_CGF} radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="cgr" name="CGR" fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="cgf" name="CGF" fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
