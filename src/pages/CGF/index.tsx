@@ -18,52 +18,75 @@ export default function CGFPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <BarChart2 size={22} className="text-emerald-400" />
-        <h1 className="text-xl font-bold text-white">CGF — Volume Faturado</h1>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="Ficheiros Excel">
-          <div className="space-y-3">
-            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors cursor-pointer">
-              <Upload size={24} className="mx-auto text-slate-500 mb-2" />
-              <p className="text-sm text-slate-400">Arrastar ficheiros Excel (faturamento)</p>
-              <p className="text-xs text-slate-600 mt-1">.xlsx, .xls</p>
-            </div>
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ backgroundColor: "#16a08517", color: "#16a085" }}
+            >
+              <BarChart2 size={16} />
+            </span>
+            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">CGF</h1>
           </div>
-        </Card>
-
-        <Card title="Configuração">
-          <div className="space-y-4">
-            <Input label="Período" placeholder="ex: Jan/2025" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
-            <Input label="Coluna Volume Faturado" defaultValue="Volume Faturado" />
-            <Input label="Coluna Produto" defaultValue="Produto" />
-            <Input label="Valor Consumo Próprio" defaultValue="consumo proprio" />
-          </div>
-        </Card>
-      </div>
-
-      <div className="flex gap-3">
-        <Button variant="success" size="lg" loading={loading} icon={<Play size={16} />} onClick={processar}>
-          Processar CGF
-        </Button>
-        {resultado && (
-          <Button variant="purple" icon={<Save size={16} />} onClick={() => alert("CGF salvo no banco!")}>
-            Salvar no Banco
-          </Button>
-        )}
-      </div>
-
-      {resultado && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard label="Volume Faturado" value={`${num(resultado.volume_faturado)} m³`} color="text-blue-400" />
-          <StatCard label="Volume Cancelado" value={`${num(resultado.volume_cancelado)} m³`} color="text-red-400" />
-          <StatCard label="Volume Final" value={`${num(resultado.volume_final)} m³`} color="text-emerald-400" />
-          <StatCard label="CGF (R$)" value={brl(resultado.cgf_rs)} color="text-yellow-400" />
+          <p className="mt-1 ml-12 text-sm text-zinc-500">Conta Gráfica Faturada — volume faturado por período</p>
         </div>
-      )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card title="Ficheiros Excel" subtitle="Planilha de faturamento do período">
+            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] px-6 py-10 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.03] cursor-pointer">
+              <Upload size={22} className="text-zinc-600" />
+              <p className="text-sm text-zinc-400">Arrastar ficheiros Excel (faturamento)</p>
+              <p className="text-xs text-zinc-600">.xlsx, .xls</p>
+              <input type="file" accept=".xlsx,.xls" className="hidden" />
+            </label>
+          </Card>
+
+          <Card title="Configuração" subtitle="Mapeamento de colunas da planilha">
+            <div className="space-y-4">
+              <Input label="Período" placeholder="ex: Jan/2025" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+              <Input label="Coluna Volume Faturado" defaultValue="Volume Faturado" />
+              <Input label="Coluna Produto" defaultValue="Produto" />
+              <Input label="Valor Consumo Próprio" defaultValue="consumo proprio" />
+            </div>
+          </Card>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <Button variant="success" size="lg" loading={loading} icon={<Play size={16} />} onClick={processar}>
+            Processar CGF
+          </Button>
+          {resultado && (
+            <Button variant="purple" icon={<Save size={16} />} onClick={() => alert("CGF salvo no banco!")}>
+              Salvar no Banco
+            </Button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          <StatCard
+            label="Volume Faturado"
+            value={resultado ? `${num(resultado.volume_faturado)} m³` : "—"}
+            color={resultado ? "text-sky-400" : "text-zinc-700"}
+          />
+          <StatCard
+            label="Volume Cancelado"
+            value={resultado ? `${num(resultado.volume_cancelado)} m³` : "—"}
+            color={resultado ? "text-red-400" : "text-zinc-700"}
+          />
+          <StatCard
+            label="Volume Final"
+            value={resultado ? `${num(resultado.volume_final)} m³` : "—"}
+            color={resultado ? "text-emerald-400" : "text-zinc-700"}
+          />
+          <StatCard
+            label="CGF (R$)"
+            value={resultado ? brl(resultado.cgf_rs) : "—"}
+            color={resultado ? "text-amber-400" : "text-zinc-700"}
+          />
+        </div>
+      </div>
     </div>
   );
 }

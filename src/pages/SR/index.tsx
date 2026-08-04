@@ -203,14 +203,20 @@ export default function SRPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Activity size={22} className="text-cyan-400" />
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ backgroundColor: "#22d3ee17", color: "#22d3ee" }}
+          >
+            <Activity size={16} />
+          </span>
           <div>
-            <h1 className="text-xl font-bold text-white">SR — Saldo Remanescente Trimestral</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              SR = (VP − VF) × PR × (1 + SELIC) + SR anterior
+            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">SR</h1>
+            <p className="text-sm text-zinc-500 mt-0.5">
+              Saldo Remanescente Trimestral — SR = (VP − VF) × PR × (1 + SELIC) + SR anterior
             </p>
           </div>
         </div>
@@ -255,7 +261,7 @@ export default function SRPage() {
           </Button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-700 pt-4">
+        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/[0.07] pt-4">
           <Input
             label="Ano"
             type="number"
@@ -325,7 +331,7 @@ export default function SRPage() {
                 onChange={(e) => atualizarCampo(idx, "sr_anterior", e.target.value)}
               />
               <div className="flex flex-col gap-1">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <span className="text-[0.7rem] font-semibold text-zinc-500 uppercase tracking-[0.08em]">
                   SR parcela
                 </span>
                 <span className={`text-sm font-bold ${colorForValue(linha.sr_selic)}`}>
@@ -339,9 +345,9 @@ export default function SRPage() {
 
       <Card className="border border-cyan-500/20">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm text-slate-400">SR TOTAL =</span>
+          <span className="text-sm text-zinc-400">SR TOTAL =</span>
           <span className={`text-3xl font-extrabold ${colorForValue(total)}`}>{brl(total)}</span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-zinc-600">
             {linhas.map((l) => `${l.mes}: ${brl(l.sr_selic)}`).join("   |   ")}
           </span>
         </div>
@@ -360,6 +366,7 @@ export default function SRPage() {
         <Button variant="ghost" icon={<Trash2 size={16} />} onClick={limpar}>
           Limpar
         </Button>
+      </div>
       </div>
     </div>
   );

@@ -42,68 +42,80 @@ export default function AuditoriaPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <FileSearch size={22} className="text-violet-400" />
-        <h1 className="text-xl font-bold text-white">Auditoria XML Fiscal</h1>
-      </div>
-
-      {/* CONFIGURAÇÃO */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="Passo 1 — Pasta com XMLs/PDFs">
-          <div className="space-y-3">
-            <div className="flex gap-2">
-              <Button variant={modo === "XML" ? "primary" : "ghost"} size="sm" onClick={() => setModo("XML")}>XML</Button>
-              <Button variant={modo === "PDF" ? "warning" : "ghost"} size="sm" onClick={() => setModo("PDF")}>PDF (OCR)</Button>
-            </div>
-            <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-blue-500 transition-colors cursor-pointer">
-              <Upload size={24} className="mx-auto text-slate-500 mb-2" />
-              <p className="text-sm text-slate-400">Arraste a pasta ou clique para selecionar</p>
-              <p className="text-xs text-slate-600 mt-1">Suporta pastas com subpastas por empresa</p>
-            </div>
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ backgroundColor: "#a78bfa17", color: "#a78bfa" }}
+            >
+              <FileSearch size={16} />
+            </span>
+            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">Auditoria</h1>
           </div>
-        </Card>
-
-        <Card title="Passo 2 — Excel e Período (opcional)">
-          <div className="space-y-3">
-            <div className="border-2 border-dashed border-slate-600 rounded-lg p-4 text-center hover:border-emerald-500 transition-colors cursor-pointer">
-              <Upload size={20} className="mx-auto text-slate-500 mb-1" />
-              <p className="text-sm text-slate-400">Selecionar Excel (Conta Gráfica)</p>
-            </div>
-            <Input label="Mês/Ano (para comparação)" placeholder="jan26 ou jan/2026" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
-          </div>
-        </Card>
-      </div>
-
-      {/* PAINEL CGR */}
-      {itens.length > 0 && (
-        <div className="bg-[#0d1b2a] rounded-xl p-4 flex flex-wrap gap-6 items-center border border-slate-700">
-          <span className="text-xs font-bold uppercase tracking-wider text-slate-400">CGR Apurado</span>
-          <span className="text-slate-400 text-sm">NF-e: <span className="text-blue-400 font-semibold">{brl(totalNFe)}</span></span>
-          <span className="text-slate-400 text-sm">CT-e: <span className="text-yellow-400 font-semibold">{brl(totalCTe)}</span></span>
-          <span className="text-slate-400 text-sm ml-auto">CGR Líquido: <span className="text-emerald-400 font-bold text-lg">{brl(cgr)}</span></span>
+          <p className="mt-1 ml-12 text-sm text-zinc-500">Conferência fiscal de XML/PDF por empresa</p>
         </div>
-      )}
 
-      {/* AÇÕES */}
-      <div className="flex flex-wrap gap-3">
-        <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={executar}>
-          Executar Auditoria
-        </Button>
+        {/* CONFIGURAÇÃO */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card title="Passo 1 — Pasta com XMLs/PDFs">
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button variant={modo === "XML" ? "primary" : "ghost"} size="sm" onClick={() => setModo("XML")}>XML</Button>
+                <Button variant={modo === "PDF" ? "warning" : "ghost"} size="sm" onClick={() => setModo("PDF")}>PDF (OCR)</Button>
+              </div>
+              <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] px-6 py-8 text-center transition-colors hover:border-sky-500/40 hover:bg-sky-500/[0.03] cursor-pointer">
+                <Upload size={22} className="text-zinc-600" />
+                <p className="text-sm text-zinc-400">Arraste a pasta ou clique para selecionar</p>
+                <p className="text-xs text-zinc-600">Suporta pastas com subpastas por empresa</p>
+                <input type="file" multiple className="hidden" />
+              </label>
+            </div>
+          </Card>
+
+          <Card title="Passo 2 — Excel e Período (opcional)">
+            <div className="space-y-4">
+              <label className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-white/[0.1] px-6 py-5 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.03] cursor-pointer">
+                <Upload size={18} className="text-zinc-600" />
+                <p className="text-sm text-zinc-400">Selecionar Excel (Conta Gráfica)</p>
+                <input type="file" accept=".xlsx,.xls" className="hidden" />
+              </label>
+              <Input label="Mês/Ano (para comparação)" placeholder="jan26 ou jan/2026" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+            </div>
+          </Card>
+        </div>
+
+        {/* PAINEL CGR */}
         {itens.length > 0 && (
-          <>
-            <Button variant="success" icon={<Save size={16} />} onClick={() => alert("Salvo no SCG!")}>Salvar no SCG</Button>
-            <Button variant="primary" icon={<Download size={16} />} onClick={() => alert("Excel exportado!")}>Exportar Excel</Button>
-          </>
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] px-6 py-4 flex flex-wrap gap-6 items-center">
+            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">CGR Apurado</span>
+            <span className="text-zinc-400 text-sm">NF-e: <span className="text-sky-400 font-semibold">{brl(totalNFe)}</span></span>
+            <span className="text-zinc-400 text-sm">CT-e: <span className="text-amber-400 font-semibold">{brl(totalCTe)}</span></span>
+            <span className="text-zinc-400 text-sm ml-auto">CGR Líquido: <span className="text-emerald-400 font-bold text-lg">{brl(cgr)}</span></span>
+          </div>
+        )}
+
+        {/* AÇÕES */}
+        <div className="flex flex-wrap gap-3">
+          <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={executar}>
+            Executar Auditoria
+          </Button>
+          {itens.length > 0 && (
+            <>
+              <Button variant="success" icon={<Save size={16} />} onClick={() => alert("Salvo no SCG!")}>Salvar no SCG</Button>
+              <Button variant="primary" icon={<Download size={16} />} onClick={() => alert("Excel exportado!")}>Exportar Excel</Button>
+            </>
+          )}
+        </div>
+
+        {/* RESULTADOS */}
+        {itens.length > 0 && (
+          <Card title={`Resultados — ${itens.length} itens`}>
+            <Table columns={columns} data={itens} />
+          </Card>
         )}
       </div>
-
-      {/* RESULTADOS */}
-      {itens.length > 0 && (
-        <Card title={`Resultados — ${itens.length} itens`}>
-          <Table columns={columns} data={itens} />
-        </Card>
-      )}
     </div>
   );
 }

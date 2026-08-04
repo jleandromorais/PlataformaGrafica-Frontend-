@@ -182,13 +182,19 @@ export default function PRPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Lightbulb size={22} className="text-amber-400" />
+          <span
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ backgroundColor: "#f472b617", color: "#f472b6" }}
+          >
+            <Lightbulb size={16} />
+          </span>
           <div>
-            <h1 className="text-xl font-bold text-white">PR — Parcela de Recuperação</h1>
-            <p className="text-xs text-slate-500 mt-0.5">PR = (SCG + ΣSR) / VP</p>
+            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">PR</h1>
+            <p className="text-sm text-zinc-500 mt-0.5">Parcela de Recuperação — PR = (SCG + ΣSR) / VP</p>
           </div>
         </div>
       </div>
@@ -219,7 +225,7 @@ export default function PRPage() {
           </Button>
         </div>
         {periodos.length > 0 && (
-          <p className="mt-2 text-xs text-slate-500">Meses: {periodos.join(", ")}</p>
+          <p className="mt-2 text-xs text-zinc-600">Meses: {periodos.join(", ")}</p>
         )}
       </Card>
 
@@ -283,7 +289,7 @@ export default function PRPage() {
 
       <Card className="border border-amber-500/20">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm text-slate-400">PR = (SCG + ΣSR) / VP =</span>
+          <span className="text-sm text-zinc-400">PR = (SCG + ΣSR) / VP =</span>
           <span className={`text-3xl font-extrabold ${corPr(prExibido, vp)}`}>
             R$ {prExibido.toFixed(4)}
           </span>
@@ -362,7 +368,7 @@ export default function PRPage() {
             {historico.map((p) => (
               <span
                 key={p}
-                className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs text-slate-300"
+                className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-xs text-zinc-300"
               >
                 {p}
               </span>
@@ -370,6 +376,7 @@ export default function PRPage() {
           </div>
         )}
       </Card>
+      </div>
     </div>
   );
 }

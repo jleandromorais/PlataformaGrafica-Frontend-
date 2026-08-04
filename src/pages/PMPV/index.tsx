@@ -29,9 +29,9 @@ function periodosTrimestre(trimestre: string, ano: number) {
 
 function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
   return (
-    <div className="rounded-t-xl bg-gradient-to-r from-[#0d2444] to-[#0f3060] px-5 py-3 border-b border-[#1a4a8a]/40">
-      <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-sky-200">{title}</h3>
-      {subtitle && <p className="mt-0.5 text-[11px] text-sky-300/60">{subtitle}</p>}
+    <div className="px-6 py-4 border-b border-white/[0.07]">
+      <h3 className="text-base font-semibold text-white">{title}</h3>
+      {subtitle && <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>}
     </div>
   );
 }
@@ -40,9 +40,9 @@ function ArpeCard({ title, subtitle, children, className = "" }: {
   title?: string; subtitle?: string; children: React.ReactNode; className?: string;
 }) {
   return (
-    <div className={`rounded-xl border border-[#1a4a8a]/30 shadow-[0_4px_24px_-6px_rgba(0,40,120,0.5)] overflow-hidden ${className}`}>
+    <div className={`rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] overflow-hidden ${className}`}>
       {title && <SectionHeader title={title} subtitle={subtitle} />}
-      <div className="bg-[#071428]/80 p-5">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 }
@@ -51,18 +51,18 @@ function KpiCard({ label, value, sub, accent = "sky", positive }: {
   label: string; value: string; sub?: string; accent?: "sky" | "amber" | "emerald" | "red"; positive?: boolean;
 }) {
   const colors = {
-    sky:     { bg: "from-[#0d2444] to-[#0f3060]", val: "text-sky-300",     border: "border-sky-500/20" },
-    amber:   { bg: "from-[#2a1a00] to-[#3a2400]", val: "text-amber-300",   border: "border-amber-500/20" },
-    emerald: { bg: "from-[#012a1a] to-[#013a25]", val: "text-emerald-300", border: "border-emerald-500/20" },
-    red:     { bg: "from-[#2a0808] to-[#3a0c0c]", val: "text-red-300",     border: "border-red-500/20" },
+    sky:     "#3987e5",
+    amber:   "#f59e0b",
+    emerald: "#22c55e",
+    red:     "#ef4444",
   };
   const c = colors[accent];
   return (
-    <div className={`rounded-xl border ${c.border} bg-gradient-to-br ${c.bg} p-4 flex flex-col gap-1`}>
-      <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">{label}</span>
-      <span className={`text-2xl font-extrabold tabular-nums ${c.val}`}>{value}</span>
+    <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 flex flex-col gap-1">
+      <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</span>
+      <span className="text-2xl font-bold tabular-nums text-white" style={{ color: c }}>{value}</span>
       {sub && (
-        <span className={`text-xs font-medium ${positive === undefined ? "text-slate-500" : positive ? "text-emerald-400" : "text-red-400"}`}>
+        <span className={`text-xs font-medium ${positive === undefined ? "text-zinc-600" : positive ? "text-emerald-400" : "text-red-400"}`}>
           {sub}
         </span>
       )}
@@ -74,8 +74,8 @@ function FlowConnector() {
   return (
     <div className="flex justify-center py-1">
       <div className="flex flex-col items-center gap-0.5">
-        <div className="w-px h-3 bg-sky-500/40" />
-        <div className="border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-sky-500/40 h-0 w-0" />
+        <div className="w-px h-3 bg-white/10" />
+        <div className="border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-white/10 h-0 w-0" />
       </div>
     </div>
   );
@@ -89,30 +89,29 @@ function TabelaMes({ linhas, onChange }: { linhas: EmpresaLinha[]; onChange: (l:
   };
   const remove = (i: number) => onChange(linhas.filter((_, idx) => idx !== i));
 
-  const inputCls = "w-full bg-[#0b1a30] border border-[#1a4a8a]/40 rounded-lg px-2 py-1.5 text-sm text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500/60 transition-colors";
+  const inputCls = "w-full bg-white/[0.03] border border-white/[0.07] rounded-lg px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-500/50 transition-colors";
 
   return (
     <div className="space-y-1.5">
-      <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 rounded-lg bg-[#0d2444]/80 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.18em] text-sky-300/80">
+      <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 rounded-lg bg-white/[0.03] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500">
         {["Empresa","Molécula","Transporte","Logística","Total","Volume (m³)",""].map((h) => (
           <span key={h}>{h}</span>
         ))}
       </div>
       {linhas.map((l, i) => {
         const total = l.molecula + l.transporte + l.logistica;
-        const isEven = i % 2 === 0;
         return (
-          <div key={i} className={`grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 items-center rounded-lg px-2 py-1 border border-[#1a4a8a]/20 ${isEven ? "bg-[#071428]/60" : "bg-[#0a1e38]/40"}`}>
+          <div key={i} className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 items-center rounded-lg px-2 py-1 border border-white/[0.05] bg-white/[0.015]">
             <input value={l.empresa} onChange={(e) => update(i, "empresa", e.target.value)} className={inputCls} />
             {(["molecula","transporte","logistica"] as const).map((f) => (
               <input key={f} type="number" step="0.0001" value={l[f] || ""} onChange={(e) => update(i, f, e.target.value)} className={inputCls} />
             ))}
-            <div className="rounded-lg bg-[#0d2444]/80 border border-sky-500/20 px-2 py-1.5 text-sm text-sky-300 text-right font-mono tabular-nums">
+            <div className="rounded-lg bg-white/[0.04] border border-white/[0.07] px-2 py-1.5 text-sm text-sky-400 text-right font-mono tabular-nums">
               {total.toFixed(4)}
             </div>
             <input type="number" step="0.0000001" value={l.volume || ""} onChange={(e) => update(i, "volume", e.target.value)}
-              className={`${inputCls} text-amber-300 font-mono`} />
-            <button onClick={() => remove(i)} className="text-slate-600 hover:text-red-400 transition-colors flex items-center justify-center">
+              className={`${inputCls} text-amber-400 font-mono`} />
+            <button onClick={() => remove(i)} className="text-zinc-600 hover:text-red-400 transition-colors flex items-center justify-center">
               <Trash2 size={13} />
             </button>
           </div>
@@ -162,90 +161,81 @@ export default function PMPVPage() {
   const cgIsNegative = cgValue < 0;
 
   return (
-    <div className="relative min-h-screen bg-[#040d1a] px-4 py-6 sm:px-6 lg:px-8">
-      {/* Fundo gradiente */}
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,rgba(14,50,120,0.25),transparent)]" />
-
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
 
         {/* ── Header ARPE ─────────────────────────────────────────────── */}
-        <div className="rounded-2xl border border-[#1a4a8a]/40 bg-gradient-to-r from-[#071428] via-[#0a1e38] to-[#071428] shadow-[0_8px_32px_-8px_rgba(0,40,120,0.6)] overflow-hidden">
-          <div className="h-1 bg-gradient-to-r from-sky-600 via-cyan-400 to-sky-600" />
-          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-4">
+        <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] overflow-hidden">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-5">
             <div className="flex items-center gap-4">
-              {/* Logotipo simplificado ARPE */}
-              <div className="flex items-center gap-2 rounded-xl border border-sky-400/20 bg-sky-400/8 px-3 py-2">
-                <div className="flex gap-0.5">
-                  <div className="w-1 h-5 rounded-sm bg-sky-400" />
-                  <div className="w-1 h-5 rounded-sm bg-cyan-300" />
-                  <div className="w-1 h-5 rounded-sm bg-sky-500" />
-                </div>
-                <span className="text-sm font-black tracking-widest text-sky-200">ARPE</span>
-              </div>
+              <span
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold tracking-wide"
+                style={{ backgroundColor: "#3987e517", color: "#3987e5" }}
+              >
+                CG
+              </span>
               <div>
                 <h1 className="text-lg font-bold text-white leading-tight">Módulo PMPV</h1>
-                <p className="text-xs text-sky-300/70 mt-0.5">Preço Médio Ponderado por Volume — Calculadora Trimestral</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Preço Médio Ponderado por Volume — Calculadora Trimestral</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-300">
-                Online
+              <span className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
               </span>
-              <span className="rounded-lg border border-sky-400/20 bg-sky-400/8 px-3 py-1 text-[11px] font-mono text-sky-300">
+              <span className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-[11px] font-mono text-zinc-400">
                 PMPV = Σ(Pᵢ·Vᵢ) / ΣVᵢ
               </span>
             </div>
           </div>
         </div>
 
-        {/* ── KPIs do Período de Apuração (estilo Excel ARPE) ─────────── */}
-        {resultado && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="rounded-xl border border-sky-500/25 bg-gradient-to-b from-[#0d2444] to-[#071428] p-5 text-center shadow-[0_4px_20px_-6px_rgba(0,80,200,0.4)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-sky-400/70 mb-2">PMPV Trimestral</p>
-              <p className="text-3xl font-extrabold tabular-nums text-sky-200">
-                R$ {resultado.pmpv.toFixed(4)}
-              </p>
-              <p className="mt-1 text-[11px] text-sky-400/50">R$/m³</p>
-            </div>
-            <div className="rounded-xl border border-cyan-500/25 bg-gradient-to-b from-[#0a2a3a] to-[#071428] p-5 text-center shadow-[0_4px_20px_-6px_rgba(0,150,200,0.3)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400/70 mb-2">Preço Final</p>
-              <p className="text-3xl font-extrabold tabular-nums text-cyan-200">
-                R$ {resultado.preco_final.toFixed(4)}
-              </p>
-              <p className="mt-1 text-[11px] text-cyan-400/50">R$/m³</p>
-            </div>
-            <div className="rounded-xl border border-amber-500/25 bg-gradient-to-b from-[#2a1a00] to-[#071428] p-5 text-center shadow-[0_4px_20px_-6px_rgba(180,100,0,0.3)]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-amber-400/70 mb-2">Volume Prospectivo</p>
-              <p className="text-3xl font-extrabold tabular-nums text-amber-200">
-                {(resultado.vp_mensal / 1_000_000).toFixed(3)}M
-              </p>
-              <p className="mt-1 text-[11px] text-amber-400/50">m³ no trimestre</p>
-            </div>
+        {/* ── KPIs do Período de Apuração ──────────────────────────────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 text-center">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500 mb-2">PMPV Trimestral</p>
+            <p className={`text-3xl font-bold tabular-nums ${resultado ? "text-sky-400" : "text-zinc-700"}`}>
+              {resultado ? `R$ ${resultado.pmpv.toFixed(4)}` : "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-600">R$/m³</p>
           </div>
-        )}
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 text-center">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500 mb-2">Preço Final</p>
+            <p className={`text-3xl font-bold tabular-nums ${resultado ? "text-cyan-400" : "text-zinc-700"}`}>
+              {resultado ? `R$ ${resultado.preco_final.toFixed(4)}` : "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-600">R$/m³</p>
+          </div>
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 text-center">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500 mb-2">Volume Prospectivo</p>
+            <p className={`text-3xl font-bold tabular-nums ${resultado ? "text-amber-400" : "text-zinc-700"}`}>
+              {resultado ? `${(resultado.vp_mensal / 1_000_000).toFixed(3)}M` : "—"}
+            </p>
+            <p className="mt-1 text-[11px] text-zinc-600">m³ no trimestre</p>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
 
           {/* ── Coluna Principal ─────────────────────────────────────── */}
-          <div className="xl:col-span-8 flex flex-col gap-5">
+          <div className="xl:col-span-8 flex flex-col gap-6">
 
             {/* Configuração do Período */}
             <ArpeCard title="Período de Apuração" subtitle="Trimestre, ano e conta gráfica">
-              <div className="space-y-4">
+              <div className="space-y-5">
 
                 {/* Trimestre */}
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Trimestre</p>
+                  <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Trimestre</p>
                   <div className="flex flex-wrap gap-2">
                     {Object.keys(TRIMESTRES).map((k) => (
                       <button
                         key={k}
                         onClick={() => setTrimestre(k)}
-                        className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+                        className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
                           trimestre === k
-                            ? "bg-[#0d2444] border border-sky-400/50 text-sky-200 shadow-[0_0_12px_-3px_rgba(56,189,248,0.4)]"
-                            : "border border-[#1a4a8a]/30 bg-[#0a1e38]/50 text-slate-400 hover:text-sky-300 hover:border-sky-500/30"
+                            ? "bg-white/[0.08] border border-sky-500/40 text-sky-300"
+                            : "border border-white/[0.07] bg-white/[0.02] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.14]"
                         }`}
                       >
                         {k}
@@ -256,16 +246,16 @@ export default function PMPVPage() {
 
                 {/* Ano */}
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Ano de Referência</p>
+                  <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Ano de Referência</p>
                   <div className="flex flex-wrap items-center gap-2">
                     {anoOptions.map((y) => (
                       <button
                         key={y}
                         onClick={() => setAno(y)}
-                        className={`rounded-lg px-4 py-2 text-xs font-semibold transition-all ${
+                        className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
                           ano === y
-                            ? "bg-[#0d2444] border border-cyan-400/50 text-cyan-200 shadow-[0_0_12px_-3px_rgba(34,211,238,0.3)]"
-                            : "border border-[#1a4a8a]/30 bg-[#0a1e38]/50 text-slate-400 hover:text-cyan-300 hover:border-cyan-500/30"
+                            ? "bg-white/[0.08] border border-cyan-500/40 text-cyan-300"
+                            : "border border-white/[0.07] bg-white/[0.02] text-zinc-500 hover:text-zinc-300 hover:border-white/[0.14]"
                         }`}
                       >
                         {y}
@@ -275,17 +265,17 @@ export default function PMPVPage() {
                       type="number"
                       value={ano}
                       onChange={(e) => setAno(+e.target.value)}
-                      className="w-24 rounded-lg border border-[#1a4a8a]/40 bg-[#0b1a30] px-3 py-2 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-sky-500/60"
+                      className="w-24 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs text-zinc-200 focus:outline-none focus:ring-1 focus:ring-sky-500/50"
                     />
                   </div>
                 </div>
 
                 {/* Meses do Trimestre */}
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Meses do Trimestre</p>
+                  <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Meses do Trimestre</p>
                   <div className="flex flex-wrap gap-2">
                     {periodos.map((p) => (
-                      <span key={p} className="rounded-lg border border-[#1a4a8a]/40 bg-[#0d2444]/60 px-4 py-2 text-xs font-semibold text-sky-300">
+                      <span key={p} className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-4 py-2 text-xs font-semibold text-sky-400">
                         {p}
                       </span>
                     ))}
@@ -294,7 +284,7 @@ export default function PMPVPage() {
 
                 {/* Conta Gráfica — Selector estilizado */}
                 <div>
-                  <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Conta Gráfica (Parcela de Recuperação)</p>
+                  <p className="mb-2 text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Conta Gráfica (Parcela de Recuperação)</p>
                   <div className="flex flex-wrap items-center gap-4">
                     <div className="relative">
                       <input
@@ -302,13 +292,13 @@ export default function PMPVPage() {
                         step="0.0001"
                         value={contaGrafica}
                         onChange={(e) => setContaGrafica(e.target.value)}
-                        className="w-44 rounded-lg border border-amber-400/30 bg-[#2a1a00]/60 px-4 py-2.5 text-base font-bold text-amber-300 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/40 transition-all"
+                        className="w-44 rounded-lg border border-amber-500/25 bg-white/[0.03] px-4 py-2.5 text-base font-bold text-amber-400 tabular-nums focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all"
                       />
                     </div>
                     <div className={`flex items-center gap-2 rounded-lg px-4 py-2 border text-sm font-semibold ${
                       cgIsNegative
-                        ? "border-red-500/30 bg-red-500/10 text-red-300"
-                        : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        ? "border-red-500/25 bg-red-500/10 text-red-400"
+                        : "border-emerald-500/25 bg-emerald-500/10 text-emerald-400"
                     }`}>
                       <TrendingUp size={14} className={cgIsNegative ? "rotate-180" : ""} />
                       <span>{cgIsNegative ? "Recuperação" : "Devolução"}</span>
@@ -321,16 +311,16 @@ export default function PMPVPage() {
 
             {/* Tabela de Dados por Mês */}
             <ArpeCard title="Dados por Mês" subtitle={`Período ativo: ${periodoSelecionado}`}>
-              <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
                 <div className="flex gap-2">
                   {["Mês 1","Mês 2","Mês 3"].map((m, idx) => (
                     <button
                       key={m}
                       onClick={() => setAbaMes(m)}
-                      className={`rounded-lg px-4 py-2 text-xs font-bold transition-all ${
+                      className={`rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
                         abaMes === m
-                          ? "bg-gradient-to-r from-[#0d2444] to-[#0f3060] border border-sky-400/50 text-sky-200"
-                          : "border border-[#1a4a8a]/30 bg-transparent text-slate-500 hover:text-sky-300"
+                          ? "bg-white/[0.08] border border-sky-500/40 text-sky-300"
+                          : "border border-white/[0.07] bg-transparent text-zinc-500 hover:text-zinc-300"
                       }`}
                     >
                       {periodos[idx] || m}
@@ -340,14 +330,14 @@ export default function PMPVPage() {
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => alert("Importacao de memoria de calculo (mock).")}
-                    className="flex items-center gap-1.5 rounded-lg border border-[#1a4a8a]/40 bg-[#0a1e38]/50 px-3 py-2 text-xs text-slate-400 hover:text-sky-300 transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-2 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
                   >
                     <Download size={13} />
                     Importar
                   </button>
                   <button
                     onClick={adicionarEmpresa}
-                    className="flex items-center gap-1.5 rounded-lg border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-xs font-semibold text-sky-300 hover:bg-sky-400/20 transition-colors"
+                    className="flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-400 hover:bg-sky-500/15 transition-colors"
                   >
                     <Plus size={13} />
                     Empresa
@@ -359,7 +349,7 @@ export default function PMPVPage() {
           </div>
 
           {/* ── Coluna Lateral ───────────────────────────────────────── */}
-          <div className="xl:col-span-4 flex flex-col gap-5">
+          <div className="xl:col-span-4 flex flex-col gap-6">
 
             {/* Ações */}
             <ArpeCard title="Calcular e Exportar">
@@ -384,7 +374,7 @@ export default function PMPVPage() {
                 <button
                   disabled={!resultado}
                   onClick={() => alert("Salvo!")}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[#1a4a8a]/40 bg-[#0a1e38]/60 py-2.5 text-sm font-semibold text-sky-300 hover:bg-[#0d2444] transition-all disabled:opacity-40"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] py-2.5 text-sm font-semibold text-zinc-300 hover:bg-white/[0.06] transition-colors disabled:opacity-40"
                 >
                   <Save size={14} />
                   Salvar Sessão
@@ -392,7 +382,7 @@ export default function PMPVPage() {
                 <button
                   disabled={!resultado}
                   onClick={() => alert("Exportado!")}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-[#1a4a8a]/40 bg-[#0a1e38]/60 py-2.5 text-sm font-semibold text-slate-400 hover:text-sky-300 transition-all disabled:opacity-40"
+                  className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] py-2.5 text-sm font-semibold text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.06] transition-colors disabled:opacity-40"
                 >
                   <Download size={14} />
                   Salvar PMPV Mensal
@@ -400,38 +390,38 @@ export default function PMPVPage() {
               </div>
             </ArpeCard>
 
-            {/* Resumo do Fluxo — estilo ARPE Dashboard */}
+            {/* Resumo do Fluxo */}
             <ArpeCard title="Fluxo de Cálculo" subtitle="Estrutura da Conta Gráfica">
               <div className="space-y-1">
 
                 {/* Conta Gráfica */}
-                <div className="rounded-lg bg-gradient-to-r from-[#0d2444] to-[#0f3060] border border-sky-500/25 px-4 py-3 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-sky-400/60 mb-1">Conta Gráfica (PR)</p>
-                  <p className={`text-xl font-extrabold tabular-nums ${cgIsNegative ? "text-red-300" : "text-emerald-300"}`}>
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.07] px-4 py-3 text-center">
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">Conta Gráfica (PR)</p>
+                  <p className={`text-xl font-bold tabular-nums ${cgIsNegative ? "text-red-400" : "text-emerald-400"}`}>
                     {cgValue >= 0 ? "+" : ""}{cgValue.toFixed(4)}
-                    <span className="ml-1 text-sm font-normal text-slate-400">R$/m³</span>
+                    <span className="ml-1 text-sm font-normal text-zinc-500">R$/m³</span>
                   </p>
                 </div>
 
                 <FlowConnector />
 
                 {/* PMPV */}
-                <div className="rounded-lg border border-amber-400/20 bg-[#2a1a00]/40 px-4 py-3 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-amber-400/60 mb-1">PMPV Calculado</p>
-                  <p className="text-xl font-extrabold tabular-nums text-amber-200">
+                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3 text-center">
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">PMPV Calculado</p>
+                  <p className="text-xl font-bold tabular-nums text-amber-400">
                     {resultado ? `R$ ${resultado.pmpv.toFixed(4)}` : "—"}
-                    {resultado && <span className="ml-1 text-sm font-normal text-slate-400">R$/m³</span>}
+                    {resultado && <span className="ml-1 text-sm font-normal text-zinc-500">R$/m³</span>}
                   </p>
                 </div>
 
                 <FlowConnector />
 
                 {/* Preço Final */}
-                <div className="rounded-lg border border-emerald-400/20 bg-[#012a1a]/40 px-4 py-3 text-center">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-emerald-400/60 mb-1">Preço Final (PMPV + PR)</p>
-                  <p className="text-xl font-extrabold tabular-nums text-emerald-200">
+                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3 text-center">
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">Preço Final (PMPV + PR)</p>
+                  <p className="text-xl font-bold tabular-nums text-emerald-400">
                     {resultado ? `R$ ${resultado.preco_final.toFixed(4)}` : "—"}
-                    {resultado && <span className="ml-1 text-sm font-normal text-slate-400">R$/m³</span>}
+                    {resultado && <span className="ml-1 text-sm font-normal text-zinc-500">R$/m³</span>}
                   </p>
                 </div>
               </div>
@@ -443,20 +433,20 @@ export default function PMPVPage() {
                 {periodos.map((p, idx) => {
                   const valor = resultado ? Object.values(resultado.vp_por_mes)[idx] : null;
                   return (
-                    <div key={p} className="flex items-center justify-between rounded-lg border border-[#1a4a8a]/20 bg-[#0a1e38]/40 px-3 py-2.5">
-                      <span className="flex items-center gap-2 text-sm text-slate-400">
+                    <div key={p} className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
+                      <span className="flex items-center gap-2 text-sm text-zinc-500">
                         <Database size={12} className="text-sky-500/60" />
                         {p}
                       </span>
-                      <span className="font-mono text-sm font-semibold text-slate-200">
+                      <span className="font-mono text-sm font-semibold text-zinc-300">
                         {valor ? `${(valor / 1_000_000).toFixed(3)}M m³` : "—"}
                       </span>
                     </div>
                   );
                 })}
-                <div className="flex items-center justify-between rounded-lg border border-sky-400/25 bg-gradient-to-r from-[#0d2444]/80 to-[#0f3060]/60 px-3 py-2.5">
-                  <span className="text-sm font-bold text-sky-300">Total Trimestral</span>
-                  <span className="font-mono text-sm font-bold text-sky-200">
+                <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-white/[0.03] px-3 py-2.5">
+                  <span className="text-sm font-semibold text-sky-300">Total Trimestral</span>
+                  <span className="font-mono text-sm font-bold text-sky-300">
                     {resultado ? `${(resultado.vp_mensal / 1_000_000).toFixed(3)}M m³` : "—"}
                   </span>
                 </div>

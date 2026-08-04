@@ -106,6 +106,7 @@ function KpiTile({
   label,
   Icon,
   value,
+  rawValue,
   varPct,
   varLabel,
   accent,
@@ -113,15 +114,17 @@ function KpiTile({
   label: string;
   Icon: typeof Search;
   value: string;
+  rawValue: number;
   varPct: number | null | undefined;
   varLabel?: string;
   accent: string;
 }) {
-  const isZero = value === brl(0);
+  const isZero = rawValue === 0;
+  const isNegative = rawValue < 0;
   return (
-    <div className="group rounded-2xl border border-white/[0.07] bg-[#111113] p-6 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.12]">
+    <div className="group rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-6 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.14]">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium tracking-wide text-zinc-400">{label}</span>
+        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</span>
         <span
           className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ backgroundColor: `${accent}17`, color: accent }}
@@ -129,7 +132,11 @@ function KpiTile({
           <Icon size={16} />
         </span>
       </div>
-      <p className={`mt-5 text-[1.75rem] font-bold leading-none tracking-tight ${isZero ? "text-zinc-600" : "text-white"}`}>
+      <p
+        className={`mt-5 text-[1.75rem] font-bold leading-none tracking-tight ${
+          isZero ? "text-zinc-600" : isNegative ? "text-red-400" : "text-white"
+        }`}
+      >
         {value}
       </p>
       {varPct !== null && varPct !== undefined ? (
@@ -163,8 +170,9 @@ function CompositionRow({
 }) {
   const widthPct = maxAbs > 0 ? Math.min(100, (Math.abs(value) / maxAbs) * 100) : 0;
   const isNeg = value < 0;
+  const isZero = value === 0;
   return (
-    <div className="flex items-center gap-3">
+    <div className={`flex items-center gap-3 ${isZero ? "opacity-40" : ""}`}>
       <span className="w-9 shrink-0 text-xs font-semibold text-zinc-500">{label}</span>
       <div className="flex h-6 flex-1 items-center">
         <div className="flex h-full flex-1 justify-end overflow-hidden rounded-l bg-white/[0.04]">
@@ -303,6 +311,7 @@ export default function DashboardPage() {
                   label={label}
                   Icon={Icon}
                   value={brl(valor)}
+                  rawValue={valor}
                   varPct={varPct}
                   varLabel={mesAnterior?.periodo}
                   accent={accent}
@@ -314,7 +323,7 @@ export default function DashboardPage() {
 
         {/* ── Gráfico principal + composição ──────────────────────────────── */}
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-7">
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
             <SectionHeading
               title="SCG mensal"
               subtitle="Saldo consolidado da conta gráfica"
@@ -360,7 +369,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-7">
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
             <SectionHeading title="Composição do SCG" subtitle={`Por categoria — ${ultimoTrimestre?.trimestre ?? "último trimestre"}`} />
             {!ultimoTrimestre ? (
               <EmptyState label="Sem dados trimestrais ainda." className="py-8" />
@@ -390,7 +399,7 @@ export default function DashboardPage() {
 
         {/* ── Gráficos secundários ─────────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-7">
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
             <SectionHeading title="PMPV mensal" subtitle="Preço médio ponderado por volume (R$/m³)" />
             <div className="mt-7 h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -412,7 +421,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-[#111113] p-7">
+          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
             <SectionHeading
               title="CGR vs CGF por período"
               subtitle="Comparativo mensal"

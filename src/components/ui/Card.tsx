@@ -10,15 +10,15 @@ interface CardProps {
 
 export function Card({ title, subtitle, children, className = "", accent }: CardProps) {
   return (
-    <div className={`bg-[#1e293b] rounded-xl shadow-lg overflow-hidden ${className}`}>
+    <div className={`rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] overflow-hidden ${className}`}>
       {accent && <div className={`h-1 ${accent}`} />}
       {(title || subtitle) && (
-        <div className="px-5 pt-4 pb-2">
-          {title && <h3 className="font-semibold text-slate-100 text-sm uppercase tracking-wider">{title}</h3>}
-          {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+        <div className="px-6 py-4 border-b border-white/[0.07]">
+          {title && <h3 className="text-base font-semibold text-white">{title}</h3>}
+          {subtitle && <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>}
         </div>
       )}
-      <div className="px-5 pb-5 pt-2">{children}</div>
+      <div className="p-6">{children}</div>
     </div>
   );
 }
@@ -33,13 +33,13 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, color = "text-white", icon }: StatCardProps) {
   return (
-    <div className="bg-[#1e293b] rounded-xl p-4 flex flex-col gap-1 shadow">
+    <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">{label}</span>
-        {icon && <span className="text-slate-500">{icon}</span>}
+        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</span>
+        {icon && <span className="text-zinc-600">{icon}</span>}
       </div>
-      <span className={`text-2xl font-bold ${color}`}>{value}</span>
-      {sub && <span className="text-xs text-slate-500">{sub}</span>}
+      <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
+      {sub && <span className="text-xs text-zinc-600">{sub}</span>}
     </div>
   );
 }

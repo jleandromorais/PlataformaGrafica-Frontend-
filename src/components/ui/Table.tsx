@@ -31,9 +31,9 @@ export function Table<T extends Record<string, any>>({
   footer,
 }: TableProps<T>) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-700">
-      <table className="w-full text-sm text-slate-300">
-        <thead className="bg-[#0f172a] text-xs uppercase tracking-wider text-slate-400">
+    <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
+      <table className="w-full text-sm text-zinc-300">
+        <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-500">
           <tr>
             {columns.map((col) => (
               <th
@@ -45,20 +45,20 @@ export function Table<T extends Record<string, any>>({
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-700">
+        <tbody className="divide-y divide-white/[0.05]">
           {data.length === 0 ? (
             <tr>
-              <td colSpan={columns.length} className="px-4 py-8 text-center text-slate-500">
+              <td colSpan={columns.length} className="px-4 py-8 text-center text-zinc-600">
                 {emptyMessage}
               </td>
             </tr>
           ) : (
             data.map((row, i) => (
-              <tr key={i} className="hover:bg-slate-700/30 transition-colors">
+              <tr key={i} className="hover:bg-white/[0.02] transition-colors">
                 {columns.map((col) => (
                   <td
                     key={String(col.key)}
-                    className={`px-4 py-2.5 text-${col.align ?? "left"}`}
+                    className={`px-4 py-2.5 tabular-nums text-${col.align ?? "left"}`}
                   >
                     {col.render ? col.render(row) : row[col.key as keyof T]}
                   </td>
@@ -68,13 +68,13 @@ export function Table<T extends Record<string, any>>({
           )}
         </tbody>
         {footer && footer.length > 0 && (
-          <tfoot className="border-t-2 border-slate-600 bg-slate-800/40 font-semibold text-slate-100">
+          <tfoot className="border-t border-white/[0.1] bg-white/[0.03] font-semibold text-zinc-100">
             <tr>
               {footer.map((cell, i) => (
                 <td
                   key={i}
                   colSpan={cell.colSpan ?? 1}
-                  className={`px-4 py-2.5 text-${cell.align ?? "left"}`}
+                  className={`px-4 py-2.5 tabular-nums text-${cell.align ?? "left"}`}
                 >
                   {cell.content}
                 </td>

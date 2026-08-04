@@ -120,12 +120,18 @@ export default function PVPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
       <div className="flex items-center gap-3">
-        <DollarSign size={22} className="text-teal-400" />
+        <span
+          className="flex h-9 w-9 items-center justify-center rounded-xl"
+          style={{ backgroundColor: "#2dd4bf17", color: "#2dd4bf" }}
+        >
+          <DollarSign size={16} />
+        </span>
         <div>
-          <h1 className="text-xl font-bold text-white">PV — Preço Final</h1>
-          <p className="text-xs text-slate-500 mt-0.5">PV = PMPV + PR</p>
+          <h1 className="text-[1.75rem] font-bold tracking-tight text-white">PV</h1>
+          <p className="text-sm text-zinc-500 mt-0.5">Preço Final — PV = PMPV + PR</p>
         </div>
       </div>
 
@@ -157,7 +163,7 @@ export default function PVPage() {
           </Button>
         </div>
         {mostrarNovoPeriodo && (
-          <div className="mt-3 flex items-end gap-3 border-t border-slate-700 pt-3">
+          <div className="mt-3 flex items-end gap-3 border-t border-white/[0.07] pt-3">
             <Input
               label="Nome do período (ex: Dez/2025 ou Jan/2026)"
               value={novoPeriodo}
@@ -188,7 +194,7 @@ export default function PVPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card title="📊 PMPV" subtitle="Preço médio mensal (R$/m³)">
+        <Card title="PMPV" subtitle="Preço médio mensal (R$/m³)">
           <Input
             label="PMPV (R$/m³)"
             type="number"
@@ -198,7 +204,7 @@ export default function PVPage() {
           />
         </Card>
 
-        <Card title="💡 PR" subtitle="Preço regulatório final (R$/m³)">
+        <Card title="PR" subtitle="Preço regulatório final (R$/m³)">
           <Input
             label="PR (R$/m³)"
             type="number"
@@ -211,7 +217,7 @@ export default function PVPage() {
 
       <Card className="border border-teal-500/20">
         <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm text-slate-400">PV = PMPV + PR =</span>
+          <span className="text-sm text-zinc-400">PV = PMPV + PR =</span>
           <span className={`text-3xl font-extrabold ${colorForValue(pv)}`}>R$ {pv.toFixed(4)}</span>
         </div>
       </Card>
@@ -241,17 +247,18 @@ export default function PVPage() {
             {periodos.map((p) => (
               <span
                 key={p}
-                className="rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1 text-xs text-slate-300"
+                className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1 text-xs text-zinc-300"
               >
                 {p}
               </span>
             ))}
           </div>
         )}
-        <p className="mt-2 text-xs text-slate-500">
+        <p className="mt-2 text-xs text-zinc-600">
           Selecione um período acima e clique em "Carregar do Banco de Dados" para ver PMPV, PR e PV salvos.
         </p>
       </Card>
+      </div>
     </div>
   );
 }

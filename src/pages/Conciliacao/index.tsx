@@ -41,62 +41,74 @@ export default function ConciliacaoPage() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center gap-3">
-        <FileText size={22} className="text-orange-400" />
-        <h1 className="text-xl font-bold text-white">Conciliador Financeiro</h1>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Card title="Pasta de RECEITAS">
-          <div className="border-2 border-dashed border-emerald-800 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors cursor-pointer">
-            <Upload size={24} className="mx-auto text-emerald-600 mb-2" />
-            <p className="text-sm text-slate-400">Selecionar pasta de receitas</p>
-            <p className="text-xs text-slate-600 mt-1">PDF e ZIP suportados</p>
+    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+        <div>
+          <div className="flex items-center gap-3">
+            <span
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ backgroundColor: "#fb923c17", color: "#fb923c" }}
+            >
+              <FileText size={16} />
+            </span>
+            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">Conciliação</h1>
           </div>
-        </Card>
-        <Card title="Pasta de DESPESAS">
-          <div className="border-2 border-dashed border-red-800 rounded-lg p-6 text-center hover:border-red-500 transition-colors cursor-pointer">
-            <Upload size={24} className="mx-auto text-red-600 mb-2" />
-            <p className="text-sm text-slate-400">Selecionar pasta de despesas</p>
-            <p className="text-xs text-slate-600 mt-1">PDF e ZIP suportados</p>
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <div className="flex flex-wrap gap-4 items-end">
-          <Input label="Período" placeholder="ex: Dez/2025" value={periodo} onChange={(e) => setPeriodo(e.target.value)} className="w-44" />
-          <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
-            <input type="checkbox" checked={layoutBonito} onChange={(e) => setLayoutBonito(e.target.checked)} className="rounded" />
-            Gerar Excel bonito
-          </label>
+          <p className="mt-1 ml-12 text-sm text-zinc-500">Conciliador financeiro — receitas x despesas</p>
         </div>
-      </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={processar}>
-          Processar e Conciliar
-        </Button>
-        {itens.length > 0 && (
-          <Button variant="success" icon={<Save size={16} />} onClick={() => alert(`RP salvo para ${periodo}`)}>
-            Salvar Saldo (RP) no SCG
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card title="Pasta de RECEITAS">
+            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-500/20 px-6 py-8 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.03] cursor-pointer">
+              <Upload size={22} className="text-emerald-500/50" />
+              <p className="text-sm text-zinc-400">Selecionar pasta de receitas</p>
+              <p className="text-xs text-zinc-600">PDF e ZIP suportados</p>
+              <input type="file" multiple className="hidden" />
+            </label>
+          </Card>
+          <Card title="Pasta de DESPESAS">
+            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-red-500/20 px-6 py-8 text-center transition-colors hover:border-red-500/40 hover:bg-red-500/[0.03] cursor-pointer">
+              <Upload size={22} className="text-red-500/50" />
+              <p className="text-sm text-zinc-400">Selecionar pasta de despesas</p>
+              <p className="text-xs text-zinc-600">PDF e ZIP suportados</p>
+              <input type="file" multiple className="hidden" />
+            </label>
+          </Card>
+        </div>
+
+        <Card>
+          <div className="flex flex-wrap gap-4 items-end">
+            <Input label="Período" placeholder="ex: Dez/2025" value={periodo} onChange={(e) => setPeriodo(e.target.value)} className="w-44" />
+            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
+              <input type="checkbox" checked={layoutBonito} onChange={(e) => setLayoutBonito(e.target.checked)} className="rounded border-white/[0.2] bg-white/[0.03]" />
+              Gerar Excel bonito
+            </label>
+          </div>
+        </Card>
+
+        <div className="flex flex-wrap gap-3">
+          <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={processar}>
+            Processar e Conciliar
           </Button>
+          {itens.length > 0 && (
+            <Button variant="success" icon={<Save size={16} />} onClick={() => alert(`RP salvo para ${periodo}`)}>
+              Salvar Saldo (RP) no SCG
+            </Button>
+          )}
+        </div>
+
+        {itens.length > 0 && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <StatCard label="Total Receitas" value={brl(totalRec)} color="text-emerald-400" />
+              <StatCard label="Total Despesas" value={brl(totalDesp)} color="text-red-400" />
+              <StatCard label="Saldo RP (Desp − Rec)" value={brl(saldoRP)} color={saldoRP >= 0 ? "text-amber-400" : "text-red-400"} />
+            </div>
+            <Card title={`Itens — ${itens.length} registos`}>
+              <Table columns={columns} data={itens} />
+            </Card>
+          </>
         )}
       </div>
-
-      {itens.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard label="Total Receitas" value={brl(totalRec)} color="text-emerald-400" />
-            <StatCard label="Total Despesas" value={brl(totalDesp)} color="text-red-400" />
-            <StatCard label="Saldo RP (Desp − Rec)" value={brl(saldoRP)} color={saldoRP >= 0 ? "text-yellow-400" : "text-red-400"} />
-          </div>
-          <Card title={`Itens — ${itens.length} registos`}>
-            <Table columns={columns} data={itens} />
-          </Card>
-        </>
-      )}
     </div>
   );
 }

@@ -1,5 +1,20 @@
 # Spec — Design System / Polimento Visual do Front-end
 
+> **Atualização 2026-08-04 (noite):** Todas as 11 páginas de módulo, o
+> `Layout`/`Sidebar`, e os componentes base (`Card`, `StatCard`, `Button`,
+> `Input`, `Select`, `Table`, `Badge`, `EmptyState`, `MetricCard`) migrados
+> para uma paleta única: fundo `#050505`, cards `#0d0d0f` com gradiente
+> sutil `from-white/[0.025]`, bordas `border-white/[0.07]`, títulos de
+> seção `text-base font-semibold text-white` + subtítulo `text-sm
+> text-zinc-500`, labels uppercase `text-[0.7rem] tracking-[0.08em]
+> text-zinc-500`. Botões passaram de fills sólidos saturados para
+> borda+fundo translúcido (`border-{cor}-500/25 bg-{cor}-500/10`), badges
+> idem. §3.1 (fundo `#0f172a`/`#1e293b`, 13 cores de acento sem padrão) e
+> a nota de "Sidebar mais polida" (§2) descrevem o estado **anterior** a
+> essa migração — mantidos como histórico. Nenhuma página com `slate-*`
+> hardcoded restante (confirmado por grep em `src/pages` e
+> `src/components`).
+
 Auditoria feita em 2026-08-04 sobre o estado real do código
 (`src/index.css`, `src/components/ui/*`, `src/components/layout/*`, e as 11
 páginas de módulo). Objetivo: levantar o que falta para o front sair de
