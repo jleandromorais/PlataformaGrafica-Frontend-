@@ -89,11 +89,11 @@ function TabelaMes({ linhas, onChange }: { linhas: EmpresaLinha[]; onChange: (l:
   };
   const remove = (i: number) => onChange(linhas.filter((_, idx) => idx !== i));
 
-  const inputCls = "w-full bg-white/[0.03] border border-white/[0.07] rounded-lg px-2 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-500/50 transition-colors";
+  const inputCls = "w-full bg-white/[0.03] border border-white/[0.07] rounded-lg px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-500/50 transition-colors";
 
   return (
-    <div className="space-y-1.5">
-      <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 rounded-lg bg-white/[0.03] px-3 py-2 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500">
+    <div className="space-y-2">
+      <div className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-3 rounded-lg bg-white/[0.03] px-4 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500">
         {["Empresa","Molécula","Transporte","Logística","Total","Volume (m³)",""].map((h) => (
           <span key={h}>{h}</span>
         ))}
@@ -101,18 +101,18 @@ function TabelaMes({ linhas, onChange }: { linhas: EmpresaLinha[]; onChange: (l:
       {linhas.map((l, i) => {
         const total = l.molecula + l.transporte + l.logistica;
         return (
-          <div key={i} className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-2 items-center rounded-lg px-2 py-1 border border-white/[0.05] bg-white/[0.015]">
+          <div key={i} className="grid grid-cols-[2.5fr_1fr_1fr_1fr_1fr_1.2fr_auto] gap-3 items-center rounded-lg px-3 py-2 border border-white/[0.05] bg-white/[0.015]">
             <input value={l.empresa} onChange={(e) => update(i, "empresa", e.target.value)} className={inputCls} />
             {(["molecula","transporte","logistica"] as const).map((f) => (
               <input key={f} type="number" step="0.0001" value={l[f] || ""} onChange={(e) => update(i, f, e.target.value)} className={inputCls} />
             ))}
-            <div className="rounded-lg bg-white/[0.04] border border-white/[0.07] px-2 py-1.5 text-sm text-sky-400 text-right font-mono tabular-nums">
+            <div className="rounded-lg bg-white/[0.04] border border-white/[0.07] px-3 py-2 text-sm text-sky-400 text-right font-mono tabular-nums">
               {total.toFixed(4)}
             </div>
             <input type="number" step="0.0000001" value={l.volume || ""} onChange={(e) => update(i, "volume", e.target.value)}
               className={`${inputCls} text-amber-400 font-mono`} />
             <button onClick={() => remove(i)} className="text-zinc-600 hover:text-red-400 transition-colors flex items-center justify-center">
-              <Trash2 size={13} />
+              <Trash2 size={15} />
             </button>
           </div>
         );
@@ -392,10 +392,10 @@ export default function PMPVPage() {
 
             {/* Resumo do Fluxo */}
             <ArpeCard title="Fluxo de Cálculo" subtitle="Estrutura da Conta Gráfica">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
 
                 {/* Conta Gráfica */}
-                <div className="rounded-lg bg-white/[0.03] border border-white/[0.07] px-4 py-3 text-center">
+                <div className="rounded-lg bg-white/[0.03] border border-white/[0.07] px-4 py-3.5 text-center">
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">Conta Gráfica (PR)</p>
                   <p className={`text-xl font-bold tabular-nums ${cgIsNegative ? "text-red-400" : "text-emerald-400"}`}>
                     {cgValue >= 0 ? "+" : ""}{cgValue.toFixed(4)}
@@ -406,7 +406,7 @@ export default function PMPVPage() {
                 <FlowConnector />
 
                 {/* PMPV */}
-                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3 text-center">
+                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3.5 text-center">
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">PMPV Calculado</p>
                   <p className="text-xl font-bold tabular-nums text-amber-400">
                     {resultado ? `R$ ${resultado.pmpv.toFixed(4)}` : "—"}
@@ -417,7 +417,7 @@ export default function PMPVPage() {
                 <FlowConnector />
 
                 {/* Preço Final */}
-                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3 text-center">
+                <div className="rounded-lg border border-white/[0.07] bg-white/[0.015] px-4 py-3.5 text-center">
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-zinc-500 mb-1">Preço Final (PMPV + PR)</p>
                   <p className="text-xl font-bold tabular-nums text-emerald-400">
                     {resultado ? `R$ ${resultado.preco_final.toFixed(4)}` : "—"}
@@ -429,11 +429,11 @@ export default function PMPVPage() {
 
             {/* Volumes por Mês */}
             <ArpeCard title="Volumes Mensais" subtitle="Período de recuperação">
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {periodos.map((p, idx) => {
                   const valor = resultado ? Object.values(resultado.vp_por_mes)[idx] : null;
                   return (
-                    <div key={p} className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
+                    <div key={p} className="flex items-center justify-between rounded-lg border border-white/[0.05] bg-white/[0.015] px-3.5 py-3">
                       <span className="flex items-center gap-2 text-sm text-zinc-500">
                         <Database size={12} className="text-sky-500/60" />
                         {p}
@@ -444,7 +444,7 @@ export default function PMPVPage() {
                     </div>
                   );
                 })}
-                <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-white/[0.03] px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-lg border border-sky-500/20 bg-white/[0.03] px-3.5 py-3">
                   <span className="text-sm font-semibold text-sky-300">Total Trimestral</span>
                   <span className="font-mono text-sm font-bold text-sky-300">
                     {resultado ? `${(resultado.vp_mensal / 1_000_000).toFixed(3)}M m³` : "—"}
