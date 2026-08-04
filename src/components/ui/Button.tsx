@@ -1,4 +1,4 @@
-import { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 
 type Variant = "primary" | "success" | "danger" | "ghost" | "warning" | "purple";
 type Size = "sm" | "md" | "lg";

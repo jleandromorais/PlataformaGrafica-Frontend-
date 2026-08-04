@@ -104,36 +104,106 @@ export interface SCGPeriodo {
   scg: number;
 }
 
-// ─── PR ──────────────────────────────────────────────────────────────────────
-export interface PRResultado {
+// ─── PV ──────────────────────────────────────────────────────────────────────
+// PV = PMPV + PR. Ver Front_end/SPEC_PV.md.
+export interface PVResultado {
+  pmpv: number;
+  pr: number;
+  pv: number;
+}
+
+export interface PVPeriodo {
   periodo: string;
-  saldo_a_recuperar: number;
-  volume_prospectivo: number;
-  parcela_recuperacao: number;
+}
+
+// ─── PR ──────────────────────────────────────────────────────────────────────
+// PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.
+export interface PRResultado {
+  periodo?: string;
+  scg: number;
+  sr: number;
+  vp: number;
+  pr: number;
+}
+
+export interface PRMesDecomposicao {
+  periodo: string;
+  scg: number;
+  sr: number;
+  vp: number;
+  parcela_pr: number;
+  vp_sem_dado: boolean;
+}
+
+export interface PRTrimestralResultado {
+  scg: number;
+  sr: number;
+  vp: number;
+  pr: number;
+  meses: PRMesDecomposicao[];
+  meses_sem_vp: string[];
+}
+
+export interface PRSrAnterior {
+  periodo: string;
+  sr: number;
 }
 
 // ─── SR ──────────────────────────────────────────────────────────────────────
-export interface SRResultado {
-  periodo: string;
-  sr_por_mes: { mes: string; valor: number }[];
-  sr_total: number;
+// SR = (VP − VF) × PR × (1 + SELIC%) + SR anterior, calculado mês a mês
+// dentro de um trimestre. Não usa CGR/CGF/RPV.
+export interface SRSessaoPMPV {
+  id: number;
+  nome: string;
+  data_criacao: string | null;
+  vp: number;
+  vf: number;
+}
+
+export interface SRLinhaEntrada {
+  mes: string; // label "Jan/2026"
+  vp: number;
+  vf: number;
+  pr: number;
+  selic_mensal: number;
+  sr_anterior: number;
+}
+
+export interface SRLinhaCalculada extends SRLinhaEntrada {
+  diferenca: number;
+  sr_parcela: number;
+  sr_selic: number;
+  total: number;
+}
+
+export interface SRTrimestreCalculo {
+  linhas: SRLinhaCalculada[];
+  total: number;
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
-export interface DashboardData {
-  periodo_apuracao: string;
-  periodo_recuperacao: string;
-  versao_cg: string;
-  saldo_a_recuperar: number;
-  saldo_cg_atualizado: number;
-  saldo_remanescente: number;
-  scg: number;
-  rpv: number;
+// Modelo real: CGR/RET/CGF/RP/RPV/SCG mensais + PMPV (ver dashboard_resumo.py).
+// Não confundir com PR/SR — esses módulos têm páginas próprias.
+export interface KpiMensal {
+  periodo: string;
+  cgr: number;
   ret: number;
+  cgf: number;
   rp: number;
-  sr_total: number;
-  sr_por_mes: { mes: string; valor: number }[];
-  parcela_recuperacao: number;
-  volume_prospectivo: number;
-  historico_parcela: { periodo: string; valor: number }[];
+  rpv: number;
+  scg: number;
+  variacao_scg_pct: number | null;
+}
+
+export interface SeriePonto {
+  periodo: string;
+  valor: number;
+}
+
+export interface DashboardResponse {
+  ano_filtro: string | null;
+  ultimo_mes: KpiMensal | null;
+  historico: KpiMensal[];
+  serie_pmpv: SeriePonto[];
+  serie_scg: SeriePonto[];
 }

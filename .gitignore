@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Config local / ferramentas (não é código do produto)
+.env
+.claude/
+_bmad/
+_bmad-output/

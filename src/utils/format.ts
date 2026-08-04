@@ -21,3 +21,12 @@ export function pct(value: number): string {
 export function m3(value: number): string {
   return `${num(value)} m³`;
 }
+
+/** Formato compacto para eixos de gráfico (ex: "R$ 5,9M", "-R$ 120K"). */
+export function brlCompact(value: number): string {
+  const sinal = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) return `${sinal}R$ ${(abs / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  if (abs >= 1_000) return `${sinal}R$ ${(abs / 1_000).toFixed(0)}K`;
+  return `${sinal}R$ ${abs.toFixed(0)}`;
+}

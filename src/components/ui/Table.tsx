@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 interface Column<T> {
   key: keyof T | string;
@@ -7,16 +7,28 @@ interface Column<T> {
   align?: "left" | "right" | "center";
 }
 
+interface FooterCell {
+  /** Índice da coluna (0-based) onde esta célula começa. */
+  colIndex: number;
+  /** Quantas colunas esta célula ocupa (para rótulos que atravessam várias). */
+  colSpan?: number;
+  content: ReactNode;
+  align?: "left" | "right" | "center";
+}
+
 interface TableProps<T> {
   columns: Column<T>[];
   data: T[];
   emptyMessage?: string;
+  /** Linha de rodapé (ex.: totais). Células não cobertas ficam em branco. */
+  footer?: FooterCell[];
 }
 
 export function Table<T extends Record<string, any>>({
   columns,
   data,
   emptyMessage = "Sem dados.",
+  footer,
 }: TableProps<T>) {
   return (
     <div className="overflow-x-auto rounded-lg border border-slate-700">
@@ -55,6 +67,21 @@ export function Table<T extends Record<string, any>>({
             ))
           )}
         </tbody>
+        {footer && footer.length > 0 && (
+          <tfoot className="border-t-2 border-slate-600 bg-slate-800/40 font-semibold text-slate-100">
+            <tr>
+              {footer.map((cell, i) => (
+                <td
+                  key={i}
+                  colSpan={cell.colSpan ?? 1}
+                  className={`px-4 py-2.5 text-${cell.align ?? "left"}`}
+                >
+                  {cell.content}
+                </td>
+              ))}
+            </tr>
+          </tfoot>
+        )}
       </table>
     </div>
   );
