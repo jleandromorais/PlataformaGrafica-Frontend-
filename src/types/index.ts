@@ -1,4 +1,6 @@
 // ─── PMPV ────────────────────────────────────────────────────────────────────
+/** Linha de uma empresa no PMPV. `volume` é o QDC em m³/dia (como no
+ * desktop); o volume do mês é QDC × dias, calculado pelo backend. */
 export interface EmpresaLinha {
   empresa: string;
   molecula: number;
@@ -7,101 +9,243 @@ export interface EmpresaLinha {
   volume: number;
 }
 
+/** Entrada do cálculo — mesmo formato que tela_pmpv.py envia a RegrasPMPV. */
+export interface PMPVLinhaCalculo extends EmpresaLinha {
+  campos_vazios: string[];
+}
+
+export interface PMPVCalculoRequest {
+  dados_extraidos: Record<string, PMPVLinhaCalculo[]>; // "Mês 1" | "Mês 2" | "Mês 3"
+  valor_cg: number;
+  dias_config: Record<string, number>;
+  lista_meses: string[];
+  idx_start: number;
+}
+
 export interface PMPVResultado {
   pmpv: number;
   preco_final: number;
+  conta_grafica: number;
+  volume_total: number;
+  custo_total: number;
   vp_mensal: number;
-  vp_por_mes: Record<string, number>;
+  vp_por_mes: Record<string, number>; // chave = nome do mês ("Fevereiro")
+  vf_total: number;
+  avisos: string[];
 }
 
-export interface PMPVSessao {
-  trimestre: string;
-  ano: number;
-  meses: Record<string, EmpresaLinha[]>;
-  conta_grafica: number;
-  resultado?: PMPVResultado;
+export interface PMPVSalvarRequest {
+  nome: string;
+  dados_por_mes: Record<string, EmpresaLinha[]>; // chave = nome do mês
+  resultado: PMPVResultado;
+  periodos: string[];
+}
+
+export interface PMPVImportarResponse {
+  meses: Record<string, EmpresaLinha[]>; // chave = período ("Fev/2026")
+  erros: string[];
+}
+
+// ─── RPV ─────────────────────────────────────────────────────────────────────
+export interface RPVValores {
+  cgr: number;
+  cgf: number;
+  rpv: number;
+}
+
+export interface RPVHistoricoLinha extends RPVValores {
+  periodo: string;
+  data_atualizacao: string;
 }
 
 // ─── CGF ─────────────────────────────────────────────────────────────────────
-export interface CGFResumo {
+export interface CGFVolumes {
+  volume_faturado: number;        // já sem consumo próprio
+  volume_canceladas: number;      // informativo: não entra no volume final
+  volume_devolucoes: number;
+  volume_consumo_proprio: number; // informativo: já retirado do faturado
+  volume_final: number;           // faturado − devoluções
+}
+
+export interface CGFProcessarResponse extends CGFVolumes {
+  periodo_detectado: string;
+  arquivos_ignorados: string[];
+  logs: string[];
+}
+
+export interface CGFHistoricoLinha extends CGFVolumes {
   periodo: string;
-  volume_faturado: number;
-  volume_cancelado: number;
-  volume_final: number;
   cgf_rs: number;
+  data_atualizacao: string;
+  periodo_valido: boolean;
+}
+
+/** Colunas das planilhas de NF (mesmos padrões da tela desktop). */
+export interface CGFColunas {
+  col_fat_volume: string;
+  col_fat_consumo: string;
+  val_fat_consumo: string;
+  col_canc_volume: string;
+  col_dev_volume: string;
 }
 
 // ─── AUDITORIA ───────────────────────────────────────────────────────────────
 export interface AuditoriaItem {
   empresa: string;
-  tipo: "NF-e" | "CT-e";
+  tipo: "NF-e" | "CT-e" | string;
   numero: string;
   valor_total: number;
-  icms: number;
-  icms_taxa: number;
+  icms: number;        // R$
+  icms_taxa: number;   // decimal (0.12 = 12%)
   pis: number;
   cofins: number;
+  volume: number;
+  status: string;      // "OK" (XML) | "OCR" (PDF)
   volume_total: number;
+  caminho: string;     // relativo à pasta enviada — define se é devolução
+  cgr_liquido: number; // negativo nas devoluções
+  integra_cgr: boolean;
+  devolucao: boolean;
+}
+
+export interface AuditoriaEmpresa {
+  empresa: string;
+  qtd_nfe: number;
+  qtd_cte: number;
+  valor_total: number;
   cgr_liquido: number;
-  metodo: string;
+  frete_fora_do_cgr: number;
+}
+
+export interface AuditoriaComparacao {
+  periodo: string;
+  qtd_em_ambas: number;
+  notas_apenas_auditoria: Record<string, unknown>[];
+  notas_apenas_planilha: Record<string, unknown>[];
+  abas_planilha: string[];
+  abas_do_periodo: string[];
+  avisos: string[];
 }
 
 export interface AuditoriaResultado {
-  cgr_liquido: number;
-  valor_total_nfe: number;
-  valor_total_cte: number;
-  volume_total: number;
+  periodo_detectado: string;
+  qtd_xml_lidos: number;
+  qtd_pdf_lidos: number;
   itens: AuditoriaItem[];
-  periodo: string;
+  totais: {
+    qtd_nfe: number;
+    qtd_cte: number;
+    qtd_devolucoes: number;
+    valor_total_geral: number;
+    icms_cgr: number;
+    cgr_liquido: number;
+    por_empresa: AuditoriaEmpresa[];
+  };
+  comparacao: AuditoriaComparacao | null;
+  aviso_comparacao: string;
 }
 
-// ─── CONCILIAÇÃO ─────────────────────────────────────────────────────────────
+export interface AuditoriaHistoricoLinha {
+  periodo: string;
+  qtd_notas: number;
+  cgr_gravado: number;
+  data_atualizacao: string;
+  periodo_valido: boolean;
+}
+
+// ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
 export interface ConciliaItem {
   arquivo: string;
-  categoria: string;
-  valor: number;
-  status: string;
+  caminho: string;
+  categoria: "Receita" | "Despesa" | string;
+  valor: number;     // negativo nas notas "cancelado"
+  status: string;    // "OK" | "REVISAR" | "ERRO"
   metodo: string;
 }
 
 export interface ConciliaResultado {
-  total_receita: number;
-  total_despesa: number;
-  saldo_rp: number;
   itens: ConciliaItem[];
+  totais: { total_receitas: number; total_despesas: number; rp: number; qtd_revisar: number };
+  logs: string[];
+}
+
+export interface ConciliaHistoricoLinha {
   periodo: string;
+  qtd_itens: number;
+  total_receitas: number;
+  total_despesas: number;
+  rp_dos_itens: number;
+  rp_gravado: number;
+  data_atualizacao: string;
+  periodo_valido: boolean;
 }
 
 // ─── RET ─────────────────────────────────────────────────────────────────────
-export interface RETItem {
-  tipo_encargo: string;
+/** Um PDF de encargo lido pelo backend (RegrasRET). Campos extras do extrator passam adiante. */
+export interface RETDocumento {
+  arquivo: string;
+  caminho: string;        // relativo à pasta enviada: define EAT/EC e o mês
+  tipo_encargo: string;   // "EAT" | "EC" | "Penalidades…" | "TOP" | "Outros"
   empresa: string;
   nota_tipo: string;
   numero_nd: string;
   data_vencimento: string;
   valor_total: number;
-  quantidade: number;
-  valor_unitario: number;
-  arquivo: string;
+  mes_ref: string;
+  valores_encontrados: unknown[];
+  [extra: string]: unknown;
+}
+
+export interface RETMes {
+  periodo: string;
+  qtd_documentos: number;
+  eat_bruto: number;
+  ec_docs_total: number;
+  ret: number;
+  qtd_outros: number;
 }
 
 export interface RETResultado {
-  eat_bruto: number;
-  ret: number;
+  periodo_detectado: string;
+  qtd_lidos: number;
+  qtd_ignorados: number;
   pis_cofins_rate: number;
-  itens: RETItem[];
+  meses: RETMes[];
+  documentos: RETDocumento[];
+}
+
+export interface RETHistoricoLinha {
   periodo: string;
+  qtd_documentos: number;
+  ret_gravado: number;
+  data_atualizacao: string;
+  periodo_valido: boolean;
 }
 
 // ─── SCG ─────────────────────────────────────────────────────────────────────
-export interface SCGPeriodo {
-  periodo: string;
+export interface SCGValores {
   cgr: number;
   cgf: number;
   rpv: number;
   ret: number;
   rp: number;
   scg: number;
+}
+
+export interface SCGPeriodo extends SCGValores {
+  periodo: string;
+}
+
+/** Os dois lados que podem divergir num mês: recalculado dos itens dos
+ * módulos × gravado na consolidação (o que o Excel Final usa). */
+export interface SCGComparacao {
+  periodo: string;
+  modulos: SCGValores;
+  gravado: SCGValores | null;
+}
+
+export interface SCGHistoricoLinha extends SCGPeriodo {
+  diverge: boolean;
 }
 
 // ─── PV ──────────────────────────────────────────────────────────────────────
@@ -193,6 +337,8 @@ export interface KpiMensal {
   rpv: number;
   scg: number;
   variacao_scg_pct: number | null;
+  completo: boolean;      // tem CGR e CGF
+  pendencias: string[];   // o que falta lançar no mês
 }
 
 export interface SeriePonto {

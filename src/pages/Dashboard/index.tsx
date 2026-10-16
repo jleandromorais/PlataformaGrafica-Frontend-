@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -13,13 +13,14 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Briefcase, Coins, FileText, Receipt, RefreshCw, Scale, Search } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Briefcase, Coins, FileText, Receipt, RefreshCw, Scale, Search } from "lucide-react";
 import { Select } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
-import type { KpiMensal } from "../../types";
+import { mensagemDeErro } from "../../api/client";
+import type { DashboardResponse, KpiMensal } from "../../types";
 
 const TODOS_OS_ANOS = "Todos os anos";
 
@@ -42,16 +43,6 @@ const COR_SCG = "#22c55e";
 const COR_CGF = "#16a085";
 const COR_NEG = "#ef4444";
 
-function pct(v: number): string {
-  const sinal = v >= 0 ? "+" : "";
-  return `${sinal}${v.toFixed(1)}%`.replace(".", ",");
-}
-
-function variacao(atual: number, anterior: number | undefined): number | null {
-  if (anterior === undefined || anterior === 0) return null;
-  return ((atual - anterior) / Math.abs(anterior)) * 100;
-}
-
 function agruparTrimestres(
   historico: KpiMensal[],
   trimestresCivis: { label: string; meses: string[] }[]
@@ -70,20 +61,33 @@ function agruparTrimestres(
       const ret = itens.reduce((s, i) => s + i.ret, 0);
       const rp = itens.reduce((s, i) => s + i.rp, 0);
       const rpv = itens.reduce((s, i) => s + i.rpv, 0);
-      resultado.push({ trimestre: `${tri.label} ${ano}`, cgr, ret, rp, rpv, total: cgr + ret + rp + rpv });
+      // SCG = RPV + RET + RP. O CGR já está dentro do RPV (CGR − CGF):
+      // somá-lo de novo dava um "Total SCG" de R$ 294 mi.
+      resultado.push({ trimestre: `${tri.label} ${ano}`, cgr, ret, rp, rpv, total: rpv + ret + rp });
     }
   }
   return resultado;
 }
 
-const TooltipBRL = ({ active, payload, label }: any) => {
+const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const AXIS_TICK = { fill: "#71717a", fontSize: 11 };
+const GRID_STROKE = "rgba(255,255,255,0.05)";
+
+interface TooltipProps {
+  active?: boolean;
+  label?: string;
+  payload?: { dataKey: string; name: string; value: number; color?: string; fill?: string }[];
+  casas?: number; // PMPV usa 4 casas (R$/m³), igual ao desktop
+}
+
+const TooltipBRL = ({ active, payload, label, casas = 2 }: TooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-[#141414] px-3.5 py-2.5 text-xs shadow-2xl">
-      <p className="mb-1 font-medium text-zinc-500">{label}</p>
-      {payload.map((p: any) => (
-        <p key={p.dataKey} className="font-semibold" style={{ color: p.color ?? p.fill }}>
-          {p.name}: {brl(p.value)}
+    <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+      <p className="mb-1 font-medium text-zinc-400">{label}</p>
+      {payload.map((p) => (
+        <p key={p.dataKey} className="font-semibold tabular-nums" style={{ color: p.color ?? p.fill }}>
+          {p.name}: {brl(p.value, casas)}
         </p>
       ))}
     </div>
@@ -95,7 +99,7 @@ function SectionHeading({ title, subtitle, right }: { title: string; subtitle?: 
     <div className="flex items-start justify-between gap-4">
       <div>
         <h2 className="text-base font-semibold text-white">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-zinc-500">{subtitle}</p>}
+        {subtitle && <p className="mt-0.5 text-sm text-zinc-400">{subtitle}</p>}
       </div>
       {right}
     </div>
@@ -107,7 +111,7 @@ function KpiTile({
   Icon,
   value,
   rawValue,
-  varPct,
+  delta,
   varLabel,
   accent,
 }: {
@@ -115,17 +119,19 @@ function KpiTile({
   Icon: typeof Search;
   value: string;
   rawValue: number;
-  varPct: number | null | undefined;
+  /** Diferença em R$ para o mês completo anterior (% engana quando o valor troca de sinal). */
+  delta: number | null;
   varLabel?: string;
   accent: string;
 }) {
   const isZero = rawValue === 0;
   const isNegative = rawValue < 0;
   return (
-    <div className="group rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-6 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.14]">
+    <div className={`${PANEL} p-5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.14] sm:p-6`}>
       <div className="flex items-center justify-between">
-        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</span>
+        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400">{label}</span>
         <span
+          aria-hidden
           className="flex h-9 w-9 items-center justify-center rounded-xl"
           style={{ backgroundColor: `${accent}17`, color: accent }}
         >
@@ -133,22 +139,36 @@ function KpiTile({
         </span>
       </div>
       <p
-        className={`mt-5 text-[1.75rem] font-bold leading-none tracking-tight ${
+        className={`mt-4 truncate text-[1.625rem] font-bold leading-none tracking-tight tabular-nums sm:text-[1.75rem] ${
           isZero ? "text-zinc-600" : isNegative ? "text-red-400" : "text-white"
         }`}
       >
         {value}
       </p>
-      {varPct !== null && varPct !== undefined ? (
-        <p className={`mt-3 flex items-center gap-1.5 text-xs font-semibold ${varPct >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-          <span className="flex items-center gap-1">
-            <span aria-hidden>{varPct >= 0 ? "↗" : "↘"}</span> {pct(varPct)}
+      {delta !== null ? (
+        <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
+          <span className="flex items-center gap-0.5 tabular-nums">
+            {delta >= 0 ? <ArrowUpRight size={14} aria-hidden /> : <ArrowDownRight size={14} aria-hidden />}
+            {delta >= 0 ? "+" : ""}{brlCompact(delta)}
           </span>
-          {varLabel && <span className="font-normal text-zinc-600">vs {varLabel}</span>}
+          {varLabel && <span className="font-normal text-zinc-500">vs {varLabel}</span>}
         </p>
       ) : (
-        <p className="mt-3 text-xs text-zinc-600">Sem comparativo</p>
+        <p className="mt-3 text-xs text-zinc-500">Sem comparativo</p>
       )}
+    </div>
+  );
+}
+
+function KpiSkeleton() {
+  return (
+    <div className={`${PANEL} p-5 sm:p-6`} aria-hidden>
+      <div className="flex items-center justify-between">
+        <div className="h-3 w-10 animate-pulse rounded bg-white/[0.06]" />
+        <div className="h-9 w-9 animate-pulse rounded-xl bg-white/[0.04]" />
+      </div>
+      <div className="mt-4 h-7 w-44 animate-pulse rounded bg-white/[0.06]" />
+      <div className="mt-3 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
     </div>
   );
 }
@@ -173,7 +193,7 @@ function CompositionRow({
   const isZero = value === 0;
   return (
     <div className={`flex items-center gap-3 ${isZero ? "opacity-40" : ""}`}>
-      <span className="w-9 shrink-0 text-xs font-semibold text-zinc-500">{label}</span>
+      <span className="w-9 shrink-0 text-xs font-semibold text-zinc-400">{label}</span>
       <div className="flex h-6 flex-1 items-center">
         <div className="flex h-full flex-1 justify-end overflow-hidden rounded-l bg-white/[0.04]">
           {isNeg && (
@@ -193,7 +213,7 @@ function CompositionRow({
           )}
         </div>
       </div>
-      <span className={`w-32 shrink-0 text-right text-sm font-semibold tabular-nums ${isNeg ? "text-red-400" : "text-zinc-200"}`}>
+      <span className={`w-36 shrink-0 text-right text-[0.8125rem] font-semibold tabular-nums ${isNeg ? "text-red-400" : "text-zinc-200"}`}>
         {brl(value)}
       </span>
     </div>
@@ -211,81 +231,80 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
 
-  const carregar = async (anoFiltro?: string, isCurrent: () => boolean = () => true) => {
-    setLoading(true);
-    setErro(null);
-    try {
-      const dados = await getDashboard(anoFiltro);
-      if (!isCurrent()) return;
-      setHistoricoCompleto(dados.historico);
-      setUltimoMes(dados.ultimo_mes);
-      setSeriePmpv(dados.serie_pmpv);
-      setSerieScg(dados.serie_scg);
-      if (!anoFiltro) {
-        const anos = [...new Set(dados.historico.map((h) => h.periodo.split("/")[1]))].sort(
-          (a, b) => Number(b) - Number(a)
-        );
-        setAnosDisponiveis(anos);
-      }
-    } catch {
-      if (!isCurrent()) return;
-      setErro("Não foi possível carregar o dashboard. Confira se o backend está no ar.");
-    } finally {
-      if (isCurrent()) setLoading(false);
+  const aplicar = (dados: DashboardResponse, anoFiltro?: string) => {
+    setHistoricoCompleto(dados.historico);
+    setUltimoMes(dados.ultimo_mes);
+    setSeriePmpv(dados.serie_pmpv);
+    setSerieScg(dados.serie_scg);
+    if (!anoFiltro) {
+      setAnosDisponiveis([...new Set(dados.historico.map((h) => h.periodo.split("/")[1]))].sort((x, y) => Number(y) - Number(x)));
     }
   };
 
+  const ultimaBusca = useRef(0);
+  const buscar = (anoFiltro?: string) => {
+    const busca = ++ultimaBusca.current;
+    getDashboard(anoFiltro)
+      .then((dados) => busca === ultimaBusca.current && aplicar(dados, anoFiltro))
+      .catch((e) => busca === ultimaBusca.current && setErro(mensagemDeErro(e, "Não foi possível carregar o dashboard.")))
+      .finally(() => busca === ultimaBusca.current && setLoading(false));
+  };
+
+  const carregar = (anoFiltro?: string) => {
+    setLoading(true);
+    setErro(null);
+    buscar(anoFiltro);
+  };
+
   useEffect(() => {
-    let active = true;
-    carregar(undefined, () => active);
-    getTrimestresCivis().then((dados) => {
-      if (active) setTrimestresCivis(dados);
-    }).catch(() => {
-      if (active) setTrimestresCivis([]);
-    });
-    return () => {
-      active = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    buscar();
+    getTrimestresCivis().then(setTrimestresCivis).catch(() => setTrimestresCivis([]));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 
   const handleAnoChange = (novoAno: string) => {
     setAno(novoAno);
     carregar(novoAno === TODOS_OS_ANOS ? undefined : novoAno);
   };
 
-  const mesAnterior = historicoCompleto.length >= 2 ? historicoCompleto[historicoCompleto.length - 2] : undefined;
+  // Só meses completos (com CGR e CGF): um mês só com o CGF lançado dá um
+  // "SCG" de −R$ 99 mi que não significa nada.
+  const mesesCompletos = useMemo(() => historicoCompleto.filter((h) => h.completo), [historicoCompleto]);
+  const incompletos = historicoCompleto.filter((h) => !h.completo);
+  const idxUltimo = ultimoMes ? mesesCompletos.findIndex((h) => h.periodo === ultimoMes.periodo) : -1;
+  const mesAnterior = idxUltimo > 0 ? mesesCompletos[idxUltimo - 1] : undefined;
 
   const composicaoTrimestral = useMemo(
-    () => agruparTrimestres(historicoCompleto, trimestresCivis),
-    [historicoCompleto, trimestresCivis]
+    () => agruparTrimestres(mesesCompletos, trimestresCivis),
+    [mesesCompletos, trimestresCivis]
   );
 
   const ultimoTrimestre = composicaoTrimestral[composicaoTrimestral.length - 1];
   const stageColors: Record<string, string> = { cgr: COR_CGR, ret: COR_RET, rp: COR_RP, rpv: COR_RPV };
   const maxAbsComposicao = ultimoTrimestre
-    ? Math.max(Math.abs(ultimoTrimestre.cgr), Math.abs(ultimoTrimestre.ret), Math.abs(ultimoTrimestre.rp), Math.abs(ultimoTrimestre.rpv), 1)
+    ? Math.max(Math.abs(ultimoTrimestre.ret), Math.abs(ultimoTrimestre.rp), Math.abs(ultimoTrimestre.rpv), 1)
     : 1;
 
   return (
-    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
-      <div className="mx-auto flex max-w-[1600px] flex-col gap-8">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-6 lg:gap-8">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">Overview</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Visão geral</h1>
             {ultimoMes && (
-              <p className="mt-1 text-sm text-zinc-500">Período mais recente: {ultimoMes.periodo}</p>
+              <p className="mt-1 text-sm text-zinc-400">Período mais recente: <span className="font-medium text-zinc-200">{ultimoMes.periodo}</span></p>
             )}
           </div>
           <div className="flex items-center gap-2">
             <Select
+              aria-label="Filtrar por ano"
               value={ano}
               onChange={(e) => handleAnoChange(e.target.value)}
               options={[TODOS_OS_ANOS, ...anosDisponiveis].map((a) => ({ value: a, label: a }))}
             />
             <button
               onClick={() => carregar(ano === TODOS_OS_ANOS ? undefined : ano)}
-              className="rounded-xl border border-white/[0.07] bg-[#111113] p-2.5 text-zinc-300 transition-colors hover:bg-white/5"
+              disabled={loading}
+              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-wait"
               title="Recarregar"
               aria-label="Recarregar dashboard"
             >
@@ -295,16 +314,33 @@ export default function DashboardPage() {
         </div>
 
         {erro && <Alert variant="error">{erro}</Alert>}
+        {incompletos.length > 0 && ultimoMes && (
+          <Alert variant="warning">
+            {incompletos.map((h) => `${h.periodo} (falta ${h.pendencias.join(" e ")})`).join(", ")}{" "}
+            {incompletos.length > 1 ? "estão incompletos" : "está incompleto"} e fica{incompletos.length > 1 ? "m" : ""} fora dos indicadores e do gráfico do SCG.
+            Os cartões mostram {ultimoMes.periodo}, o último mês completo.
+          </Alert>
+        )}
 
         {/* ── KPIs do último mês ────────────────────────────────────────── */}
         {!ultimoMes ? (
-          <EmptyState label="Nenhum período calculado ainda." />
+          loading ? (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+              {KPI_CAMPOS.map(({ chave }) => <KpiSkeleton key={chave} />)}
+            </div>
+          ) : erro ? null : (
+            <EmptyState
+              label="Nenhum período calculado ainda."
+              hint="Os indicadores aparecem aqui depois do primeiro cálculo mensal."
+              className={`${PANEL} py-12`}
+            />
+          )
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
             {KPI_CAMPOS.map(({ chave, label, Icon, accent }) => {
               const valor = ultimoMes[chave] as number;
-              const varPct =
-                chave === "scg" ? ultimoMes.variacao_scg_pct : variacao(valor, mesAnterior?.[chave] as number | undefined);
+              const anterior = mesAnterior?.[chave] as number | undefined;
+              const delta = anterior === undefined ? null : valor - anterior;
               return (
                 <KpiTile
                   key={chave}
@@ -312,7 +348,7 @@ export default function DashboardPage() {
                   Icon={Icon}
                   value={brl(valor)}
                   rawValue={valor}
-                  varPct={varPct}
+                  delta={delta}
                   varLabel={mesAnterior?.periodo}
                   accent={accent}
                 />
@@ -322,18 +358,18 @@ export default function DashboardPage() {
         )}
 
         {/* ── Gráfico principal + composição ──────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_400px]">
-          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
+        <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+          <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading
               title="SCG mensal"
               subtitle="Saldo consolidado da conta gráfica"
               right={
-                <span className="flex items-center gap-1.5 text-xs text-zinc-400">
+                <span className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
                   <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_SCG }} /> SCG
                 </span>
               }
             />
-            <div className="mt-7 h-80">
+            <div className="mt-6 h-64 sm:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={serieScg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                   <defs>
@@ -342,15 +378,15 @@ export default function DashboardPage() {
                       <stop offset="100%" stopColor={COR_SCG} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="periodo" tick={{ fill: "#52525b", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                   <YAxis
-                    tick={{ fill: "#52525b", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={brlCompact}
-                    width={72}
-                    domain={["dataMin - dataMax * 0.15", "dataMax * 1.15"]}
+                    width={88}
+                    domain={["auto", "auto"]}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
                   <ReferenceLine y={0} stroke="#27272a" strokeDasharray="4 4" />
@@ -369,14 +405,22 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
-            <SectionHeading title="Composição do SCG" subtitle={`Por categoria — ${ultimoTrimestre?.trimestre ?? "último trimestre"}`} />
+          <div className={`${PANEL} p-5 sm:p-7`}>
+            <SectionHeading title="Composição do SCG" subtitle={`SCG = RPV + RET + RP — ${ultimoTrimestre?.trimestre ?? "último trimestre"}`} />
             {!ultimoTrimestre ? (
-              <EmptyState label="Sem dados trimestrais ainda." className="py-8" />
+              loading ? (
+                <div className="mt-7 space-y-5" aria-hidden>
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-6 animate-pulse rounded bg-white/[0.04]" />
+                  ))}
+                </div>
+              ) : (
+                <EmptyState label="Sem dados trimestrais ainda." className="py-12" />
+              )
             ) : (
               <div className="mt-7 flex flex-col gap-6">
                 <div className="space-y-5">
-                  {(["cgr", "ret", "rp", "rpv"] as const).map((chave) => (
+                  {(["rpv", "ret", "rp"] as const).map((chave) => (
                     <CompositionRow
                       key={chave}
                       label={chave.toUpperCase()}
@@ -386,9 +430,9 @@ export default function DashboardPage() {
                     />
                   ))}
                 </div>
-                <div className="flex items-center justify-between rounded-xl bg-white/[0.03] px-4 py-4">
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.03] px-4 py-4">
                   <span className="text-sm font-medium text-zinc-400">Total SCG</span>
-                  <span className={`text-2xl font-bold tabular-nums ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
+                  <span className={`text-xl font-bold tabular-nums sm:text-2xl ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
                     {brl(ultimoTrimestre.total)}
                   </span>
                 </div>
@@ -398,35 +442,35 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Gráficos secundários ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
-          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
+        <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
+          <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading title="PMPV mensal" subtitle="Preço médio ponderado por volume (R$/m³)" />
-            <div className="mt-7 h-64">
+            <div className="mt-6 h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={seriePmpv} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="periodo" tick={{ fill: "#52525b", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                   <YAxis
-                    tick={{ fill: "#52525b", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickLine={false}
                     axisLine={false}
-                    tickFormatter={(v) => v.toFixed(2)}
+                    tickFormatter={(v) => v.toFixed(2).replace(".", ",")}
                     width={48}
                     domain={["dataMin - 0.1", "dataMax + 0.1"]}
                   />
-                  <Tooltip content={<TooltipBRL />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
+                  <Tooltip content={<TooltipBRL casas={4} />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
                   <Line type="monotone" dataKey="valor" name="PMPV" stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-7">
+          <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading
               title="CGR vs CGF por período"
               subtitle="Comparativo mensal"
               right={
-                <div className="flex items-center gap-3 text-xs text-zinc-400">
+                <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
                   <span className="flex items-center gap-1.5">
                     <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_CGR }} /> CGR
                   </span>
@@ -436,17 +480,17 @@ export default function DashboardPage() {
                 </div>
               }
             />
-            <div className="mt-7 h-64">
+            <div className="mt-6 h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={historicoCompleto} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="periodo" tick={{ fill: "#52525b", fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
+                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                   <YAxis
-                    tick={{ fill: "#52525b", fontSize: 11 }}
+                    tick={AXIS_TICK}
                     tickLine={false}
                     axisLine={false}
                     tickFormatter={brlCompact}
-                    width={72}
+                    width={88}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
                   <Bar dataKey="cgr" name="CGR" fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />

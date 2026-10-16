@@ -1,37 +1,79 @@
 @import "tailwindcss";
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* Tokens de superfície usados pelos componentes (bg-canvas, bg-panel, …). */
+@theme {
+  --color-canvas: #050505;
+  --color-rail: #0a0a0b;
+  --color-panel: #0d0d0f;
+  --color-raised: #141416;
+  --color-accent: #38bdf8;
 }
 
-body {
-  /* Fundo radial escuro para dar profundidade */
-  background: radial-gradient(circle at top center, #141416 0%, #050505 100%);
-  color: #f8fafc;
-  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  min-height: 100vh;
-}
+/*
+ * Tudo aqui fica em @layer base: estilos fora de camada vencem os
+ * utilitários do Tailwind v4, e um `* { padding: 0 }` solto anulava
+ * todo padding/margin utilitário do app. O preflight do Tailwind já zera margin/padding.
+ */
+@layer base {
+  html {
+    color-scheme: dark;
+  }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-}
+  body {
+    background: var(--color-canvas);
+    color: #f4f4f5;
+    font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    caret-color: var(--color-accent);
+  }
 
-/* Custom Scrollbar opcional para um visual mais limpo */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #3f3f46;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #52525b;
+  #root {
+    width: 100%;
+    min-height: 100vh;
+  }
+
+  ::selection {
+    background: rgb(56 189 248 / 0.3);
+    color: #fff;
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(56 189 248 / 0.7);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f46 transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #3f3f46;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #52525b;
+    background-clip: padding-box;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }

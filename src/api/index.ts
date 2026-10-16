@@ -1,8 +1,10 @@
+import axios from "axios";
 import { api } from "./client";
 import type {
-  PMPVSessao, PMPVResultado,
-  CGFResumo, AuditoriaResultado,
-  ConciliaResultado, RETResultado,
+  PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse,
+  RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
+  CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
+  ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
   PVResultado, PVPeriodo,
@@ -26,50 +28,161 @@ export const getTrimestresFiscais = () =>
     .then((r) => r.data);
 
 // ─── PMPV ────────────────────────────────────────────────────────────────────
-export const calcularPMPV = (payload: PMPVSessao) =>
+export const calcularPMPV = (payload: PMPVCalculoRequest) =>
   api.post<PMPVResultado>("/pmpv/calcular", payload).then((r) => r.data);
 
-export const salvarPMPV = (payload: PMPVSessao) =>
-  api.post<void>("/pmpv/salvar", payload).then((r) => r.data);
+/** Salva sessão + PMPV mensal de cada período + trimestre ativo (igual ao desktop). */
+export const salvarPMPV = (payload: PMPVSalvarRequest) =>
+  api.post<{ sessao_id: number }>("/pmpv/salvar", payload).then((r) => r.data);
 
 export const getPMPVMensal = (periodo: string) =>
-  api.get<{ pmpv: number; vp: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
+  api.get<{ pmpv: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
+
+export const getTrimestreAtivo = () =>
+  api.get<{ meses: string[] }>("/pmpv/trimestre-ativo").then((r) => r.data.meses);
+
+export const importarMemoriaPMPV = (arquivo: File, periodos: string[]) => {
+  const form = new FormData();
+  form.append("arquivo", arquivo);
+  form.append("periodos", periodos.join(","));
+  return api
+    .post<PMPVImportarResponse>("/pmpv/importar-memoria", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000, // planilhas grandes
+    })
+    .then((r) => r.data);
+};
+
+// ─── RPV ─────────────────────────────────────────────────────────────────────
+/** CGR/CGF/RPV gravados no período, ou null se o período ainda não existe. */
+export const getRPV = (periodo: string) =>
+  api
+    .get<RPVValores>("/rpv", { params: { periodo } })
+    .then((r) => r.data)
+    .catch((e) => {
+      if (axios.isAxiosError(e) && e.response?.status === 404) return null;
+      throw e;
+    });
+
+export const salvarRPV = (periodo: string, cgr: number, cgf: number) =>
+  api.post<{ rpv: number }>("/rpv/salvar", { periodo, cgr, cgf }).then((r) => r.data);
+
+export const getHistoricoRPV = () =>
+  api.get<RPVHistoricoLinha[]>("/rpv/historico").then((r) => r.data);
 
 // ─── CGF ─────────────────────────────────────────────────────────────────────
-export const processarCGF = (formData: FormData) =>
-  api.post<CGFResumo>("/cgf/processar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }).then((r) => r.data);
+/** Calcula volumes a partir das planilhas de NF. Não grava nada. */
+export const processarCGF = (arquivos: File[], colunas: CGFColunas) => {
+  const form = new FormData();
+  arquivos.forEach((a) => form.append("arquivos", a, a.name)); // o tipo vem do NOME do arquivo
+  Object.entries(colunas).forEach(([k, v]) => form.append(k, v));
+  return api
+    .post<CGFProcessarResponse>("/cgf/processar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 180000,
+    })
+    .then((r) => r.data);
+};
 
-export const getCGFResumos = () =>
-  api.get<CGFResumo[]>("/cgf/resumos").then((r) => r.data);
+/** Grava CGF em R$ (volume final × PMPV) e o resumo. Exige PMPV > 0. */
+export const salvarCGF = (payload: CGFVolumes & { periodo: string; pmpv: number }) =>
+  api.post<{ cgf_rs: number; rpv: number }>("/cgf/salvar", payload).then((r) => r.data);
+
+export const getHistoricoCGF = () =>
+  api.get<CGFHistoricoLinha[]>("/cgf/historico").then((r) => r.data);
 
 // ─── AUDITORIA ───────────────────────────────────────────────────────────────
-export const processarAuditoria = (formData: FormData) =>
-  api.post<AuditoriaResultado>("/auditoria/processar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }).then((r) => r.data);
+/** Arquivo da pasta escolhida + caminho relativo SEM a pasta raiz ("EMPRESA/sub/x.xml"). */
+export interface ArquivoDaPasta { arquivo: File; caminho: string }
 
-export const salvarAuditoria = (resultado: AuditoriaResultado) =>
-  api.post<void>("/auditoria/salvar", resultado).then((r) => r.data);
+/** Audita a pasta enviada (uma subpasta por empresa). Não grava nada. */
+export const processarAuditoria = (opts: {
+  arquivos: ArquivoDaPasta[];
+  pastaRaiz: string;
+  empresas: string[];
+  modo: "XML" | "PDF";
+  periodo: string;
+  planilha: File | null;
+}) => {
+  const form = new FormData();
+  opts.arquivos.forEach(({ arquivo, caminho }) => form.append("arquivos", arquivo, caminho));
+  form.append("pasta_raiz", opts.pastaRaiz);
+  form.append("empresas", JSON.stringify(opts.empresas));
+  form.append("modo", opts.modo);
+  form.append("periodo", opts.periodo);
+  if (opts.planilha) form.append("planilha", opts.planilha);
+  return api
+    .post<AuditoriaResultado>("/auditoria/processar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 20 * 60 * 1000, // PDFs são lentos: uma pasta grande leva minutos
+    })
+    .then((r) => r.data);
+};
 
-// ─── CONCILIAÇÃO ─────────────────────────────────────────────────────────────
-export const processarConcilia = (formData: FormData) =>
-  api.post<ConciliaResultado>("/conciliacao/processar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }).then((r) => r.data);
+/** Grava o CGR (recalculado no servidor) e os itens do período. */
+export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
+  api.post<{ cgr_liquido: number; rpv: number; qtd_itens: number }>("/auditoria/salvar", { periodo, itens }).then((r) => r.data);
 
-export const salvarConcilia = (resultado: ConciliaResultado) =>
-  api.post<void>("/conciliacao/salvar", resultado).then((r) => r.data);
+/** Relatório Excel da auditoria (com as abas de comparação se houver planilha). */
+export const baixarRelatorioAuditoria = (periodo: string, itens: AuditoriaItem[], planilha: File | null) => {
+  const form = new FormData();
+  form.append("itens", JSON.stringify(itens));
+  form.append("periodo", periodo);
+  if (planilha) form.append("planilha", planilha);
+  return api
+    .post<Blob>("/auditoria/relatorio", form, { responseType: "blob", timeout: 5 * 60 * 1000 })
+    .then((r) => r.data);
+};
+
+export const getHistoricoAuditoria = () =>
+  api.get<AuditoriaHistoricoLinha[]>("/auditoria/historico").then((r) => r.data);
+
+// ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
+/** Lê os PDFs das pastas de receitas e despesas. Não grava nada. */
+export const processarConcilia = (receitas: ArquivoDaPasta[], despesas: ArquivoDaPasta[]) => {
+  const form = new FormData();
+  receitas.forEach(({ arquivo, caminho }) => form.append("receitas", arquivo, caminho));
+  despesas.forEach(({ arquivo, caminho }) => form.append("despesas", arquivo, caminho));
+  return api
+    .post<ConciliaResultado>("/conciliacao/processar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 15 * 60 * 1000,
+    })
+    .then((r) => r.data);
+};
+
+/** Grava o RP (despesas − receitas, recalculado no servidor) e os itens. */
+export const salvarConcilia = (periodo: string, itens: ConciliaItem[]) =>
+  api.post<{ rp: number; qtd_itens: number }>("/conciliacao/salvar", { periodo, itens }).then((r) => r.data);
+
+export const baixarRelatorioConcilia = (periodo: string, itens: ConciliaItem[]) =>
+  api.post<Blob>("/conciliacao/relatorio", { periodo, itens }, { responseType: "blob" }).then((r) => r.data);
+
+export const getHistoricoConcilia = () =>
+  api.get<ConciliaHistoricoLinha[]>("/conciliacao/historico").then((r) => r.data);
 
 // ─── RET ─────────────────────────────────────────────────────────────────────
-export const processarRET = (formData: FormData) =>
-  api.post<RETResultado>("/ret/processar", formData, {
-    headers: { "Content-Type": "multipart/form-data" },
-  }).then((r) => r.data);
+/** Lê os PDFs de encargos da pasta enviada. Não grava nada. */
+export const processarRET = (arquivos: ArquivoDaPasta[], pastaRaiz: string) => {
+  const form = new FormData();
+  arquivos.forEach(({ arquivo, caminho }) => form.append("arquivos", arquivo, caminho));
+  form.append("pasta_raiz", pastaRaiz);
+  return api
+    .post<RETResultado>("/ret/processar", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 15 * 60 * 1000,
+    })
+    .then((r) => r.data);
+};
 
-export const salvarRET = (resultado: RETResultado) =>
-  api.post<void>("/ret/salvar", resultado).then((r) => r.data);
+/** Grava o RET de cada mês (recalculado no servidor) e os documentos. */
+export const salvarRET = (documentos: RETDocumento[], periodoPadrao: string) =>
+  api
+    .post<{ periodo: string; ret: number; qtd_documentos: number }[]>("/ret/salvar", { documentos, periodo_padrao: periodoPadrao })
+    .then((r) => r.data);
+
+export const getHistoricoRET = () =>
+  api.get<RETHistoricoLinha[]>("/ret/historico").then((r) => r.data);
 
 // ─── SCG ─────────────────────────────────────────────────────────────────────
 // `periodo` sempre via query string — path param quebra com a barra do
@@ -88,6 +201,28 @@ export const salvarSCGManual = (payload: Partial<SCGPeriodo>) =>
 
 export const apagarSCG = (periodo: string) =>
   api.delete<void>("/scg", { params: { periodo } }).then((r) => r.data);
+
+/** Valores dos módulos (itens) × gravados na consolidação para o período. */
+export const getSCGComparacao = (periodo: string) =>
+  api.get<SCGComparacao>("/scg/comparar", { params: { periodo } }).then((r) => r.data);
+
+/** Grava CGR/CGF/RET/RP escolhidos e recalcula RPV e SCG. */
+export const salvarSCG = (payload: { periodo: string; cgr: number; cgf: number; ret: number; rp: number }) =>
+  api.post<SCGPeriodo>("/scg/salvar", payload).then((r) => r.data);
+
+export const getHistoricoSCG = () =>
+  api.get<SCGHistoricoLinha[]>("/scg/historico").then((r) => r.data);
+
+// ─── EXCEL FINAL ─────────────────────────────────────────────────────────────
+/** Meses de Auditoria/RET/Conciliação que entram no Excel Final do período. */
+export const getTrimestreExcelFinal = (periodo: string) =>
+  api.get<{ periodo: string; meses: string[] }>("/excel-final/trimestre", { params: { periodo } }).then((r) => r.data);
+
+/** Gera o Excel Final no servidor e devolve o arquivo. */
+export const gerarExcelFinal = (periodo: string) =>
+  api
+    .post<Blob>("/excel-final/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+    .then((r) => r.data);
 
 // ─── PR ──────────────────────────────────────────────────────────────────────
 // PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.

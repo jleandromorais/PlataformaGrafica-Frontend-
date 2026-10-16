@@ -11,6 +11,7 @@ import PVPage from "../pages/PV";
 import RPVPage from "../pages/RPV";
 import SCGPage from "../pages/SCG";
 import SRPage from "../pages/SR";
+import ExcelFinalPage from "../pages/ExcelFinal";
 
 export const router = createBrowserRouter([
   {
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
       { path: "rpv",        element: <RPVPage /> },
       { path: "scg",        element: <SCGPage /> },
       { path: "sr",         element: <SRPage /> },
+      { path: "excel-final", element: <ExcelFinalPage /> },
     ],
   },
 ]);

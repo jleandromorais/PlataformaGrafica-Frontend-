@@ -1,120 +1,398 @@
-import { useState } from "react";
-import { FileSearch, Upload, Play, Save, Download } from "lucide-react";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { Card, StatCard } from "../../components/ui/Card";
-import { Table } from "../../components/ui/Table";
-import { Badge } from "../../components/ui/Badge";
-import { brl } from "../../utils/format";
-import type { AuditoriaItem } from "../../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Download, FileSpreadsheet, FolderOpen, Loader2, Play, Save, X } from "lucide-react";
+import { Alert } from "../../components/ui/Alert";
+import { SeletorMes } from "../../components/ui/SeletorMes";
+import { baixarRelatorioAuditoria, getHistoricoAuditoria, processarAuditoria, salvarAuditoria, type ArquivoDaPasta } from "../../api";
+import { mensagemDeErro } from "../../api/client";
+import { brl, num } from "../../utils/format";
+import { salvarArquivo } from "../../utils/download";
+import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 
-const MOCK_ITENS: AuditoriaItem[] = [
-  { empresa: "PETROBRAS", tipo: "NF-e", numero: "123456", valor_total: 850000, icms: 136000, icms_taxa: 0.16, pis: 5525, cofins: 25500, volume_total: 450000, cgr_liquido: 708500, metodo: "XML" },
-  { empresa: "GALP", tipo: "CT-e", numero: "78910", valor_total: 320000, icms: 51200, icms_taxa: 0.16, pis: 2080, cofins: 9600, volume_total: 180000, cgr_liquido: 268800, metodo: "XML" },
-  { empresa: "BRAVA", tipo: "NF-e", numero: "111222", valor_total: 490000, icms: 78400, icms_taxa: 0.16, pis: 3185, cofins: 14700, volume_total: 260000, cgr_liquido: 411600, metodo: "XML" },
-];
+const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
+const LIMITE_NOTAS = 50;
+
+interface Empresa { nome: string; xml: number; pdf: number }
+
+/** Separa a pasta escolhida em raiz + empresas (1ª subpasta) com os XML/PDF de cada uma. */
+function lerPasta(lista: FileList): { raiz: string; arquivos: ArquivoDaPasta[]; empresas: Empresa[] } {
+  const arquivos: ArquivoDaPasta[] = [];
+  const contagem = new Map<string, Empresa>();
+  let raiz = "";
+  Array.from(lista).forEach((f) => {
+    const partes = (f.webkitRelativePath || f.name).split("/");
+    raiz = partes[0];
+    const ext = f.name.toLowerCase().split(".").pop();
+    if (partes.length < 3 || (ext !== "xml" && ext !== "pdf")) return; // fora de uma subpasta de empresa
+    const caminho = partes.slice(1).join("/");
+    arquivos.push({ arquivo: f, caminho });
+    const e = contagem.get(partes[1]) ?? { nome: partes[1], xml: 0, pdf: 0 };
+    if (ext === "xml") e.xml += 1; else e.pdf += 1;
+    contagem.set(partes[1], e);
+  });
+  return { raiz, arquivos, empresas: [...contagem.values()].sort((a, b) => a.nome.localeCompare(b.nome)) };
+}
 
 export default function AuditoriaPage() {
-  const [periodo, setPeriodo] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [itens, setItens] = useState<AuditoriaItem[]>([]);
+  const hoje = new Date();
+  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
+  const [ano, setAno] = useState(hoje.getFullYear());
+  const periodo = `${mes}/${ano}`;
+
+  const [pasta, setPasta] = useState<ReturnType<typeof lerPasta> | null>(null);
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [modo, setModo] = useState<"XML" | "PDF">("XML");
+  const [planilha, setPlanilha] = useState<File | null>(null);
+  const [resultado, setResultado] = useState<AuditoriaResultado | null>(null);
+  const [verTodas, setVerTodas] = useState(false);
+  const [historico, setHistorico] = useState<AuditoriaHistoricoLinha[]>([]);
+  const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+  const inputPasta = useRef<HTMLInputElement>(null);
+  const inputPlanilha = useRef<HTMLInputElement>(null);
 
-  const cgr = itens.reduce((s, i) => s + i.cgr_liquido, 0);
-  const totalNFe = itens.filter((i) => i.tipo === "NF-e").reduce((s, i) => s + i.valor_total, 0);
-  const totalCTe = itens.filter((i) => i.tipo === "CT-e").reduce((s, i) => s + i.valor_total, 0);
+  useEffect(() => {
+    // Atributo que permite escolher uma pasta inteira (não existe nos tipos do React).
+    inputPasta.current?.setAttribute("webkitdirectory", "");
+    getHistoricoAuditoria().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+  }, []);
 
-  const executar = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    setItens(MOCK_ITENS);
-    setLoading(false);
+  const escolherPasta = (lista: FileList | null) => {
+    if (!lista?.length) return;
+    const p = lerPasta(lista);
+    setPasta(p);
+    setSelecionadas(new Set(p.empresas.map((e) => e.nome)));
+    setResultado(null);
+    setErro(p.empresas.length ? null : "Nenhuma subpasta de empresa com XML ou PDF nesta pasta. Escolha a pasta “pai”, que tem uma subpasta por empresa.");
   };
 
-  const columns = [
-    { key: "empresa", header: "Empresa" },
-    { key: "tipo", header: "Tipo", render: (r: AuditoriaItem) => <Badge variant={r.tipo === "NF-e" ? "blue" : "yellow"}>{r.tipo}</Badge> },
-    { key: "numero", header: "Número" },
-    { key: "valor_total", header: "Valor Total", align: "right" as const, render: (r: AuditoriaItem) => brl(r.valor_total) },
-    { key: "icms", header: "ICMS", align: "right" as const, render: (r: AuditoriaItem) => brl(r.icms) },
-    { key: "cgr_liquido", header: "CGR Líquido", align: "right" as const, render: (r: AuditoriaItem) => <span className="text-emerald-400 font-semibold">{brl(r.cgr_liquido)}</span> },
-    { key: "metodo", header: "Método", render: (r: AuditoriaItem) => <Badge variant="gray">{r.metodo}</Badge> },
-  ];
+  const enviados = useMemo(
+    () => (pasta ? pasta.arquivos.filter((a) => selecionadas.has(a.caminho.split("/")[0])) : []),
+    [pasta, selecionadas],
+  );
+  const qtdPdf = enviados.filter((a) => a.caminho.toLowerCase().endsWith(".pdf")).length;
+
+  const processar = async () => {
+    if (!pasta) return;
+    setErro(null);
+    setAviso(null);
+    setSucesso(null);
+    setOcupado("processar");
+    try {
+      const r = await processarAuditoria({
+        arquivos: enviados, pastaRaiz: pasta.raiz, empresas: [...selecionadas], modo, periodo, planilha,
+      });
+      setResultado(r);
+      setVerTodas(false);
+      if (r.periodo_detectado && r.periodo_detectado !== periodo) {
+        const [m, a] = r.periodo_detectado.split("/");
+        setMes(m);
+        setAno(Number(a));
+        setAviso(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
+      }
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível auditar a pasta."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const salvar = async () => {
+    if (!resultado) return;
+    setErro(null);
+    setSucesso(null);
+    setOcupado("salvar");
+    try {
+      const r = await salvarAuditoria(periodo, resultado.itens);
+      setSucesso(`CGR de ${periodo} salvo: ${brl(r.cgr_liquido)} (${r.qtd_itens} notas). RPV do mês agora é ${brl(r.rpv)}.`);
+      getHistoricoAuditoria().then(setHistorico);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível salvar a auditoria."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const relatorio = async () => {
+    if (!resultado) return;
+    setErro(null);
+    setOcupado("relatorio");
+    try {
+      const blob = await baixarRelatorioAuditoria(periodo, resultado.itens, planilha);
+      salvarArquivo(blob, `Auditoria_${periodo.replace("/", "-")}.xlsx`);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const t = resultado?.totais;
+  const notas = resultado ? (verTodas ? resultado.itens : resultado.itens.slice(0, LIMITE_NOTAS)) : [];
 
   return (
-    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+    <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
         <div>
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: "#a78bfa17", color: "#a78bfa" }}
-            >
-              <FileSearch size={16} />
-            </span>
-            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">Auditoria</h1>
-          </div>
-          <p className="mt-1 ml-12 text-sm text-zinc-500">Conferência fiscal de XML/PDF por empresa</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Auditoria CGR</h1>
+          <p className="mt-1 text-sm text-zinc-400">
+            CGR = Σ compra sem tributos das NF-e e dos CT-e de gasoduto (TAG, Mastergás). Devoluções subtraem; frete de outras transportadoras fica fora.
+          </p>
         </div>
 
-        {/* CONFIGURAÇÃO */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card title="Passo 1 — Pasta com XMLs/PDFs">
-            <div className="space-y-4">
-              <div className="flex gap-2">
-                <Button variant={modo === "XML" ? "primary" : "ghost"} size="sm" onClick={() => setModo("XML")}>XML</Button>
-                <Button variant={modo === "PDF" ? "warning" : "ghost"} size="sm" onClick={() => setModo("PDF")}>PDF (OCR)</Button>
+        {erro && <Alert variant="error">{erro}</Alert>}
+        {aviso && <Alert variant="warning">{aviso}</Alert>}
+        {sucesso && <Alert variant="success">{sucesso}</Alert>}
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          {/* Entrada */}
+          <section className={`${PANEL} flex flex-col gap-5 p-5 sm:p-6 xl:col-span-5`}>
+            <div>
+              <h2 className="text-base font-semibold text-white">Notas fiscais do mês</h2>
+              <p className="mt-0.5 text-sm text-zinc-400">Escolha a pasta “pai”: uma subpasta por empresa, com os XML e/ou PDF.</p>
+            </div>
+            <input ref={inputPasta} type="file" multiple className="hidden" onChange={(e) => { escolherPasta(e.target.files); e.target.value = ""; }} />
+            <button type="button" disabled={ocupado !== null} onClick={() => inputPasta.current?.click()}
+              className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] px-5 py-6 text-center transition-colors hover:border-sky-500/40 hover:bg-white/[0.02] disabled:opacity-50">
+              <FolderOpen size={20} className="text-zinc-500" />
+              <span className="text-sm font-medium text-zinc-200">{pasta ? `Pasta: ${pasta.raiz}` : "Escolher pasta"}</span>
+              <span className="text-xs text-zinc-500">{pasta ? `${pasta.arquivos.length} arquivos XML/PDF em ${pasta.empresas.length} empresas` : "O navegador pede confirmação para ler a pasta"}</span>
+            </button>
+
+            {pasta && pasta.empresas.length > 0 && (
+              <div>
+                <div className="mb-2 flex items-center justify-between">
+                  <p className={LABEL}>Empresas ({selecionadas.size}/{pasta.empresas.length})</p>
+                  <button type="button" className="text-xs text-sky-300 hover:text-sky-200"
+                    onClick={() => setSelecionadas(selecionadas.size === pasta.empresas.length ? new Set() : new Set(pasta.empresas.map((e) => e.nome)))}>
+                    {selecionadas.size === pasta.empresas.length ? "Desmarcar todas" : "Marcar todas"}
+                  </button>
+                </div>
+                <ul className="max-h-60 space-y-1 overflow-y-auto pr-1">
+                  {pasta.empresas.map((e) => (
+                    <li key={e.nome}>
+                      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-white/[0.03]">
+                        <input type="checkbox" checked={selecionadas.has(e.nome)} className="accent-sky-500"
+                          onChange={() => {
+                            const n = new Set(selecionadas);
+                            if (n.has(e.nome)) n.delete(e.nome); else n.add(e.nome);
+                            setSelecionadas(n);
+                          }} />
+                        <span className="flex-1 text-zinc-200">{e.nome}</span>
+                        <span className="text-xs tabular-nums text-zinc-500">{e.xml} XML · {e.pdf} PDF</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
               </div>
-              <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-white/[0.1] px-6 py-8 text-center transition-colors hover:border-sky-500/40 hover:bg-sky-500/[0.03] cursor-pointer">
-                <Upload size={22} className="text-zinc-600" />
-                <p className="text-sm text-zinc-400">Arraste a pasta ou clique para selecionar</p>
-                <p className="text-xs text-zinc-600">Suporta pastas com subpastas por empresa</p>
-                <input type="file" multiple className="hidden" />
-              </label>
-            </div>
-          </Card>
+            )}
 
-          <Card title="Passo 2 — Excel e Período (opcional)">
-            <div className="space-y-4">
-              <label className="flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-white/[0.1] px-6 py-5 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.03] cursor-pointer">
-                <Upload size={18} className="text-zinc-600" />
-                <p className="text-sm text-zinc-400">Selecionar Excel (Conta Gráfica)</p>
-                <input type="file" accept=".xlsx,.xls" className="hidden" />
-              </label>
-              <Input label="Mês/Ano (para comparação)" placeholder="jan26 ou jan/2026" value={periodo} onChange={(e) => setPeriodo(e.target.value)} />
+            <div>
+              <p className={`${LABEL} mb-2`}>Ler as notas de</p>
+              <div role="radiogroup" className="inline-flex rounded-lg border border-white/[0.07] bg-white/[0.02] p-0.5">
+                {([["XML", "XML (e PDFs sem XML)"], ["PDF", "Somente PDF"]] as const).map(([v, txt]) => (
+                  <button key={v} type="button" role="radio" aria-checked={modo === v} onClick={() => setModo(v)}
+                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${modo === v ? "bg-white/[0.1] text-white" : "text-zinc-400 hover:text-zinc-200"}`}>
+                    {txt}
+                  </button>
+                ))}
+              </div>
             </div>
-          </Card>
-        </div>
 
-        {/* PAINEL CGR */}
-        {itens.length > 0 && (
-          <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] px-6 py-4 flex flex-wrap gap-6 items-center">
-            <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">CGR Apurado</span>
-            <span className="text-zinc-400 text-sm">NF-e: <span className="text-sky-400 font-semibold">{brl(totalNFe)}</span></span>
-            <span className="text-zinc-400 text-sm">CT-e: <span className="text-amber-400 font-semibold">{brl(totalCTe)}</span></span>
-            <span className="text-zinc-400 text-sm ml-auto">CGR Líquido: <span className="text-emerald-400 font-bold text-lg">{brl(cgr)}</span></span>
+            <div>
+              <p className={`${LABEL} mb-2`}>Comparar com a planilha da Conta Gráfica (opcional)</p>
+              <input ref={inputPlanilha} type="file" accept=".xlsx,.xls" className="hidden"
+                onChange={(e) => { setPlanilha(e.target.files?.[0] ?? null); e.target.value = ""; }} />
+              {planilha ? (
+                <div className="flex items-center gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2 text-sm">
+                  <FileSpreadsheet size={14} className="text-emerald-400" />
+                  <span className="min-w-0 flex-1 truncate text-zinc-200">{planilha.name}</span>
+                  <button type="button" onClick={() => setPlanilha(null)} aria-label="Remover planilha" className="text-zinc-500 hover:text-red-400"><X size={14} /></button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => inputPlanilha.current?.click()} className={`${BOTAO_SEC} w-full`}>
+                  <FileSpreadsheet size={15} /> Escolher planilha (.xlsx)
+                </button>
+              )}
+            </div>
+
+            <button type="button" onClick={processar} disabled={!enviados.length || ocupado !== null}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+              {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              {ocupado === "processar" ? `Auditando ${enviados.length} arquivos…` : "Executar auditoria"}
+            </button>
+            {ocupado === "processar" && qtdPdf > 20 && (
+              <p className="-mt-2 text-xs text-zinc-500">Ler {qtdPdf} PDFs leva alguns minutos (cerca de 1 min a cada 90). Não feche a página.</p>
+            )}
+          </section>
+
+          {/* Resultado */}
+          <div className="flex flex-col gap-6 xl:col-span-7">
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
+            </section>
+
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              {!t ? (
+                <p className="py-6 text-center text-sm text-zinc-500">Escolha a pasta e execute a auditoria.</p>
+              ) : (
+                <>
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className={LABEL}>CGR líquido de {periodo}</p>
+                      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-sky-300">{brl(t.cgr_liquido)}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {t.qtd_nfe} NF-e · {t.qtd_cte} CT-e · {t.qtd_devolucoes} devoluções · lidos {resultado!.qtd_xml_lidos} XML e {resultado!.qtd_pdf_lidos} PDF
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={relatorio} disabled={ocupado !== null} className={BOTAO_SEC}>
+                        {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
+                      </button>
+                      <button type="button" onClick={salvar} disabled={ocupado !== null || !anoValido(ano)}
+                        className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40">
+                        {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar CGR de {periodo}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="mt-5 overflow-x-auto">
+                    <table className="w-full min-w-[36rem] text-sm">
+                      <thead className="text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                        <tr className="border-b border-white/[0.07]">
+                          {["Empresa", "NF-e", "CT-e", "Valor das notas", "CGR líquido"].map((h, i) => (
+                            <th key={h} className={`py-2 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-white/[0.05]">
+                        {t.por_empresa.map((e) => (
+                          <tr key={e.empresa}>
+                            <td className="py-2 text-zinc-200">
+                              {e.empresa}
+                              {e.frete_fora_do_cgr > 0 && <span className="ml-2 text-xs text-zinc-500">frete fora do CGR: {brl(e.frete_fora_do_cgr)}</span>}
+                            </td>
+                            <td className="py-2 text-right tabular-nums text-zinc-400">{e.qtd_nfe}</td>
+                            <td className="py-2 text-right tabular-nums text-zinc-400">{e.qtd_cte}</td>
+                            <td className="py-2 text-right tabular-nums text-zinc-300">{brl(e.valor_total)}</td>
+                            <td className="py-2 text-right font-semibold tabular-nums text-zinc-100">{brl(e.cgr_liquido)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </section>
+
+            {resultado && (resultado.comparacao ? (
+              <section className={`${PANEL} p-5 sm:p-6`}>
+                <h2 className="text-base font-semibold text-white">Comparação com a planilha ({resultado.comparacao.periodo})</h2>
+                <p className="mt-0.5 text-sm text-zinc-400">
+                  Aba usada: {resultado.comparacao.abas_do_periodo.join(", ") || <span className="text-amber-300">nenhuma aba corresponde ao mês</span>}
+                </p>
+                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                  {[
+                    ["Nas duas", resultado.comparacao.qtd_em_ambas, "text-emerald-300"],
+                    ["Só na auditoria", resultado.comparacao.notas_apenas_auditoria.length, "text-amber-300"],
+                    ["Só na planilha", resultado.comparacao.notas_apenas_planilha.length, "text-amber-300"],
+                  ].map(([r, v, c]) => (
+                    <div key={r as string} className="rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
+                      <p className={`text-2xl font-bold tabular-nums ${v ? c : "text-zinc-500"}`}>{v as number}</p>
+                      <p className="text-xs text-zinc-400">{r as string}</p>
+                    </div>
+                  ))}
+                </div>
+                {(["notas_apenas_auditoria", "notas_apenas_planilha"] as const).map((k) =>
+                  resultado.comparacao![k].length > 0 && (
+                    <details key={k} className="mt-3 text-sm">
+                      <summary className="cursor-pointer text-zinc-300 hover:text-white">
+                        {k === "notas_apenas_auditoria" ? "Notas só na auditoria" : "Notas só na planilha"} ({resultado.comparacao![k].length})
+                      </summary>
+                      <ul className="mt-2 max-h-48 space-y-0.5 overflow-y-auto font-mono text-xs text-zinc-400">
+                        {resultado.comparacao![k].map((n, i) => (
+                          <li key={i}>{[n.numero, n.empresa, n.tipo, n.linha_excel && `linha ${n.linha_excel}`].filter(Boolean).join(" · ")}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
+                {resultado.comparacao.avisos.map((a) => <p key={a} className="mt-2 text-xs text-amber-300">{a}</p>)}
+              </section>
+            ) : (
+              <p className="text-sm text-zinc-500">{resultado.aviso_comparacao}</p>
+            ))}
           </div>
-        )}
-
-        {/* AÇÕES */}
-        <div className="flex flex-wrap gap-3">
-          <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={executar}>
-            Executar Auditoria
-          </Button>
-          {itens.length > 0 && (
-            <>
-              <Button variant="success" icon={<Save size={16} />} onClick={() => alert("Salvo no SCG!")}>Salvar no SCG</Button>
-              <Button variant="primary" icon={<Download size={16} />} onClick={() => alert("Excel exportado!")}>Exportar Excel</Button>
-            </>
-          )}
         </div>
 
-        {/* RESULTADOS */}
-        {itens.length > 0 && (
-          <Card title={`Resultados — ${itens.length} itens`}>
-            <Table columns={columns} data={itens} />
-          </Card>
+        {resultado && (
+          <section className={`${PANEL} overflow-hidden`}>
+            <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+              <h2 className="text-base font-semibold text-white">Notas auditadas ({resultado.itens.length})</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[56rem] text-sm">
+                <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                  <tr>
+                    {["Empresa", "Tipo", "Número", "Valor", "ICMS", "CGR líquido", "Origem"].map((h, i) => (
+                      <th key={h} className={`px-4 py-3 font-semibold ${i >= 3 && i <= 5 ? "text-right" : "text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {notas.map((n, i) => (
+                    <tr key={`${n.caminho}-${i}`} className={n.devolucao ? "bg-red-500/[0.04]" : ""}>
+                      <td className="px-4 py-2 text-zinc-200">{n.empresa}</td>
+                      <td className="px-4 py-2 text-zinc-400">{n.tipo}</td>
+                      <td className="px-4 py-2 font-mono text-xs text-zinc-300">{n.numero}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-zinc-300">{brl(n.valor_total)}</td>
+                      <td className="px-4 py-2 text-right tabular-nums text-zinc-400">{num(n.icms_taxa * 100, 2)}%</td>
+                      <td className={`px-4 py-2 text-right font-semibold tabular-nums ${!n.integra_cgr ? "text-zinc-600" : n.cgr_liquido < 0 ? "text-red-300" : "text-zinc-100"}`}>
+                        {n.integra_cgr ? brl(n.cgr_liquido) : "fora (frete)"}
+                      </td>
+                      <td className="px-4 py-2 text-xs text-zinc-500">{n.status === "OCR" ? "PDF" : "XML"}{n.devolucao && " · devolução"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {resultado.itens.length > LIMITE_NOTAS && (
+              <button type="button" onClick={() => setVerTodas(!verTodas)} className="w-full border-t border-white/[0.07] py-3 text-sm text-sky-300 hover:bg-white/[0.02]">
+                {verTodas ? "Mostrar menos" : `Mostrar todas as ${resultado.itens.length} notas`}
+              </button>
+            )}
+          </section>
         )}
+
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+            <h2 className="text-base font-semibold text-white">Meses auditados</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-sm">
+              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <tr>
+                  {["Período", "Notas gravadas", "CGR gravado", "Atualizado"].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {historico.map((h) => (
+                  <tr key={h.periodo}>
+                    <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{h.qtd_notas}</td>
+                    <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-zinc-100">{brl(h.cgr_gravado)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{h.data_atualizacao}</td>
+                  </tr>
+                ))}
+                {historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum mês auditado.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

@@ -1,113 +1,264 @@
-import { useState } from "react";
-import { FileText, Upload, Play, Save } from "lucide-react";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { Card, StatCard } from "../../components/ui/Card";
-import { Table } from "../../components/ui/Table";
-import { Badge } from "../../components/ui/Badge";
-import { brl } from "../../utils/format";
-import type { ConciliaItem } from "../../types";
+import { useEffect, useState } from "react";
+import { Download, Loader2, Play, Save } from "lucide-react";
+import { Alert } from "../../components/ui/Alert";
+import { SeletorMes } from "../../components/ui/SeletorMes";
+import { SeletorPasta } from "../../components/ui/SeletorPasta";
+import {
+  baixarRelatorioConcilia, getHistoricoConcilia, processarConcilia, salvarConcilia, type ArquivoDaPasta,
+} from "../../api";
+import { mensagemDeErro } from "../../api/client";
+import { brl, brlEntrada, parseBRL } from "../../utils/format";
+import { salvarArquivo } from "../../utils/download";
+import { lerPasta } from "../../utils/pasta";
+import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
 
-const MOCK: ConciliaItem[] = [
-  { arquivo: "NF_001.pdf", categoria: "Receita", valor: 120000, status: "OK", metodo: "OCR" },
-  { arquivo: "NF_002.pdf", categoria: "Receita", valor: 85000, status: "OK", metodo: "OCR" },
-  { arquivo: "DESP_001.pdf", categoria: "Despesa", valor: 45000, status: "OK", metodo: "OCR" },
-  { arquivo: "DESP_002.pdf", categoria: "Despesa", valor: 160000, status: "DIVERGÊNCIA", metodo: "OCR" },
-];
+const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
+
+type Pasta = { raiz: string; arquivos: ArquivoDaPasta[] };
 
 export default function ConciliacaoPage() {
-  const [periodo, setPeriodo] = useState(new Date().toLocaleDateString("pt-BR", { month: "short", year: "numeric" }).replace(" de ", "/"));
-  const [loading, setLoading] = useState(false);
-  const [itens, setItens] = useState<ConciliaItem[]>([]);
-  const [layoutBonito, setLayoutBonito] = useState(false);
+  const hoje = new Date();
+  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
+  const [ano, setAno] = useState(hoje.getFullYear());
+  const periodo = `${mes}/${ano}`;
 
-  const totalRec = itens.filter((i) => i.categoria === "Receita").reduce((s, i) => s + i.valor, 0);
-  const totalDesp = itens.filter((i) => i.categoria === "Despesa").reduce((s, i) => s + i.valor, 0);
-  const saldoRP = totalDesp - totalRec;
+  const [receitas, setReceitas] = useState<Pasta | null>(null);
+  const [despesas, setDespesas] = useState<Pasta | null>(null);
+  const [itens, setItens] = useState<ConciliaItem[] | null>(null);
+  const [editados, setEditados] = useState<Record<number, string>>({});
+  const [historico, setHistorico] = useState<ConciliaHistoricoLinha[]>([]);
+  const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
+
+  useEffect(() => {
+    getHistoricoConcilia().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+  }, []);
+
+  /** Itens com os valores digitados à mão nos PDFs que não foram lidos. */
+  const itensFinais: ConciliaItem[] | null = itens && itens.map((it, i) => {
+    if (!(i in editados)) return it;
+    const v = parseBRL(editados[i]);
+    return v === null ? it : { ...it, valor: v, status: "OK", metodo: "Digitado na web" };
+  });
+  const invalidos = Object.values(editados).some((t) => t.trim() !== "" && parseBRL(t) === null);
+  const soma = (cat: string) => (itensFinais ?? []).filter((i) => i.categoria === cat).reduce((s, i) => s + i.valor, 0);
+  const totalRec = soma("Receita");
+  const totalDesp = soma("Despesa");
+  const rp = totalDesp - totalRec;
+  const pendentes = (itensFinais ?? []).filter((i) => i.status !== "OK").length;
 
   const processar = async () => {
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 900));
-    setItens(MOCK);
-    setLoading(false);
+    setErro(null);
+    setSucesso(null);
+    setOcupado("processar");
+    try {
+      const r = await processarConcilia(receitas?.arquivos ?? [], despesas?.arquivos ?? []);
+      setItens(r.itens);
+      setEditados({});
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível ler os PDFs."));
+    } finally {
+      setOcupado(null);
+    }
   };
 
-  const columns = [
-    { key: "arquivo", header: "Arquivo" },
-    { key: "categoria", header: "Categoria", render: (r: ConciliaItem) => <Badge variant={r.categoria === "Receita" ? "green" : "red"}>{r.categoria}</Badge> },
-    { key: "valor", header: "Valor", align: "right" as const, render: (r: ConciliaItem) => brl(r.valor) },
-    { key: "status", header: "Status", render: (r: ConciliaItem) => <Badge variant={r.status === "OK" ? "green" : "yellow"}>{r.status}</Badge> },
-    { key: "metodo", header: "Método", render: (r: ConciliaItem) => <Badge variant="gray">{r.metodo}</Badge> },
-  ];
+  const salvar = async () => {
+    if (!itensFinais) return;
+    setErro(null);
+    setSucesso(null);
+    setOcupado("salvar");
+    try {
+      const r = await salvarConcilia(periodo, itensFinais);
+      setSucesso(`RP de ${periodo} salvo: ${brl(r.rp)} (${r.qtd_itens} PDFs).`);
+      getHistoricoConcilia().then(setHistorico);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível salvar o RP."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const relatorio = async () => {
+    if (!itensFinais) return;
+    setOcupado("relatorio");
+    try {
+      salvarArquivo(await baixarRelatorioConcilia(periodo, itensFinais), `Conciliacao_${periodo.replace("/", "-")}.xlsx`);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório."));
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  const escolher = (setter: (p: Pasta) => void) => (lista: FileList) => {
+    setter(lerPasta(lista, ["pdf", "zip"]));
+    setItens(null);
+  };
 
   return (
-    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
+    <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
-          <div className="flex items-center gap-3">
-            <span
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: "#fb923c17", color: "#fb923c" }}
-            >
-              <FileText size={16} />
-            </span>
-            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">Conciliação</h1>
-          </div>
-          <p className="mt-1 ml-12 text-sm text-zinc-500">Conciliador financeiro — receitas x despesas</p>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Conciliação RP</h1>
+          <p className="mt-1 text-sm text-zinc-400">Penalidades: RP = Σ despesas − Σ receitas (linha “Saldo de penalidade” da planilha oficial)</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card title="Pasta de RECEITAS">
-            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-emerald-500/20 px-6 py-8 text-center transition-colors hover:border-emerald-500/40 hover:bg-emerald-500/[0.03] cursor-pointer">
-              <Upload size={22} className="text-emerald-500/50" />
-              <p className="text-sm text-zinc-400">Selecionar pasta de receitas</p>
-              <p className="text-xs text-zinc-600">PDF e ZIP suportados</p>
-              <input type="file" multiple className="hidden" />
-            </label>
-          </Card>
-          <Card title="Pasta de DESPESAS">
-            <label className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-red-500/20 px-6 py-8 text-center transition-colors hover:border-red-500/40 hover:bg-red-500/[0.03] cursor-pointer">
-              <Upload size={22} className="text-red-500/50" />
-              <p className="text-sm text-zinc-400">Selecionar pasta de despesas</p>
-              <p className="text-xs text-zinc-600">PDF e ZIP suportados</p>
-              <input type="file" multiple className="hidden" />
-            </label>
-          </Card>
-        </div>
+        {erro && <Alert variant="error">{erro}</Alert>}
+        {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
-        <Card>
-          <div className="flex flex-wrap gap-4 items-end">
-            <Input label="Período" placeholder="ex: Dez/2025" value={periodo} onChange={(e) => setPeriodo(e.target.value)} className="w-44" />
-            <label className="flex items-center gap-2 text-sm text-zinc-300 cursor-pointer">
-              <input type="checkbox" checked={layoutBonito} onChange={(e) => setLayoutBonito(e.target.checked)} className="rounded border-white/[0.2] bg-white/[0.03]" />
-              Gerar Excel bonito
-            </label>
-          </div>
-        </Card>
-
-        <div className="flex flex-wrap gap-3">
-          <Button variant="primary" size="lg" loading={loading} icon={<Play size={16} />} onClick={processar}>
-            Processar e Conciliar
-          </Button>
-          {itens.length > 0 && (
-            <Button variant="success" icon={<Save size={16} />} onClick={() => alert(`RP salvo para ${periodo}`)}>
-              Salvar Saldo (RP) no SCG
-            </Button>
-          )}
-        </div>
-
-        {itens.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              <StatCard label="Total Receitas" value={brl(totalRec)} color="text-emerald-400" />
-              <StatCard label="Total Despesas" value={brl(totalDesp)} color="text-red-400" />
-              <StatCard label="Saldo RP (Desp − Rec)" value={brl(saldoRP)} color={saldoRP >= 0 ? "text-amber-400" : "text-red-400"} />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <section className={`${PANEL} flex flex-col gap-4 p-5 sm:p-6 xl:col-span-5`}>
+            <div>
+              <h2 className="text-base font-semibold text-white">Notas de penalidade</h2>
+              <p className="mt-0.5 text-sm text-zinc-400">PDFs (e ZIPs com PDFs). Subpastas “TOP” ficam de fora.</p>
             </div>
-            <Card title={`Itens — ${itens.length} registos`}>
-              <Table columns={columns} data={itens} />
-            </Card>
-          </>
+            <div>
+              <p className={`${LABEL} mb-2 text-emerald-300`}>Receitas</p>
+              <SeletorPasta desabilitado={ocupado !== null} onEscolher={escolher(setReceitas)}
+                titulo={receitas ? receitas.raiz : "Escolher pasta de receitas"}
+                detalhe={receitas ? `${receitas.arquivos.length} arquivos` : "Opcional"} />
+            </div>
+            <div>
+              <p className={`${LABEL} mb-2 text-red-300`}>Despesas</p>
+              <SeletorPasta desabilitado={ocupado !== null} onEscolher={escolher(setDespesas)}
+                titulo={despesas ? despesas.raiz : "Escolher pasta de despesas"}
+                detalhe={despesas ? `${despesas.arquivos.length} arquivos` : "Opcional"} />
+            </div>
+            <button type="button" onClick={processar}
+              disabled={!(receitas?.arquivos.length || despesas?.arquivos.length) || ocupado !== null}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+              {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              {ocupado === "processar" ? "Lendo PDFs…" : "Processar e conciliar"}
+            </button>
+          </section>
+
+          <div className="flex flex-col gap-6 xl:col-span-7">
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
+            </section>
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              {!itensFinais ? (
+                <p className="py-6 text-center text-sm text-zinc-500">Escolha as pastas e clique em Processar.</p>
+              ) : (
+                <>
+                  <dl className="grid grid-cols-3 gap-3 text-center">
+                    {[
+                      ["Receitas", totalRec, "text-emerald-300"],
+                      ["Despesas", totalDesp, "text-red-300"],
+                      ["RP (desp. − rec.)", rp, rp < 0 ? "text-red-300" : "text-sky-300"],
+                    ].map(([r, v, c]) => (
+                      <div key={r as string} className="rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
+                        <dt className="text-xs text-zinc-400">{r as string}</dt>
+                        <dd className={`mt-1 text-lg font-bold tabular-nums ${c}`}>{brl(v as number)}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  {pendentes > 0 && (
+                    <p className="mt-3 text-sm text-amber-300">
+                      {pendentes} PDF(s) não foram lidos e estão contando R$ 0,00. Digite o valor na tabela abaixo ou confira o arquivo.
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-wrap justify-end gap-2">
+                    <button type="button" onClick={relatorio} disabled={ocupado !== null || invalidos} className={BOTAO_SEC}>
+                      {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
+                    </button>
+                    <button type="button" onClick={salvar} disabled={ocupado !== null || invalidos || !anoValido(ano)}
+                      className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40">
+                      {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar RP de {periodo}
+                    </button>
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
+        </div>
+
+        {itens && (
+          <section className={`${PANEL} overflow-hidden`}>
+            <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+              <h2 className="text-base font-semibold text-white">PDFs ({itens.length})</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[52rem] text-sm">
+                <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                  <tr>
+                    {["Categoria", "Arquivo", "Status", "Valor", "Leitura"].map((h) => (
+                      <th key={h} className={`px-4 py-3 font-semibold ${h === "Valor" ? "text-right" : "text-left"}`}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {itens.map((it, i) => {
+                    const falhou = it.status !== "OK";
+                    const texto = editados[i];
+                    const invalido = texto !== undefined && texto.trim() !== "" && parseBRL(texto) === null;
+                    return (
+                      <tr key={`${it.caminho}-${i}`} className={falhou && texto === undefined ? "bg-amber-500/[0.05]" : ""}>
+                        <td className={`px-4 py-2 font-medium ${it.categoria === "Receita" ? "text-emerald-300" : "text-red-300"}`}>{it.categoria}</td>
+                        <td className="max-w-[22rem] truncate px-4 py-2 text-zinc-200" title={it.caminho}>{it.arquivo}</td>
+                        <td className="px-4 py-2 text-xs">
+                          <span className={falhou ? "text-amber-300" : "text-zinc-500"}>{texto !== undefined ? "digitado" : it.status}</span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {falhou ? (
+                            <input
+                              aria-label={`Valor de ${it.arquivo}`} inputMode="decimal" placeholder="0,00"
+                              value={texto ?? (it.valor ? brlEntrada(it.valor) : "")}
+                              onChange={(e) => setEditados({ ...editados, [i]: e.target.value })}
+                              aria-invalid={invalido}
+                              className={`w-36 rounded-lg border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100 focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50 ${invalido ? "border-red-500/50" : "border-amber-500/30"}`}
+                            />
+                          ) : (
+                            <span className={`font-semibold tabular-nums ${it.valor < 0 ? "text-red-300" : "text-zinc-100"}`}>{brl(it.valor)}</span>
+                          )}
+                        </td>
+                        <td className="max-w-[16rem] truncate px-4 py-2 text-xs text-zinc-500" title={it.metodo}>{it.metodo}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
         )}
+
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+            <h2 className="text-base font-semibold text-white">RP gravado</h2>
+            <p className="mt-0.5 text-sm text-zinc-400">Quando o RP gravado difere do calculado pelos PDFs gravados, a linha fica destacada.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[44rem] text-sm">
+              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <tr>
+                  {["Período", "PDFs", "Receitas", "Despesas", "RP dos PDFs", "RP gravado"].map((h, i) => (
+                    <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {historico.map((h) => {
+                  const diverge = Math.abs(h.rp_dos_itens - h.rp_gravado) > 0.01;
+                  return (
+                    <tr key={h.periodo} className={diverge ? "bg-amber-500/[0.05]" : ""}>
+                      <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-400">{h.qtd_itens}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.total_receitas)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.total_despesas)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.rp_dos_itens)}</td>
+                      <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${diverge ? "text-amber-300" : "text-zinc-100"}`}>{brl(h.rp_gravado)}</td>
+                    </tr>
+                  );
+                })}
+                {historico.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum RP gravado.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

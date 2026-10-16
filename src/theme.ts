@@ -44,4 +44,5 @@ export const moduleColor: Record<string, string> = {
   rpv: "text-indigo-400",
   scg: "text-red-400",
   sr: "text-cyan-400",
+  excel: "text-emerald-400",
 };
