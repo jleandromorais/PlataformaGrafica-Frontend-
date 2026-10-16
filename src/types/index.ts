@@ -361,3 +361,44 @@ export interface DashboardResponse {
   serie_pmpv: SeriePonto[];
   serie_scg: SeriePonto[];
 }
+
+// ─── Dashboard: painéis extras ───────────────────────────────────────────────
+export interface DashEmpresa {
+  empresa: string;
+  notas: number;
+  nfe: number;
+  cte: number;
+  valor_total: number;
+  icms: number;
+  pis_cofins: number;
+  cgr_liquido: number;
+}
+export interface DashEmpresasResponse {
+  ano_filtro: string | null;
+  empresas: DashEmpresa[];
+  total_cgr_liquido: number;
+}
+export interface DashRetMes {
+  periodo: string;
+  total: number;
+  por_tipo: Record<string, number>;
+}
+export interface DashRetResponse {
+  ano_filtro: string | null;
+  tipos: string[];
+  meses: DashRetMes[];
+  total: number;
+}
+export interface DashVolumeMes {
+  periodo: string;
+  volume_faturado: number;
+  volume_devolucoes: number;
+  volume_canceladas: number;
+  volume_consumo_proprio: number;
+  volume_final: number;
+}
+export interface DashVolumesResponse {
+  ano_filtro: string | null;
+  meses: DashVolumeMes[];
+  totais: DashVolumeMes;
+}

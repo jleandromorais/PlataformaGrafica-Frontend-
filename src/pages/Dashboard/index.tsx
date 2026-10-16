@@ -21,6 +21,7 @@ import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { DashboardResponse, KpiMensal } from "../../types";
+import { PaineisExtras } from "./PaineisExtras";
 
 const TODOS_OS_ANOS = "Todos os anos";
 
@@ -500,6 +501,9 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* ── Empresas, encargos RET e volumes (seguem o filtro de ano) ───── */}
+        <PaineisExtras ano={ano === TODOS_OS_ANOS ? undefined : ano} />
       </div>
     </div>
   );

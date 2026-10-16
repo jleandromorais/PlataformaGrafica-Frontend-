@@ -3,6 +3,7 @@ import { api } from "./client";
 import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
+  DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
@@ -11,6 +12,15 @@ import type {
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
+export const getDashEmpresas = (ano?: string) =>
+  api.get<DashEmpresasResponse>("/dashboard/empresas", { params: ano ? { ano } : {} }).then((r) => r.data);
+
+export const getDashRet = (ano?: string) =>
+  api.get<DashRetResponse>("/dashboard/ret", { params: ano ? { ano } : {} }).then((r) => r.data);
+
+export const getDashVolumes = (ano?: string) =>
+  api.get<DashVolumesResponse>("/dashboard/volumes", { params: ano ? { ano } : {} }).then((r) => r.data);
+
 export const getDashboard = (ano?: string) =>
   api
     .get<DashboardResponse>("/dashboard", { params: ano ? { ano } : {} })
