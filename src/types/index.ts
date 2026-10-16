@@ -67,6 +67,14 @@ export interface CGFVolumes {
   volume_final: number;           // faturado − devoluções
 }
 
+export interface CGFCalcularRsResponse {
+  periodo: string;
+  pmpv: number;               // 0 quando não há PMPV
+  pmpv_origem: "manual" | "banco" | "ausente";
+  volume_final: number;
+  cgf_rs: number | null;      // null sem PMPV
+}
+
 export interface CGFProcessarResponse extends CGFVolumes {
   periodo_detectado: string;
   arquivos_ignorados: string[];

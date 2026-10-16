@@ -17,6 +17,8 @@
 @layer base {
   html {
     color-scheme: dark;
+    /* Tamanho-base maior: o Tailwind escala texto e espaçamentos em rem. */
+    font-size: 112.5%;
   }
 
   body {

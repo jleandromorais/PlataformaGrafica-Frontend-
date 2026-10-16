@@ -1,5 +1,8 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Layout } from "../components/layout/Layout";
+import { RequireAuth, SomenteVisitante } from "../auth/RequireAuth";
+import LoginPage from "../pages/Auth/Login";
+import CadastroPage from "../pages/Auth/Cadastro";
 import DashboardPage from "../pages/Dashboard";
 import PMPVPage from "../pages/PMPV";
 import CGFPage from "../pages/CGF";
@@ -14,6 +17,16 @@ import SRPage from "../pages/SR";
 import ExcelFinalPage from "../pages/ExcelFinal";
 
 export const router = createBrowserRouter([
+  {
+    element: <SomenteVisitante />,
+    children: [
+      { path: "login",    element: <LoginPage /> },
+      { path: "cadastro", element: <CadastroPage /> },
+    ],
+  },
+  {
+    element: <RequireAuth />,
+    children: [
   {
     path: "/",
     element: <Layout />,
@@ -30,6 +43,8 @@ export const router = createBrowserRouter([
       { path: "scg",        element: <SCGPage /> },
       { path: "sr",         element: <SRPage /> },
       { path: "excel-final", element: <ExcelFinalPage /> },
+    ],
+  },
     ],
   },
 ]);

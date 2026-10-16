@@ -3,7 +3,7 @@ import { api } from "./client";
 import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
-  CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
@@ -87,6 +87,10 @@ export const processarCGF = (arquivos: File[], colunas: CGFColunas) => {
 /** Grava CGF em R$ (volume final × PMPV) e o resumo. Exige PMPV > 0. */
 export const salvarCGF = (payload: CGFVolumes & { periodo: string; pmpv: number }) =>
   api.post<{ cgf_rs: number; rpv: number }>("/cgf/salvar", payload).then((r) => r.data);
+
+/** CGF em R$ = volume final × PMPV. Sem `pmpv`, o back usa o PMPV salvo do mês. Não grava. */
+export const calcularCGFRs = (periodo: string, volume_final: number, pmpv?: number) =>
+  api.post<CGFCalcularRsResponse>("/cgf/calcular-rs", { periodo, volume_final, pmpv: pmpv ?? null }).then((r) => r.data);
 
 export const getHistoricoCGF = () =>
   api.get<CGFHistoricoLinha[]>("/cgf/historico").then((r) => r.data);
@@ -222,6 +226,16 @@ export const getTrimestreExcelFinal = (periodo: string) =>
 export const gerarExcelFinal = (periodo: string) =>
   api
     .post<Blob>("/excel-final/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+    .then((r) => r.data);
+
+/** Períodos com dados gravados: o que o Excel Final geral contém. */
+export const getCoberturaExcelFinal = () =>
+  api.get<{ anos: string[]; periodos: string[]; total: number }>("/excel-final/cobertura").then((r) => r.data);
+
+/** Excel Final com todos os períodos e anos gravados. */
+export const gerarExcelFinalGeral = () =>
+  api
+    .post<Blob>("/excel-final/gerar-geral", null, { responseType: "blob", timeout: 5 * 60 * 1000 })
     .then((r) => r.data);
 
 // ─── PR ──────────────────────────────────────────────────────────────────────

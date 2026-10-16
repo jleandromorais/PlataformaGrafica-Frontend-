@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Play, Save } from "lucide-react";
+import { Loader2, Play, Save, Zap } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { SeletorArquivos } from "../../components/ui/SeletorArquivos";
 import { SeletorMes } from "../../components/ui/SeletorMes";
-import { getHistoricoCGF, getPMPVMensal, processarCGF, salvarCGF } from "../../api";
+import { calcularCGFRs, getHistoricoCGF, getPMPVMensal, processarCGF, salvarCGF } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { arredondarTarifa, brl, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
 
 const COLUNAS_PADRAO: CGFColunas = {
@@ -42,18 +41,36 @@ export default function CGFPage() {
   const [colunas, setColunas] = useState<CGFColunas>(COLUNAS_PADRAO);
   const [resultado, setResultado] = useState<CGFProcessarResponse | null>(null);
   const [pmpv, setPmpv] = useState<number | null>(null);
+  const [pmpvTexto, setPmpvTexto] = useState("");
+  const [carregandoPmpv, setCarregandoPmpv] = useState(true); // a busca inicial roda ao abrir
   const [historico, setHistorico] = useState<CGFHistoricoLinha[]>([]);
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar">(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const ultimaBuscaPmpv = useRef(0);
+  const [calculo, setCalculo] = useState<{ chave: string; cgfRs: number | null } | null>(null);
+  const ultimoCalculo = useRef(0);
 
   const buscarPmpv = (p: string) => {
     const busca = ++ultimaBuscaPmpv.current;
+    const aplicar = (v: number) => {
+      if (busca !== ultimaBuscaPmpv.current) return;
+      setPmpv(v);
+      setPmpvTexto(v > 0 ? String(v).replace(".", ",") : "");
+      setCarregandoPmpv(false);
+    };
     getPMPVMensal(p)
-      .then((r) => busca === ultimaBuscaPmpv.current && setPmpv(arredondarTarifa(r.pmpv || 0)))
-      .catch(() => busca === ultimaBuscaPmpv.current && setPmpv(0));
+      .then((r) => aplicar(arredondarTarifa(r.pmpv || 0)))
+      .catch(() => aplicar(0));
+  };
+
+  const editarPmpv = (texto: string) => {
+    ultimaBuscaPmpv.current++; // digitação manual vence uma busca em andamento
+    setCarregandoPmpv(false);
+    setPmpvTexto(texto);
+    const n = Number(texto.replace(",", "."));
+    setPmpv(Number.isFinite(n) && n > 0 ? n : 0);
   };
 
   useEffect(() => {
@@ -61,12 +78,27 @@ export default function CGFPage() {
     buscarPmpv(periodo);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 
+  // CGF em R$ vem do back (volume final × PMPV); aqui só pedimos e mostramos.
+  const volumeFinal = resultado?.volume_final ?? null;
+  useEffect(() => {
+    if (volumeFinal === null || !pmpv || !anoValido(ano)) return;
+    const chamada = ++ultimoCalculo.current;
+    const chave = `${mes}/${ano}|${volumeFinal}|${pmpv}`;
+    calcularCGFRs(`${mes}/${ano}`, volumeFinal, pmpv)
+      .then((r) => chamada === ultimoCalculo.current && setCalculo({ chave, cgfRs: r.cgf_rs }))
+      .catch((e) => chamada === ultimoCalculo.current && setErro(mensagemDeErro(e, "Não foi possível calcular o CGF em R$.")));
+  }, [mes, ano, volumeFinal, pmpv]);
+
   const mudarPeriodo = (m: string, a: number) => {
     setMes(m);
     setAno(a);
     setSucesso(null);
     setPmpv(null);
-    if (anoValido(a)) buscarPmpv(`${m}/${a}`);
+    setPmpvTexto("");
+    if (anoValido(a)) {
+      setCarregandoPmpv(true);
+      buscarPmpv(`${m}/${a}`);
+    }
   };
 
   const processar = async () => {
@@ -109,7 +141,8 @@ export default function CGFPage() {
     }
   };
 
-  const cgfRs = resultado && pmpv ? resultado.volume_final * pmpv : null;
+  const chaveAtual = resultado && pmpv ? `${periodo}|${resultado.volume_final}|${pmpv}` : null;
+  const cgfRs = chaveAtual && calculo?.chave === chaveAtual ? calculo.cgfRs : null;
   const tipos = arquivos.map((a) => tipoDoArquivo(a.name).texto);
   const semFaturada = arquivos.length > 0 && !tipos.includes("Faturada");
 
@@ -178,6 +211,34 @@ export default function CGFPage() {
               <SeletorMes mes={mes} ano={ano} onChange={mudarPeriodo} />
             </section>
 
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              <h2 className="text-base font-semibold text-sky-300">CGF em R$ <span className="text-zinc-500">—</span> Volume × PMPV</h2>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <label htmlFor="cgf-pmpv" className="text-sm text-zinc-400">PMPV (R$/m³):</label>
+                <input
+                  id="cgf-pmpv" inputMode="decimal" value={pmpvTexto} placeholder="0,0000"
+                  onChange={(e) => editarPmpv(e.target.value)}
+                  className={`${INPUT} w-40`}
+                />
+                <button
+                  type="button" onClick={() => { setCarregandoPmpv(true); buscarPmpv(periodo); }} disabled={carregandoPmpv || !anoValido(ano)}
+                  className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
+                >
+                  {carregandoPmpv ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
+                  Carregar do banco
+                </button>
+              </div>
+              <p className="mt-5 text-2xl font-bold tracking-tight text-emerald-300">
+                CGF em R$: <span className="tabular-nums">{cgfRs !== null ? brl(cgfRs) : "—"}</span>
+              </p>
+              {pmpv === 0 && !carregandoPmpv && (
+                <p className="mt-2 text-xs text-amber-300">Sem PMPV para {periodo}: digite o valor ou salve o PMPV do mês no módulo PMPV.</p>
+              )}
+              {pmpv !== null && pmpv > 0 && !resultado && (
+                <p className="mt-2 text-xs text-zinc-500">Processe as planilhas para calcular o volume final.</p>
+              )}
+            </section>
+
             <section className={`${PANEL} overflow-hidden`}>
               <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
                 <h2 className="text-base font-semibold text-white">Volumes de {periodo}</h2>
@@ -204,18 +265,10 @@ export default function CGFPage() {
                     <dt className="font-semibold text-white">Volume final</dt>
                     <dd className="text-lg font-bold tabular-nums text-sky-300">{m3(resultado.volume_final)}</dd>
                   </div>
-                  <div className="flex items-baseline justify-between gap-4 px-5 py-3 sm:px-6">
-                    <dt className="text-zinc-300">× PMPV de {periodo}</dt>
-                    <dd className="tabular-nums text-zinc-200">
-                      {pmpv === null ? "…" : pmpv > 0 ? `${brl(pmpv, 4)}/m³` : <span className="text-amber-300">sem PMPV salvo</span>}
-                    </dd>
-                  </div>
                   <div className="flex flex-wrap items-center justify-between gap-4 bg-white/[0.02] px-5 py-4 sm:px-6">
-                    <div>
-                      <p className={LABEL}>CGF em R$</p>
-                      <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-emerald-300">{cgfRs !== null ? brl(cgfRs) : "—"}</p>
-                      {pmpv === 0 && <p className="mt-1 text-xs text-amber-300">Calcule e salve o PMPV de {periodo} no módulo PMPV para poder salvar o CGF.</p>}
-                    </div>
+                    <p className="text-sm text-zinc-400">
+                      {cgfRs !== null ? <>CGF de {periodo}: <span className="font-semibold text-emerald-300">{brl(cgfRs)}</span></> : "Informe o PMPV para poder salvar."}
+                    </p>
                     <button
                       type="button" onClick={salvar} disabled={cgfRs === null || ocupado !== null}
                       className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40"

@@ -2,9 +2,10 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, BarChart2, FileSearch,
   FileText, Zap, TrendingUp, DollarSign, PieChart, Activity, Layers, X, FileSpreadsheet,
-  type LucideIcon,
+  LogOut, type LucideIcon,
 } from "lucide-react";
 import { moduleColor } from "../../theme";
+import { useAuth } from "../../auth/AuthContext";
 
 type Item = { to: string; icon: LucideIcon; label: string; key: string };
 type Grupo = { titulo?: string; itens: Item[] };
@@ -65,6 +66,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ aberto, onFechar }: SidebarProps) {
+  const { usuario, sair } = useAuth();
   return (
     <>
       {/* Véu da gaveta no mobile */}
@@ -77,7 +79,7 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
       />
 
       <aside
-        className={`fixed inset-y-0 left-0 z-40 flex w-[260px] shrink-0 flex-col border-r border-white/[0.06] bg-rail text-zinc-300
+        className={`fixed inset-y-0 left-0 z-40 flex w-[16.5rem] shrink-0 flex-col border-r border-white/[0.06] bg-rail text-zinc-300
           transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]
           lg:static lg:z-auto lg:translate-x-0
           ${aberto ? "translate-x-0 shadow-[8px_0_32px_rgba(0,0,0,0.5)]" : "-translate-x-full"}`}
@@ -142,7 +144,27 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
           ))}
         </nav>
 
-        <div className="border-t border-white/[0.06] p-4">
+        <div className="space-y-2 border-t border-white/[0.06] p-4">
+          {usuario && (
+            <div className="flex items-center gap-2.5 rounded-lg bg-white/[0.03] px-3 py-2.5">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-500/15 text-xs font-semibold uppercase text-sky-400">
+                {usuario.nome.trim().charAt(0)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-zinc-200">{usuario.nome}</p>
+                <p className="truncate text-[0.68rem] text-zinc-500">{usuario.email}</p>
+              </div>
+              <button
+                type="button"
+                onClick={sair}
+                aria-label="Sair"
+                title="Sair"
+                className="rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/[0.06] hover:text-white"
+              >
+                <LogOut size={15} />
+              </button>
+            </div>
+          )}
           <div className="flex items-center justify-between rounded-lg bg-white/[0.03] px-3 py-2.5">
             <div className="flex items-center gap-2.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_3px_rgba(16,185,129,0.15)]" />
