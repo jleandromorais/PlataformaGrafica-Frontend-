@@ -2,22 +2,45 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, BarChart2, FileSearch,
   FileText, Zap, TrendingUp, DollarSign, PieChart, Activity, Layers, X, FileSpreadsheet,
+  type LucideIcon,
 } from "lucide-react";
 import { moduleColor } from "../../theme";
 
-const nav = [
-  { to: "/",            icon: LayoutDashboard, label: "Dashboard",   key: "dashboard" },
-  { to: "/pmpv",        icon: Calculator,      label: "PMPV",        key: "pmpv" },
-  { to: "/cgf",         icon: BarChart2,       label: "CGF",         key: "cgf" },
-  { to: "/auditoria",   icon: FileSearch,      label: "Auditoria",   key: "auditoria" },
-  { to: "/conciliacao", icon: FileText,        label: "Conciliação", key: "conciliacao" },
-  { to: "/ret",         icon: Zap,             label: "RET",         key: "ret" },
-  { to: "/pr",          icon: TrendingUp,      label: "PR",          key: "pr" },
-  { to: "/pv",          icon: DollarSign,      label: "PV",          key: "pv" },
-  { to: "/rpv",         icon: PieChart,        label: "RPV",         key: "rpv" },
-  { to: "/scg",         icon: Layers,          label: "SCG",         key: "scg" },
-  { to: "/sr",          icon: Activity,        label: "SR",          key: "sr" },
-  { to: "/excel-final", icon: FileSpreadsheet, label: "Excel Final", key: "excel" },
+type Item = { to: string; icon: LucideIcon; label: string; key: string };
+type Grupo = { titulo?: string; itens: Item[] };
+
+const grupos: Grupo[] = [
+  {
+    itens: [
+      { to: "/",     icon: LayoutDashboard, label: "Dashboard", key: "dashboard" },
+      { to: "/pmpv", icon: Calculator,      label: "PMPV",      key: "pmpv" },
+    ],
+  },
+  {
+    titulo: "Conta Gráfica",
+    itens: [
+      { to: "/auditoria",   icon: FileSearch, label: "Auditoria CGR",       key: "auditoria" },
+      { to: "/cgf",         icon: BarChart2,  label: "CGF — Volume Faturado", key: "cgf" },
+      { to: "/rpv",         icon: PieChart,   label: "RPV",                 key: "rpv" },
+      { to: "/ret",         icon: Zap,        label: "RET — Encargos",      key: "ret" },
+      { to: "/conciliacao", icon: FileText,   label: "RP — Conciliação",    key: "conciliacao" },
+      { to: "/scg",         icon: Layers,     label: "SCG — Consolidação",  key: "scg" },
+      { to: "/sr",          icon: Activity,   label: "SR — Saldo Regulatório", key: "sr" },
+    ],
+  },
+  {
+    titulo: "Módulo 3 · Consolidação",
+    itens: [
+      { to: "/pr", icon: TrendingUp, label: "PR — Preço Regulatório", key: "pr" },
+      { to: "/pv", icon: DollarSign, label: "PV Final",               key: "pv" },
+    ],
+  },
+  {
+    titulo: "Exportação",
+    itens: [
+      { to: "/excel-final", icon: FileSpreadsheet, label: "Excel Final Consolidado", key: "excel" },
+    ],
+  },
 ];
 
 export function Brand({ compact = false }: { compact?: boolean }) {
@@ -72,39 +95,51 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
         </div>
 
         <nav aria-label="Módulos" className="flex-1 overflow-y-auto px-3 py-5">
-          <ul className="space-y-0.5">
-            {nav.map(({ to, icon: Icon, label, key }) => (
-              <li key={to}>
-                <NavLink
-                  to={to}
-                  end={to === "/"}
-                  onClick={onFechar}
-                  className={({ isActive }) =>
-                    `group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-                      isActive
-                        ? "bg-white/[0.06] text-white"
-                        : "text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-200"
-                    }`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <Icon
-                        size={16}
-                        className={`shrink-0 transition-colors duration-150 ${
-                          isActive ? moduleColor[key] : "text-zinc-600 group-hover:text-zinc-400"
-                        }`}
-                      />
-                      <span className="truncate">{label}</span>
-                      {isActive && (
-                        <span className="ml-auto h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+          {grupos.map((g, gi) => (
+            <div key={g.titulo ?? gi} className={gi > 0 ? "mt-5" : ""}>
+              {g.titulo && (
+                <div className="mb-1.5 flex items-center gap-2 px-3">
+                  <span className="text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-zinc-500">
+                    {g.titulo}
+                  </span>
+                  <span className="h-px flex-1 bg-white/[0.06]" aria-hidden />
+                </div>
+              )}
+              <ul className="space-y-0.5">
+                {g.itens.map(({ to, icon: Icon, label, key }) => (
+                  <li key={to}>
+                    <NavLink
+                      to={to}
+                      end={to === "/"}
+                      onClick={onFechar}
+                      className={({ isActive }) =>
+                        `group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${
+                          isActive
+                            ? "bg-white/[0.06] text-white"
+                            : "text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-200"
+                        }`
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <Icon
+                            size={16}
+                            className={`shrink-0 transition-colors duration-150 ${
+                              isActive ? moduleColor[key] : "text-zinc-600 group-hover:text-zinc-400"
+                            }`}
+                          />
+                          <span className="truncate">{label}</span>
+                          {isActive && (
+                            <span className="ml-auto h-1.5 w-1.5 rounded-full bg-sky-400" aria-hidden />
+                          )}
+                        </>
                       )}
-                    </>
-                  )}
-                </NavLink>
-              </li>
-            ))}
-          </ul>
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </nav>
 
         <div className="border-t border-white/[0.06] p-4">
