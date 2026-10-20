@@ -6,6 +6,7 @@ import { baixarRelatorioAuditoria, getHistoricoAuditoria, processarAuditoria, sa
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
+import { carregarNaMemoria } from "../../utils/pasta";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 
@@ -83,8 +84,9 @@ export default function AuditoriaPage() {
     setSucesso(null);
     setOcupado("processar");
     try {
+      const lidos = await carregarNaMemoria(enviados);
       const r = await processarAuditoria({
-        arquivos: enviados, pastaRaiz: pasta.raiz, empresas: [...selecionadas], modo, periodo, planilha,
+        arquivos: lidos, pastaRaiz: pasta.raiz, empresas: [...selecionadas], modo, periodo, planilha,
       });
       setResultado(r);
       setVerTodas(false);
@@ -95,7 +97,7 @@ export default function AuditoriaPage() {
         setAviso(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
       }
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível auditar a pasta."));
+      setErro(e instanceof Error && !("isAxiosError" in e) ? e.message : mensagemDeErro(e, "Não foi possível auditar a pasta."));
     } finally {
       setOcupado(null);
     }
