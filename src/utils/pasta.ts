@@ -15,16 +15,14 @@ export function lerPasta(lista: FileList, extensoes: string[]): { raiz: string; 
   return { raiz, arquivos };
 }
 
-/** Copia cada arquivo para a memória antes do envio. Pasta em rede/OneDrive ou caminho
- * acima de 260 caracteres pode falhar na leitura (o Chrome só avisa na hora do upload,
- * como "Network Error" e derruba o envio todo). Aqui há novas tentativas para oscilações
- * e os arquivos que não abrem são pulados e devolvidos em `falhas`. */
+/** Copia cada arquivo para a memória antes do envio. Pasta em rede/OneDrive pode falhar
+ * na leitura (o Chrome só avisa na hora do upload, como "Network Error"); aqui o erro
+ * aponta o arquivo e há novas tentativas para oscilações. */
 export async function carregarNaMemoria(
   arquivos: ArquivoDaPasta[],
   progresso?: (feitos: number, total: number) => void,
-): Promise<{ lidos: ArquivoDaPasta[]; falhas: string[] }> {
+): Promise<ArquivoDaPasta[]> {
   const saida: ArquivoDaPasta[] = [];
-  const falhas: string[] = [];
   for (let i = 0; i < arquivos.length; i++) {
     const { arquivo, caminho } = arquivos[i];
     let dados: ArrayBuffer | null = null;
@@ -35,9 +33,13 @@ export async function carregarNaMemoria(
         if (tentativa < 3) await new Promise((r) => setTimeout(r, 500 * tentativa));
       }
     }
-    if (dados) saida.push({ arquivo: new File([dados], arquivo.name, { type: arquivo.type }), caminho });
-    else falhas.push(caminho);
+    if (!dados) {
+      throw new Error(
+        `Não consegui ler o arquivo "${caminho}". Se a pasta está em rede ou no OneDrive, copie-a para o disco local (ex.: C:\\Notas), escolha a pasta de novo e tente outra vez.`,
+      );
+    }
+    saida.push({ arquivo: new File([dados], arquivo.name, { type: arquivo.type }), caminho });
     progresso?.(i + 1, arquivos.length);
   }
-  return { lidos: saida, falhas };
+  return saida;
 }

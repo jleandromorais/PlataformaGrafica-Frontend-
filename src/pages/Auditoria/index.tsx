@@ -17,23 +17,39 @@ const LIMITE_NOTAS = 50;
 
 interface Empresa { nome: string; xml: number; pdf: number }
 
-/** Separa a pasta escolhida em raiz + empresas (1ª subpasta) com os XML/PDF de cada uma. */
-function lerPasta(lista: FileList): { raiz: string; arquivos: ArquivoDaPasta[]; empresas: Empresa[] } {
-  const arquivos: ArquivoDaPasta[] = [];
-  const contagem = new Map<string, Empresa>();
+/** Separa a pasta escolhida em raiz + empresas com os XML/PDF de cada uma.
+ *
+ * Igual ao `descer_pasta_unica` do backend: se tudo está numa única subpasta que tem
+ * outras subpastas (ex.: "02 fev -26 Notas Fiscais/02 fev-26 - NF/Brava/..."), desce
+ * nela, e as empresas são as subpastas do nível de baixo. O caminho enviado não muda. */
+function lerPasta(lista: FileList): { raiz: string; arquivos: ArquivoDaPasta[]; empresas: Empresa[]; nivel: number } {
   let raiz = "";
+  const candidatos: { arquivo: File; partes: string[]; ext: string }[] = [];
   Array.from(lista).forEach((f) => {
     const partes = (f.webkitRelativePath || f.name).split("/");
     raiz = partes[0];
-    const ext = f.name.toLowerCase().split(".").pop();
-    if (partes.length < 3 || (ext !== "xml" && ext !== "pdf")) return; // fora de uma subpasta de empresa
-    const caminho = partes.slice(1).join("/");
-    arquivos.push({ arquivo: f, caminho });
-    const e = contagem.get(partes[1]) ?? { nome: partes[1], xml: 0, pdf: 0 };
-    if (ext === "xml") e.xml += 1; else e.pdf += 1;
-    contagem.set(partes[1], e);
+    const ext = f.name.toLowerCase().split(".").pop() ?? "";
+    if (partes.length >= 3 && (ext === "xml" || ext === "pdf")) candidatos.push({ arquivo: f, partes, ext });
   });
-  return { raiz, arquivos, empresas: [...contagem.values()].sort((a, b) => a.nome.localeCompare(b.nome)) };
+
+  let nivel = 1; // índice da pasta da empresa em `partes`
+  while (
+    candidatos.length &&
+    candidatos.every((c) => c.partes.length > nivel + 1 && c.partes[nivel] === candidatos[0].partes[nivel]) &&
+    candidatos.some((c) => c.partes.length > nivel + 2)
+  ) nivel += 1;
+
+  const arquivos: ArquivoDaPasta[] = [];
+  const contagem = new Map<string, Empresa>();
+  candidatos.forEach(({ arquivo, partes, ext }) => {
+    if (partes.length < nivel + 2) return; // solto acima das pastas de empresa: o backend ignora
+    arquivos.push({ arquivo, caminho: partes.slice(1).join("/") });
+    const nome = partes[nivel];
+    const e = contagem.get(nome) ?? { nome, xml: 0, pdf: 0 };
+    if (ext === "xml") e.xml += 1; else e.pdf += 1;
+    contagem.set(nome, e);
+  });
+  return { raiz, arquivos, empresas: [...contagem.values()].sort((a, b) => a.nome.localeCompare(b.nome)), nivel };
 }
 
 export default function AuditoriaPage() {
@@ -72,7 +88,7 @@ export default function AuditoriaPage() {
   };
 
   const enviados = useMemo(
-    () => (pasta ? pasta.arquivos.filter((a) => selecionadas.has(a.caminho.split("/")[0])) : []),
+    () => (pasta ? pasta.arquivos.filter((a) => selecionadas.has(a.caminho.split("/")[pasta.nivel - 1])) : []),
     [pasta, selecionadas],
   );
   const qtdPdf = enviados.filter((a) => a.caminho.toLowerCase().endsWith(".pdf")).length;
@@ -84,28 +100,18 @@ export default function AuditoriaPage() {
     setSucesso(null);
     setOcupado("processar");
     try {
-      const { lidos, falhas } = await carregarNaMemoria(enviados);
-      if (!lidos.length) {
-        throw new Error("Não consegui ler nenhum arquivo da pasta. Escolha a pasta de novo e tente outra vez.");
-      }
+      const lidos = await carregarNaMemoria(enviados);
       const r = await processarAuditoria({
         arquivos: lidos, pastaRaiz: pasta.raiz, empresas: [...selecionadas], modo, periodo, planilha,
       });
       setResultado(r);
       setVerTodas(false);
-      const avisos: string[] = [];
       if (r.periodo_detectado && r.periodo_detectado !== periodo) {
         const [m, a] = r.periodo_detectado.split("/");
         setMes(m);
         setAno(Number(a));
-        avisos.push(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
+        setAviso(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
       }
-      if (falhas.length) {
-        avisos.push(
-          `${falhas.length} arquivo(s) não abriram no navegador e ficaram de fora (o PDF da mesma nota, se houver, entra no lugar): ${falhas.join("; ")}. Confira essas notas antes de salvar.`,
-        );
-      }
-      setAviso(avisos.length ? avisos.join(" ") : null);
     } catch (e) {
       setErro(e instanceof Error && !("isAxiosError" in e) ? e.message : mensagemDeErro(e, "Não foi possível auditar a pasta."));
     } finally {
