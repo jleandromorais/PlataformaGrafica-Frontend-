@@ -84,18 +84,28 @@ export default function AuditoriaPage() {
     setSucesso(null);
     setOcupado("processar");
     try {
-      const lidos = await carregarNaMemoria(enviados);
+      const { lidos, falhas } = await carregarNaMemoria(enviados);
+      if (!lidos.length) {
+        throw new Error("Não consegui ler nenhum arquivo da pasta. Escolha a pasta de novo e tente outra vez.");
+      }
       const r = await processarAuditoria({
         arquivos: lidos, pastaRaiz: pasta.raiz, empresas: [...selecionadas], modo, periodo, planilha,
       });
       setResultado(r);
       setVerTodas(false);
+      const avisos: string[] = [];
       if (r.periodo_detectado && r.periodo_detectado !== periodo) {
         const [m, a] = r.periodo_detectado.split("/");
         setMes(m);
         setAno(Number(a));
-        setAviso(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
+        avisos.push(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome da pasta. Confira antes de salvar.`);
       }
+      if (falhas.length) {
+        avisos.push(
+          `${falhas.length} arquivo(s) não abriram no navegador e ficaram de fora (o PDF da mesma nota, se houver, entra no lugar): ${falhas.join("; ")}. Confira essas notas antes de salvar.`,
+        );
+      }
+      setAviso(avisos.length ? avisos.join(" ") : null);
     } catch (e) {
       setErro(e instanceof Error && !("isAxiosError" in e) ? e.message : mensagemDeErro(e, "Não foi possível auditar a pasta."));
     } finally {
