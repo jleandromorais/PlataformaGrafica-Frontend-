@@ -208,7 +208,16 @@ export default function CGFPage() {
 
           <div className="flex flex-col gap-6 xl:col-span-7">
             <section className={`${PANEL} p-5 sm:p-6`}>
-              <SeletorMes mes={mes} ano={ano} onChange={mudarPeriodo} />
+              <SeletorMes
+                mes={mes}
+                ano={ano}
+                onChange={(m, a) => {
+                  // Os volumes processados são do mês anterior: sem limpar, dava para
+                  // salvar a planilha de um mês no outro (Jun/2026 gravado com os dados de Mai).
+                  if (m !== mes || a !== ano) setResultado(null);
+                  mudarPeriodo(m, a);
+                }}
+              />
             </section>
 
             <section className={`${PANEL} p-5 sm:p-6`}>
