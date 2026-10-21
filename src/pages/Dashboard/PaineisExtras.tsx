@@ -36,6 +36,68 @@ const m3Compacto = (v: number) => {
   return num(v);
 };
 
+// ─── Agrupamento Mensal / Trimestral / Anual ────────────────────────────────
+type Agrupamento = "mes" | "trimestre" | "ano";
+type Trimestre = { label: string; meses: string[] };
+type ComMeses<T> = T & { qtd_meses: number };
+
+const AGRUPAMENTOS: { valor: Agrupamento; rotulo: string; unidade: string }[] = [
+  { valor: "mes", rotulo: "Mensal", unidade: "mês" },
+  { valor: "trimestre", rotulo: "Trimestral", unidade: "trimestre" },
+  { valor: "ano", rotulo: "Anual", unidade: "ano" },
+];
+
+/** Grupo de um período "Mmm/AAAA": o próprio mês, o trimestre civil
+ *  ("Jan - Mar/2026", como CGF e RET na planilha) ou o ano ("2026"). */
+function grupoDoPeriodo(periodo: string, agrupamento: Agrupamento, trimestres: Trimestre[]) {
+  if (agrupamento === "mes") return periodo;
+  const [mes, ano] = periodo.split("/");
+  if (agrupamento === "ano") return ano;
+  const tri = trimestres.find((t) => t.meses.includes(mes));
+  return tri ? `${tri.label}/${ano}` : periodo;
+}
+
+/** Soma os meses de cada grupo, na ordem em que chegam (a API já manda em ordem cronológica). */
+function agrupar<T extends { periodo: string }>(
+  meses: T[], agrupamento: Agrupamento, trimestres: Trimestre[], somar: (a: T, b: T) => T,
+): ComMeses<T>[] {
+  const grupos = new Map<string, ComMeses<T>>();
+  for (const m of meses) {
+    const periodo = grupoDoPeriodo(m.periodo, agrupamento, trimestres);
+    const atual = grupos.get(periodo);
+    grupos.set(periodo, atual
+      ? { ...somar(atual, m), periodo, qtd_meses: atual.qtd_meses + 1 }
+      : { ...m, periodo, qtd_meses: 1 });
+  }
+  return [...grupos.values()];
+}
+
+function SeletorAgrupamento({ valor, onChange, semTrimestres }: {
+  valor: Agrupamento; onChange: (v: Agrupamento) => void; semTrimestres: boolean;
+}) {
+  return (
+    <div className="flex gap-1 rounded-lg border border-white/[0.07] bg-white/[0.02] p-0.5" role="group" aria-label="Agrupar por">
+      {AGRUPAMENTOS.map((a) => (
+        <button
+          key={a.valor}
+          type="button"
+          onClick={() => onChange(a.valor)}
+          aria-pressed={valor === a.valor}
+          disabled={a.valor === "trimestre" && semTrimestres}
+          className={`rounded-md px-2.5 py-1 text-xs font-semibold transition-colors disabled:opacity-40 ${
+            valor === a.valor ? "bg-white/[0.08] text-sky-300" : "text-zinc-400 hover:text-zinc-200"
+          }`}
+        >
+          {a.rotulo}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+const unidadeDe = (a: Agrupamento) => AGRUPAMENTOS.find((x) => x.valor === a)!.unidade;
+const mesesComDados = (n: number) => `${n} ${n === 1 ? "mês" : "meses"}`;
+
 function useCarregar<T>(buscar: (ano?: string) => Promise<T>, ano?: string) {
   const [dados, setDados] = useState<T | null>(null);
   const [falhou, setFalhou] = useState(false);
@@ -50,7 +112,9 @@ function useCarregar<T>(buscar: (ano?: string) => Promise<T>, ano?: string) {
   return { dados, falhou };
 }
 
-function Painel({ titulo, subtitulo, legenda, children }: { titulo: string; subtitulo: string; legenda?: ReactNode; children: ReactNode }) {
+function Painel({ titulo, subtitulo, legenda, acao, children }: {
+  titulo: string; subtitulo: string; legenda?: ReactNode; acao?: ReactNode; children: ReactNode;
+}) {
   return (
     <div className={`${PANEL} p-5 sm:p-7`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -58,7 +122,12 @@ function Painel({ titulo, subtitulo, legenda, children }: { titulo: string; subt
           <h2 className="text-base font-semibold text-white">{titulo}</h2>
           <p className="mt-0.5 text-sm text-zinc-400">{subtitulo}</p>
         </div>
-        {legenda}
+        {(acao || legenda) && (
+          <div className="flex flex-col items-end gap-2">
+            {acao}
+            {legenda}
+          </div>
+        )}
       </div>
       {children}
     </div>
@@ -166,14 +235,24 @@ function PainelEmpresas({ ano }: { ano?: string }) {
 }
 
 // ─── 2. Encargos RET por tipo ────────────────────────────────────────────────
-function PainelRet({ ano }: { ano?: string }) {
+function PainelRet({ ano, trimestres }: { ano?: string; trimestres: Trimestre[] }) {
   const { dados, falhou } = useCarregar<DashRetResponse>(getDashRet, ano);
+  const [agrupamento, setAgrupamento] = useState<Agrupamento>("mes");
   const vazio = !dados || dados.meses.length === 0;
-  const serie = vazio ? [] : dados.meses.map((m) => ({ periodo: m.periodo, total: m.total, ...m.por_tipo }));
+  const grupos = vazio ? [] : agrupar(dados.meses, agrupamento, trimestres, (a, b) => ({
+    periodo: a.periodo,
+    total: a.total + b.total,
+    por_tipo: Object.fromEntries(
+      [...new Set([...Object.keys(a.por_tipo), ...Object.keys(b.por_tipo)])]
+        .map((t) => [t, (a.por_tipo[t] ?? 0) + (b.por_tipo[t] ?? 0)]),
+    ),
+  }));
+  const serie = grupos.map((m) => ({ periodo: m.periodo, total: m.total, qtd_meses: m.qtd_meses, ...m.por_tipo }));
   return (
     <Painel
       titulo="Encargos RET por tipo"
-      subtitulo={dados && !vazio ? `Total ${brl(dados.total)}` : "Valor das notas de débito por mês"}
+      subtitulo={dados && !vazio ? `Total ${brl(dados.total)}` : `Valor das notas de débito por ${unidadeDe(agrupamento)}`}
+      acao={<SeletorAgrupamento valor={agrupamento} onChange={setAgrupamento} semTrimestres={trimestres.length === 0} />}
       legenda={
         dados && !vazio ? (
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-zinc-400">
@@ -208,6 +287,7 @@ function PainelRet({ ano }: { ano?: string }) {
                         ))}
                         <div className="my-1 border-t border-white/10" />
                         <Linha rotulo="Total" valor={brl(linha.total)} />
+                        {agrupamento !== "mes" && <Linha rotulo="Meses com dados" valor={mesesComDados(linha.qtd_meses)} />}
                       </TooltipCaixa>
                     );
                   }}
@@ -230,7 +310,7 @@ function PainelRet({ ano }: { ano?: string }) {
           </div>
           <TabelaDados
             colunas={["Período", ...dados.tipos, "Total"]}
-            linhas={dados.meses.map((m) => [m.periodo, ...dados.tipos.map((t) => brl(m.por_tipo[t] ?? 0)), brl(m.total)])}
+            linhas={grupos.map((m) => [m.periodo, ...dados.tipos.map((t) => brl(m.por_tipo[t] ?? 0)), brl(m.total)])}
           />
         </>
       )}
@@ -239,14 +319,24 @@ function PainelRet({ ano }: { ano?: string }) {
 }
 
 // ─── 3. Volumes do CGF ───────────────────────────────────────────────────────
-function PainelVolumes({ ano }: { ano?: string }) {
+function PainelVolumes({ ano, trimestres }: { ano?: string; trimestres: Trimestre[] }) {
   const { dados, falhou } = useCarregar<DashVolumesResponse>(getDashVolumes, ano);
+  const [agrupamento, setAgrupamento] = useState<Agrupamento>("mes");
   const vazio = !dados || dados.meses.length === 0;
   const totais = dados?.totais;
+  const grupos = vazio ? [] : agrupar(dados.meses, agrupamento, trimestres, (a, b) => ({
+    periodo: a.periodo,
+    volume_faturado: a.volume_faturado + b.volume_faturado,
+    volume_devolucoes: a.volume_devolucoes + b.volume_devolucoes,
+    volume_canceladas: a.volume_canceladas + b.volume_canceladas,
+    volume_consumo_proprio: a.volume_consumo_proprio + b.volume_consumo_proprio,
+    volume_final: a.volume_final + b.volume_final,
+  }));
   return (
     <Painel
       titulo="Volumes do CGF"
-      subtitulo="Volume final por mês (faturado − devoluções), em m³"
+      subtitulo={`Volume final por ${unidadeDe(agrupamento)} (faturado − devoluções), em m³`}
+      acao={<SeletorAgrupamento valor={agrupamento} onChange={setAgrupamento} semTrimestres={trimestres.length === 0} />}
     >
       {vazio || !totais ? (
         <Vazio carregando={dados === null} falhou={falhou} />
@@ -269,20 +359,21 @@ function PainelVolumes({ ano }: { ano?: string }) {
           </dl>
           <div className="mt-6 h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dados.meses} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+              <BarChart data={grupos} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
                 <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                 <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={m3Compacto} width={56} />
                 <Tooltip
                   cursor={{ fill: "rgba(255,255,255,0.03)" }}
                   content={({ active, payload, label }) => {
-                    const m = payload?.[0]?.payload as DashVolumesResponse["meses"][number] | undefined;
+                    const m = payload?.[0]?.payload as ComMeses<DashVolumesResponse["meses"][number]> | undefined;
                     if (!active || !m) return null;
                     return (
                       <TooltipCaixa titulo={String(label)}>
                         <Linha rotulo="Faturado" valor={`${num(m.volume_faturado, 2)} m³`} />
                         <Linha rotulo="Devoluções" valor={`${num(m.volume_devolucoes, 2)} m³`} />
                         <Linha cor={COR_VOLUME} rotulo="Volume final" valor={`${num(m.volume_final, 2)} m³`} />
+                        {agrupamento !== "mes" && <Linha rotulo="Meses com dados" valor={mesesComDados(m.qtd_meses)} />}
                       </TooltipCaixa>
                     );
                   }}
@@ -293,7 +384,7 @@ function PainelVolumes({ ano }: { ano?: string }) {
           </div>
           <TabelaDados
             colunas={["Período", "Faturado (m³)", "Devoluções (m³)", "Volume final (m³)"]}
-            linhas={dados.meses.map((m) => [m.periodo, num(m.volume_faturado, 2), num(m.volume_devolucoes, 2), num(m.volume_final, 2)])}
+            linhas={grupos.map((m) => [m.periodo, num(m.volume_faturado, 2), num(m.volume_devolucoes, 2), num(m.volume_final, 2)])}
           />
         </>
       )}
@@ -301,14 +392,15 @@ function PainelVolumes({ ano }: { ano?: string }) {
   );
 }
 
-/** Painéis extras do Dashboard. `ano` segue o filtro da página (vazio = todos). */
-export function PaineisExtras({ ano }: { ano?: string }) {
+/** Painéis extras do Dashboard. `ano` segue o filtro da página (vazio = todos);
+ *  `trimestresCivis` vem de /config/trimestres-civis (vazio = sem "Trimestral"). */
+export function PaineisExtras({ ano, trimestresCivis }: { ano?: string; trimestresCivis: Trimestre[] }) {
   return (
     <>
       <PainelEmpresas ano={ano} />
       <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
-        <PainelRet ano={ano} />
-        <PainelVolumes ano={ano} />
+        <PainelRet ano={ano} trimestres={trimestresCivis} />
+        <PainelVolumes ano={ano} trimestres={trimestresCivis} />
       </div>
     </>
   );

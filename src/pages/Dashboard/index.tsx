@@ -503,7 +503,7 @@ export default function DashboardPage() {
         </div>
 
         {/* ── Empresas, encargos RET e volumes (seguem o filtro de ano) ───── */}
-        <PaineisExtras ano={ano === TODOS_OS_ANOS ? undefined : ano} />
+        <PaineisExtras ano={ano === TODOS_OS_ANOS ? undefined : ano} trimestresCivis={trimestresCivis} />
       </div>
     </div>
   );
