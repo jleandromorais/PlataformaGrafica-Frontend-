@@ -19,6 +19,9 @@ const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border bord
 
 type Pasta = { raiz: string; arquivos: ArquivoDaPasta[] };
 
+/** Padrão RP: mesmo desconto de PIS/COFINS (9,25%) que o backend e a planilha "Conta Gráfica". */
+const FATOR_PIS_COFINS = 1 - 0.0925;
+
 export default function ConciliacaoPage() {
   const hoje = new Date();
   const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
@@ -45,7 +48,9 @@ export default function ConciliacaoPage() {
     return v === null ? it : { ...it, valor: v, status: "OK", metodo: "Digitado na web" };
   });
   const invalidos = Object.values(editados).some((t) => t.trim() !== "" && parseBRL(t) === null);
-  const soma = (cat: string) => (itensFinais ?? []).filter((i) => i.categoria === cat).reduce((s, i) => s + i.valor, 0);
+  /** Totais líquidos de PIS/COFINS, como na planilha oficial (os itens ficam com o valor bruto da nota). */
+  const soma = (cat: string) =>
+    (itensFinais ?? []).filter((i) => i.categoria === cat).reduce((s, i) => s + i.valor, 0) * FATOR_PIS_COFINS;
   const totalRec = soma("Receita");
   const totalDesp = soma("Despesa");
   const rp = totalDesp - totalRec;
@@ -104,7 +109,7 @@ export default function ConciliacaoPage() {
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Conciliação RP</h1>
-          <p className="mt-1 text-sm text-zinc-400">Penalidades: RP = Σ despesas − Σ receitas (linha “Saldo de penalidade” da planilha oficial)</p>
+          <p className="mt-1 text-sm text-zinc-400">Penalidades: RP = (Σ despesas − Σ receitas) × (1 − 9,25% PIS/COFINS) (linha “Saldo de penalidade” da planilha oficial)</p>
         </div>
 
         {erro && <Alert variant="error">{erro}</Alert>}
@@ -181,6 +186,7 @@ export default function ConciliacaoPage() {
           <section className={`${PANEL} overflow-hidden`}>
             <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
               <h2 className="text-base font-semibold text-white">PDFs ({itens.length})</h2>
+              <p className="mt-0.5 text-sm text-zinc-400">Valor bruto de cada nota. Os totais acima já descontam PIS/COFINS.</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[52rem] text-sm">
