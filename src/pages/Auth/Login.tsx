@@ -27,7 +27,7 @@ export default function LoginPage() {
       await entrar(email, senha);
       navegar(destino, { replace: true });
     } catch (err) {
-      setErro(mensagemDeErro(err, "Não foi possível entrar."));
+      setErro(mensagemDeErro(err, "Não foi possível entrar. Confira o e-mail e a senha e tente de novo."));
     } finally {
       setEnviando(false);
     }
@@ -40,7 +40,7 @@ export default function LoginPage() {
       rodape={<>Não tem conta? <Link to="/cadastro" className="text-sky-400 hover:underline">Criar conta</Link></>}
     >
       <form onSubmit={enviar} className="flex flex-col gap-4">
-        {erro && <Alert variant="error">{erro}</Alert>}
+        {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         <Input label="E-mail" type="email" autoComplete="email" required autoFocus
           icon={<Mail size={15} />} placeholder="voce@empresa.com"
           value={email} onChange={(e) => setEmail(e.target.value)} />

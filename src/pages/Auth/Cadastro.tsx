@@ -32,7 +32,7 @@ export default function CadastroPage() {
       await cadastrar({ nome, email, senha, confirmar_senha: confirmar });
       navegar("/", { replace: true });
     } catch (err) {
-      setErro(mensagemDeErro(err, "Não foi possível criar a conta."));
+      setErro(mensagemDeErro(err, "Não foi possível criar a conta. Confira os campos e tente de novo."));
     } finally {
       setEnviando(false);
     }
@@ -45,7 +45,7 @@ export default function CadastroPage() {
       rodape={<>Já tem conta? <Link to="/login" className="text-sky-400 hover:underline">Entrar</Link></>}
     >
       <form onSubmit={enviar} className="flex flex-col gap-4">
-        {erro && <Alert variant="error">{erro}</Alert>}
+        {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         <Input label="Nome" autoComplete="name" required autoFocus
           icon={<User size={15} />} placeholder="Seu nome"
           value={nome} onChange={(e) => setNome(e.target.value)} />

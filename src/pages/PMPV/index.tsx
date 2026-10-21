@@ -69,6 +69,21 @@ function paraVolume(txt: string): number {
 
 const paraTexto = (v: number) => (v ? String(v).replace(".", ",") : "");
 
+/** Trimestres que a planilha cobre inteiros, ex.: "Nov - Jan, ano 2025" (ano = do 1º mês).
+ *  Independe da ordem/duplicatas das colunas; `atual` (o que já foi tentado) fica de fora. */
+function trimestresDaPlanilha(trimestres: Trimestre[], encontrados: string[], atual: string): string[] {
+  const tem = new Set(encontrados);
+  const anos = new Set(encontrados.map((p) => Number(p.split("/")[1])).filter(Number.isFinite));
+  const sugestoes = new Set<string>();
+  anos.forEach((ano) => {
+    trimestres.forEach((t) => {
+      if (t.meses.length && periodosDe(t.meses, ano).every((m) => tem.has(m))) sugestoes.add(`${t.label}, ano ${ano}`);
+    });
+  });
+  sugestoes.delete(atual);
+  return [...sugestoes];
+}
+
 function trimestreDoMesAtual(trimestres: Trimestre[]): string {
   const atual = MESES_ABREV[new Date().getMonth()];
   return trimestres.find((t) => t.meses.includes(atual))?.label ?? trimestres[0]?.label ?? "";
@@ -313,7 +328,11 @@ export default function PMPVPage() {
       });
       setLinhas(novas);
       invalidar();
-      if (importados === 0) setErro(`Nada foi importado.\n${r.erros.join("\n")}`);
+      if (importados === 0) {
+        const sugestoes = trimestresDaPlanilha(trimestres, r.meses_encontrados ?? [], `${trimestre}, ano ${ano}`);
+        const dica = sugestoes.length ? `Escolha ${sugestoes.join(" ou ")} e importe de novo.` : "";
+        setErro([`Nada foi importado para ${trimestre}, ano ${ano}.`, ...r.erros, dica].filter(Boolean).join("\n"));
+      }
       else if (r.erros.length) setAviso(`${importados}/3 meses importados de ${trimestre}.\n${r.erros.join("\n")}`);
       else setSucesso(`Trimestre ${trimestre}: os 3 meses foram carregados da Memória de Cálculo.`);
     } catch (e) {

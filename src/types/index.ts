@@ -44,6 +44,7 @@ export interface PMPVSalvarRequest {
 export interface PMPVImportarResponse {
   meses: Record<string, EmpresaLinha[]>; // chave = período ("Fev/2026")
   erros: string[];
+  meses_encontrados?: string[]; // meses que a planilha tem, ex.: ["Nov/2025", "Dez/2025", "Jan/2026"]
 }
 
 // ─── RPV ─────────────────────────────────────────────────────────────────────
