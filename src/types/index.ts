@@ -291,6 +291,16 @@ export interface PVPeriodo {
   periodo: string;
 }
 
+export interface PVTrimestre {
+  chave: string; // "Fev - Abr/2026"
+  periodos: string[]; // ["Fev/2026", "Mar/2026", "Abr/2026"]
+  pmpv: number; // valores atuais dos módulos PMPV e PR
+  pr: number;
+  pv: number;
+  salvo: { pmpv: number; pr: number; pv: number; data: string } | null; // PV já gravado
+  avisos: string[];
+}
+
 // ─── PR ──────────────────────────────────────────────────────────────────────
 // PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.
 export interface PRResultado {

@@ -8,7 +8,7 @@ import type {
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
-  PVResultado, PVPeriodo,
+  PVResultado, PVPeriodo, PVTrimestre,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -281,6 +281,16 @@ export const getPV = (periodo: string) =>
 
 export const salvarPV = (periodo: string, pmpv: number, pr: number) =>
   api.post<{ pv: number }>("/pv/salvar", { periodo, pmpv, pr }).then((r) => r.data);
+
+/** PV do trimestre fiscal = PMPV + PR do mesmo trimestre (ano = do 1º mês). */
+export const getPVTrimestre = (trimestre: string, ano: number) =>
+  api.get<PVTrimestre>("/pv/trimestre", { params: { trimestre, ano } }).then((r) => r.data);
+
+/** Grava o PV no trimestre e repete nos 3 meses (o Excel Final lê por mês). */
+export const salvarPVTrimestre = (trimestre: string, ano: number, pmpv: number, pr: number) =>
+  api
+    .post<{ pv: number; gravado_em: string[] }>("/pv/trimestre/salvar", { trimestre, ano, pmpv, pr })
+    .then((r) => r.data);
 
 // ─── SR ──────────────────────────────────────────────────────────────────────
 // SR = (VP − VF) × PR × (1 + SELIC%) + SR anterior — calculado por mês
