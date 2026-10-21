@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
-import { calcularPMPV, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
+import { calcularPMPV, getHistoricoPMPV, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
-import type { EmpresaLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
+import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -216,7 +216,15 @@ export default function PMPVPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [historico, setHistorico] = useState<PMPVHistoricoLinha[]>([]);
+  const [ultimaSalva, setUltimaSalva] = useState<number | null>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
+
+  const carregarHistorico = useCallback(() => {
+    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+  }, []);
+
+  useEffect(carregarHistorico, [carregarHistorico]);
 
   useEffect(() => {
     getTrimestresFiscais()
@@ -303,6 +311,8 @@ export default function PMPVPage() {
     try {
       const { sessao_id } = await salvarPMPV({ nome, dados_por_mes, resultado, periodos });
       setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.`);
+      setUltimaSalva(sessao_id);
+      carregarHistorico();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar a sessão."));
     } finally {
@@ -548,6 +558,45 @@ export default function PMPVPage() {
             </Painel>
           </div>
         </div>
+
+        {/* Histórico */}
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+            <h2 className="text-base font-semibold text-white">Histórico</h2>
+            <p className="mt-0.5 text-sm text-zinc-400">Sessões salvas, da mais recente para a mais antiga.</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[48rem] text-sm">
+              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <tr>
+                  <th className="px-5 py-3 text-left font-semibold">Sessão</th>
+                  <th className="px-5 py-3 text-right font-semibold">PMPV (R$/m³)</th>
+                  <th className="px-5 py-3 text-right font-semibold">Conta Gráfica</th>
+                  <th className="px-5 py-3 text-right font-semibold">Preço final</th>
+                  <th className="px-5 py-3 text-right font-semibold">Volume prospectivo</th>
+                  <th className="px-5 py-3 text-right font-semibold">Salvo em</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {historico.map((h) => (
+                  <tr key={h.id} className={h.id === ultimaSalva ? "bg-sky-500/[0.06]" : ""}>
+                    <td className="px-5 py-2.5 font-medium text-zinc-200">{h.nome}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-sky-300">{brl(h.pmpv, 4)}</td>
+                    <td className={`px-5 py-2.5 text-right tabular-nums ${h.conta_grafica < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                      {`${h.conta_grafica >= 0 ? "+" : ""}${brl(h.conta_grafica, 4)}`}
+                    </td>
+                    <td className="px-5 py-2.5 text-right font-semibold tabular-nums text-emerald-300">{brl(h.preco_final, 4)}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-300">{h.vp ? `${num(h.vp)} m³` : "—"}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{h.data_criacao ?? "—"}</td>
+                  </tr>
+                ))}
+                {historico.length === 0 && (
+                  <tr><td colSpan={6} className="px-5 py-8 text-center text-zinc-500">Nenhuma sessão salva ainda.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );

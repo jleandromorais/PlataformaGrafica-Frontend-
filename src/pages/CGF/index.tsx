@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, Save, Zap } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
+import { ListaProblemas } from "../../components/ui/ListaProblemas";
 import { SeletorArquivos } from "../../components/ui/SeletorArquivos";
 import { SeletorMes } from "../../components/ui/SeletorMes";
 import { calcularCGFRs, getHistoricoCGF, getPMPVMensal, processarCGF, salvarCGF } from "../../api";
@@ -20,14 +21,27 @@ const COLUNAS_PADRAO: CGFColunas = {
   col_dev_volume: "Volume Devolução",
 };
 
-/** Mesma regra do backend: o tipo da planilha vem do nome do arquivo. */
-function tipoDoArquivo(nome: string): { texto: string; cls: string } {
+// Mesma regra do backend (ServicosCGF.tipo_do_nome em servicos_cgf.py): mantenha as listas iguais.
+// Ordem importa: faturada/complementar é testada antes de cancelada.
+const PALAVRAS_FATURADA = ["faturada", "complementar"];
+const PALAVRAS_CANCELADA = ["canc", "deneg", "rejeitad"]; // cobre "NF canc.rejeitadas.deneg"
+const PALAVRAS_DEVOLUCAO = ["devolu", "devolv"];
+const DICA_NOME = "O nome precisa conter faturada, complementar, cancelada, denegada, rejeitada, devolução ou devolvida. Renomeie o arquivo.";
+
+/** O tipo da planilha vem do nome do arquivo. */
+function tipoDoArquivo(nome: string): { texto: string; cls: string; reconhecido: boolean } {
   const n = nome.toLowerCase();
-  if (n.includes("faturada") || n.includes("complementar")) return { texto: "Faturada", cls: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300" };
-  if (n.includes("cancelad") || n.includes("denegad")) return { texto: "Canceladas", cls: "border-zinc-500/25 bg-white/[0.04] text-zinc-300" };
-  if (n.includes("devolu") || n.includes("devolv")) return { texto: "Devoluções", cls: "border-amber-500/25 bg-amber-500/10 text-amber-300" };
-  return { texto: "Não reconhecido", cls: "border-red-500/30 bg-red-500/10 text-red-300" };
+  const tem = (palavras: string[]) => palavras.some((p) => n.includes(p));
+  if (tem(PALAVRAS_FATURADA)) return { texto: "Faturada", cls: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300", reconhecido: true };
+  if (tem(PALAVRAS_CANCELADA)) return { texto: "Canceladas", cls: "border-zinc-500/25 bg-white/[0.04] text-zinc-300", reconhecido: true };
+  if (tem(PALAVRAS_DEVOLUCAO)) return { texto: "Devoluções", cls: "border-amber-500/25 bg-amber-500/10 text-amber-300", reconhecido: true };
+  return { texto: "Não reconhecido", cls: "border-red-500/30 bg-red-500/10 text-red-300", reconhecido: false };
 }
+
+const MARCA_GRAVIDADE = {
+  erro: { simbolo: "✕", cls: "text-red-300" },
+  aviso: { simbolo: "⚠", cls: "text-amber-300" },
+} as const;
 
 const m3 = (v: number) => `${num(v, 4)} m³`;
 
@@ -114,9 +128,6 @@ export default function CGFPage() {
         mudarPeriodo(m, Number(a));
         setAviso(`Período ajustado para ${r.periodo_detectado}, detectado pelo nome dos arquivos. Confira antes de salvar.`);
       }
-      if (r.arquivos_ignorados.length) {
-        setErro(`Estes arquivos foram ignorados porque o nome não diz o tipo (faturada, cancelada ou devolução): ${r.arquivos_ignorados.join(", ")}.`);
-      }
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível processar as planilhas."));
     } finally {
@@ -125,7 +136,7 @@ export default function CGFPage() {
   };
 
   const salvar = async () => {
-    if (!resultado || !pmpv) return;
+    if (!resultado || !pmpv || (resultado.problemas ?? []).some((p) => p.gravidade === "erro")) return;
     setErro(null);
     setSucesso(null);
     setOcupado("salvar");
@@ -143,8 +154,16 @@ export default function CGFPage() {
 
   const chaveAtual = resultado && pmpv ? `${periodo}|${resultado.volume_final}|${pmpv}` : null;
   const cgfRs = chaveAtual && calculo?.chave === chaveAtual ? calculo.cgfRs : null;
-  const tipos = arquivos.map((a) => tipoDoArquivo(a.name).texto);
-  const semFaturada = arquivos.length > 0 && !tipos.includes("Faturada");
+  const tipos = arquivos.map((a) => tipoDoArquivo(a.name));
+  const semFaturada = arquivos.length > 0 && !tipos.some((t) => t.texto === "Faturada");
+  const naoReconhecidos = tipos.filter((t) => !t.reconhecido).length;
+  const problemas = resultado?.problemas ?? [];
+  const comErro = problemas.some((p) => p.gravidade === "erro");
+  /** Pior problema de um arquivo depois de processar (erro > aviso), para marcar o chip. */
+  const piorDoArquivo = (nome: string) => {
+    const doArquivo = problemas.filter((p) => p.arquivo === nome);
+    return doArquivo.find((p) => p.gravidade === "erro") ?? doArquivo.find((p) => p.gravidade === "aviso");
+  };
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -159,13 +178,14 @@ export default function CGFPage() {
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        <ListaProblemas problemas={problemas} />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <div className="flex flex-col gap-6 xl:col-span-5">
             <section className={`${PANEL} p-5 sm:p-6`}>
               <h2 className="text-base font-semibold text-white">Planilhas de NF do mês</h2>
               <p className="mb-4 mt-0.5 text-sm text-zinc-400">
-                O tipo vem do nome do arquivo: “faturada/complementar”, “cancelada/denegada”, “devolução/devolvida”.
+                O tipo vem do nome do arquivo: “faturada/complementar”, “cancelada/denegada/rejeitada”, “devolução/devolvida”.
               </p>
               <SeletorArquivos
                 arquivos={arquivos}
@@ -175,10 +195,24 @@ export default function CGFPage() {
                 desabilitado={ocupado !== null}
                 etiqueta={(a) => {
                   const t = tipoDoArquivo(a.name);
-                  return <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${t.cls}`}>{t.texto}</span>;
+                  const p = piorDoArquivo(a.name);
+                  const marca = p && p.gravidade !== "info" ? MARCA_GRAVIDADE[p.gravidade] : null;
+                  return (
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {marca && <span className={`text-xs font-bold ${marca.cls}`} title={p?.mensagem} aria-label={p?.mensagem}>{marca.simbolo}</span>}
+                      <span className={`rounded-full border px-2 py-0.5 text-[0.7rem] font-semibold ${t.cls}`} title={t.reconhecido ? undefined : DICA_NOME}>
+                        {t.texto}
+                      </span>
+                    </span>
+                  );
                 }}
               />
               {semFaturada && <p className="mt-3 text-xs text-amber-300">Nenhuma planilha de NF faturada na lista: o volume final vai dar zero.</p>}
+              {naoReconhecidos > 0 && (
+                <p className="mt-3 text-xs text-red-300">
+                  {naoReconhecidos === 1 ? "1 arquivo não será lido" : `${naoReconhecidos} arquivos não serão lidos`} (nome sem tipo). {DICA_NOME}
+                </p>
+              )}
               <details className="mt-4 text-sm">
                 <summary className="cursor-pointer text-zinc-400 hover:text-zinc-200">Colunas das planilhas</summary>
                 <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -276,10 +310,13 @@ export default function CGFPage() {
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-4 bg-white/[0.02] px-5 py-4 sm:px-6">
                     <p className="text-sm text-zinc-400">
-                      {cgfRs !== null ? <>CGF de {periodo}: <span className="font-semibold text-emerald-300">{brl(cgfRs)}</span></> : "Informe o PMPV para poder salvar."}
+                      {comErro
+                        ? <span className="text-red-300">Corrija os problemas acima e processe de novo para poder salvar.</span>
+                        : cgfRs !== null ? <>CGF de {periodo}: <span className="font-semibold text-emerald-300">{brl(cgfRs)}</span></> : "Informe o PMPV para poder salvar."}
                     </p>
                     <button
-                      type="button" onClick={salvar} disabled={cgfRs === null || ocupado !== null}
+                      type="button" onClick={salvar} disabled={cgfRs === null || comErro || ocupado !== null}
+                      title={comErro ? "Corrija os problemas acima e processe de novo." : undefined}
                       className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40"
                     >
                       {ocupado === "salvar" ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}

@@ -1,7 +1,7 @@
 import axios from "axios";
 import { api } from "./client";
 import type {
-  PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse,
+  PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
@@ -47,6 +47,9 @@ export const salvarPMPV = (payload: PMPVSalvarRequest) =>
 
 export const getPMPVMensal = (periodo: string) =>
   api.get<{ pmpv: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
+
+export const getHistoricoPMPV = () =>
+  api.get<PMPVHistoricoLinha[]>("/pmpv/historico").then((r) => r.data);
 
 export const getTrimestreAtivo = () =>
   api.get<{ meses: string[] }>("/pmpv/trimestre-ativo").then((r) => r.data.meses);

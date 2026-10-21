@@ -37,7 +37,7 @@ function CampoValor({ id, titulo, origem, valor, onChange }: {
         />
       </div>
       <p className={`mt-2 text-xs ${invalido ? "text-red-300" : "text-zinc-500"}`}>
-        {invalido ? "Valor inválido. Use o formato 1.234.567,89" : lido !== null ? `Será salvo como ${brl(lido)}` : "Vazio conta como R$ 0,00"}
+        {invalido ? `“${valor.trim()}” não é um valor válido. Use o formato 1.234.567,89` : lido !== null ? `Será salvo como ${brl(lido)}` : "Vazio conta como R$ 0,00"}
       </p>
     </div>
   );
@@ -57,11 +57,15 @@ export default function RPVPage() {
   const [salvando, setSalvando] = useState(false);
   const [historico, setHistorico] = useState<RPVHistoricoLinha[]>([]);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const ultimaBusca = useRef(0);
 
+  // Erro próprio: não apaga nem é apagado pelo erro de salvar/carregar o período.
   const carregarHistorico = useCallback(() => {
-    getHistoricoRPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoRPV()
+      .then((h) => { setHistorico(h); setErroHistorico(null); })
+      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);
@@ -104,8 +108,13 @@ export default function RPVPage() {
   const salvar = async () => {
     setErro(null);
     setSucesso(null);
-    if (!validos) return setErro("Corrija os valores inválidos antes de salvar.");
-    if (nCgr === 0 && nCgf === 0) return setErro("Preencha ao menos um dos valores (CGR ou CGF).");
+    if (!validos) {
+      const campos = [vCgr === null && cgr.trim() && "CGR", vCgf === null && cgf.trim() && "CGF"].filter(Boolean).join(" e ");
+      return setErro(`O valor de ${campos} não é válido. Corrija no campo indicado (formato 1.234.567,89) e salve de novo.`);
+    }
+    if (nCgr === 0 && nCgf === 0) {
+      return setErro("Preencha ao menos um dos valores (CGR ou CGF). O CGR vem da Auditoria CGR e o CGF da tela CGF: se já salvou lá, o valor aparece aqui sozinho.");
+    }
     setSalvando(true);
     try {
       const r = await salvarRPV(periodo, nCgr, nCgf);
@@ -188,6 +197,7 @@ export default function RPVPage() {
             <h2 className="text-base font-semibold text-white">Histórico</h2>
             <p className="mt-0.5 text-sm text-zinc-400">Clique num período para abrir.</p>
           </div>
+          {erroHistorico && <Alert variant="error" className="m-4 whitespace-pre-line">{erroHistorico}</Alert>}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
               <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">

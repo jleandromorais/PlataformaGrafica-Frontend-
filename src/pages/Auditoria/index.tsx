@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, FolderOpen, Loader2, Play, Save, X } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
+import { ListaProblemas } from "../../components/ui/ListaProblemas";
 import { SeletorMes } from "../../components/ui/SeletorMes";
 import { baixarRelatorioAuditoria, getHistoricoAuditoria, processarAuditoria, salvarAuditoria, type ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -151,6 +152,9 @@ export default function AuditoriaPage() {
 
   const t = resultado?.totais;
   const notas = resultado ? (verTodas ? resultado.itens : resultado.itens.slice(0, LIMITE_NOTAS)) : [];
+  const problemas = resultado?.problemas ?? [];
+  // Arquivos de nota que não viraram nota (XML/PDF): a conta lidos × auditadas fecha com eles.
+  const arquivosComProblema = problemas.filter((p) => p.arquivo && p.codigo !== "planilha_comparacao_ilegivel").length;
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -165,6 +169,7 @@ export default function AuditoriaPage() {
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        <ListaProblemas problemas={problemas} />
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           {/* Entrada */}
@@ -265,6 +270,8 @@ export default function AuditoriaPage() {
                       <p className="mt-1 text-3xl font-bold tracking-tight tabular-nums text-sky-300">{brl(t.cgr_liquido)}</p>
                       <p className="mt-1 text-xs text-zinc-500">
                         {t.qtd_nfe} NF-e · {t.qtd_cte} CT-e · {t.qtd_devolucoes} devoluções · lidos {resultado!.qtd_xml_lidos} XML e {resultado!.qtd_pdf_lidos} PDF
+                        {" "}· {resultado!.itens.length} notas auditadas
+                        {arquivosComProblema > 0 && <span className="text-amber-300"> · {arquivosComProblema} {arquivosComProblema === 1 ? "arquivo" : "arquivos"} com problema (ver lista acima)</span>}
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">

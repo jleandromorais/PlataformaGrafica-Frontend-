@@ -47,6 +47,16 @@ export interface PMPVImportarResponse {
   meses_encontrados?: string[]; // meses que a planilha tem, ex.: ["Nov/2025", "Dez/2025", "Jan/2026"]
 }
 
+export interface PMPVHistoricoLinha {
+  id: number;
+  nome: string;
+  data_criacao: string | null; // "21/10/2026 14:30"
+  pmpv: number;
+  conta_grafica: number;
+  preco_final: number;
+  vp: number;
+}
+
 // ─── RPV ─────────────────────────────────────────────────────────────────────
 export interface RPVValores {
   cgr: number;
@@ -76,9 +86,20 @@ export interface CGFCalcularRsResponse {
   cgf_rs: number | null;      // null sem PMPV
 }
 
+/** Problema num arquivo enviado (CGF, Auditoria). Ver SPEC_ERROS.md §3. */
+export interface ProblemaArquivo {
+  arquivo: string;                       // nome ou caminho relativo; "" quando é do envio como um todo
+  empresa?: string | null;               // Auditoria
+  gravidade: "erro" | "aviso" | "info";
+  codigo: string;                        // estável: ex. "tipo_nao_reconhecido", "coluna_ausente"
+  mensagem: string;
+  tecnico?: string | null;               // ex.: "colunas encontradas: Data, Produto"
+}
+
 export interface CGFProcessarResponse extends CGFVolumes {
   periodo_detectado: string;
   arquivos_ignorados: string[];
+  problemas: ProblemaArquivo[];
   logs: string[];
 }
 
@@ -152,6 +173,7 @@ export interface AuditoriaResultado {
   };
   comparacao: AuditoriaComparacao | null;
   aviso_comparacao: string;
+  problemas: ProblemaArquivo[];
 }
 
 export interface AuditoriaHistoricoLinha {
