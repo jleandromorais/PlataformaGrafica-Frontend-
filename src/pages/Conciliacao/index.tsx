@@ -22,6 +22,9 @@ type Pasta = { raiz: string; arquivos: ArquivoDaPasta[] };
 /** Padrão RP: mesmo desconto de PIS/COFINS (9,25%) que o backend e a planilha "Conta Gráfica". */
 const FATOR_PIS_COFINS = 1 - 0.0925;
 
+/** TOP não recuperável (mesma regra do backend: "top" como palavra, não "Desktop"). Sempre receita. */
+const ehTop = (it: ConciliaItem) => /(^|[^a-z])top([^a-z]|$)/i.test(it.caminho);
+
 export default function ConciliacaoPage() {
   const hoje = new Date();
   const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
@@ -52,6 +55,7 @@ export default function ConciliacaoPage() {
   const soma = (cat: string) =>
     (itensFinais ?? []).filter((i) => i.categoria === cat).reduce((s, i) => s + i.valor, 0) * FATOR_PIS_COFINS;
   const totalRec = soma("Receita");
+  const totalTop = (itensFinais ?? []).filter(ehTop).reduce((s, i) => s + i.valor, 0) * FATOR_PIS_COFINS;
   const totalDesp = soma("Despesa");
   const rp = totalDesp - totalRec;
   const pendentes = (itensFinais ?? []).filter((i) => i.status !== "OK").length;
@@ -119,7 +123,7 @@ export default function ConciliacaoPage() {
           <section className={`${PANEL} flex flex-col gap-4 p-5 sm:p-6 xl:col-span-5`}>
             <div>
               <h2 className="text-base font-semibold text-white">Notas de penalidade</h2>
-              <p className="mt-0.5 text-sm text-zinc-400">PDFs (e ZIPs com PDFs). Subpastas “TOP” ficam de fora.</p>
+              <p className="mt-0.5 text-sm text-zinc-400">PDFs (e ZIPs com PDFs). TOP não recuperável conta como receita, mesmo na pasta de despesas. Subpastas “Substituídos” ficam de fora.</p>
             </div>
             <div>
               <p className={`${LABEL} mb-2 text-emerald-300`}>Receitas</p>
@@ -159,6 +163,11 @@ export default function ConciliacaoPage() {
                       <div key={r as string} className="rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
                         <dt className="text-xs text-zinc-400">{r as string}</dt>
                         <dd className={`mt-1 text-lg font-bold tabular-nums ${c}`}>{brl(v as number)}</dd>
+                        {r === "Receitas" && (
+                          <dd className="mt-1 text-[0.7rem] tabular-nums text-zinc-500">
+                            PFP {brl(totalRec - totalTop)} · TOP {brl(totalTop)}
+                          </dd>
+                        )}
                       </div>
                     ))}
                   </dl>
@@ -204,7 +213,9 @@ export default function ConciliacaoPage() {
                     const invalido = texto !== undefined && texto.trim() !== "" && parseBRL(texto) === null;
                     return (
                       <tr key={`${it.caminho}-${i}`} className={falhou && texto === undefined ? "bg-amber-500/[0.05]" : ""}>
-                        <td className={`px-4 py-2 font-medium ${it.categoria === "Receita" ? "text-emerald-300" : "text-red-300"}`}>{it.categoria}</td>
+                        <td className={`px-4 py-2 font-medium ${it.categoria === "Receita" ? "text-emerald-300" : "text-red-300"}`}>
+                          {it.categoria}{ehTop(it) && <span className="ml-1.5 rounded-full border border-emerald-500/30 px-1.5 py-0.5 text-[0.65rem] font-semibold">TOP</span>}
+                        </td>
                         <td className="max-w-[22rem] truncate px-4 py-2 text-zinc-200" title={it.caminho}>{it.arquivo}</td>
                         <td className="px-4 py-2 text-xs">
                           <span className={falhou ? "text-amber-300" : "text-zinc-500"}>{texto !== undefined ? "digitado" : it.status}</span>
