@@ -1,372 +1,307 @@
 import { useEffect, useMemo, useState } from "react";
-import { Activity, Download, RefreshCw, Save, Trash2, Zap } from "lucide-react";
-import { Card } from "../../components/ui/Card";
+import { Activity, AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
-import { Input, Select } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
-import { brl, num } from "../../utils/format";
-import { colorForValue } from "../../theme";
-import {
-  buscarTrimestreSR,
-  calcularTrimestreSR,
-  carregarTrimestreSR,
-  listarSessoesSR,
-  salvarTrimestreSR,
-} from "../../api";
-import type { SRLinhaCalculada, SRSessaoPMPV } from "../../types";
+import { brl, num, parseBRL } from "../../utils/format";
+import { buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
+import { mensagemDeErro } from "../../api/client";
+import type { SRLinhaCalculada, SROrigemPR } from "../../types";
 
-const MESES_ABREVS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+// SR segue o trimestre civil (Jan–Mar …), não o do PMPV/PR (Nov–Jan …).
+const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
+
+const cor = (v: number) => (v > 0 ? "text-emerald-300" : v < 0 ? "text-red-300" : "text-zinc-300");
+
+type Campo = "vp" | "vf" | "pr" | "selic_mensal" | "sr_anterior";
 
 function linhaVazia(mes: string): SRLinhaCalculada {
-  return {
-    mes,
-    vp: 0,
-    vf: 0,
-    pr: 0,
-    selic_mensal: 0,
-    sr_anterior: 0,
-    diferenca: 0,
-    sr_parcela: 0,
-    sr_selic: 0,
-    total: 0,
-  };
+  return { mes, vp: 0, vf: 0, pr: 0, selic_mensal: 0, sr_anterior: 0, diferenca: 0, sr_parcela: 0, sr_selic: 0, total: 0 };
 }
 
-/** Replica TelaSR._get_trimestre_labels: monta "Mes/Ano" avançando o ano
- * quando o mês seguinte "volta" no calendário (ex.: Nov, Dez, Jan). */
-function labelsTrimestre(meses: string[], anoBase: number): string[] {
-  const resultado: string[] = [];
-  let anoAtual = anoBase;
-  meses.forEach((mes, i) => {
-    const idx = MESES_ABREVS.indexOf(mes);
-    if (i > 0) {
-      const idxAnt = MESES_ABREVS.indexOf(meses[i - 1]);
-      if (idx < idxAnt) anoAtual += 1;
-    }
-    resultado.push(`${mes}/${anoAtual}`);
-  });
-  return resultado;
-}
-
-function calcularLocal(linhas: SRLinhaCalculada[]): { linhas: SRLinhaCalculada[]; total: number } {
-  let total = 0;
-  const calculadas = linhas.map((l) => {
+/** Prévia enquanto digita; o valor que vale é o do backend ao salvar. */
+function calcularLocal(linhas: SRLinhaCalculada[]): SRLinhaCalculada[] {
+  return linhas.map((l) => {
     const diferenca = l.vp - l.vf;
     const sr_parcela = diferenca * l.pr;
     const sr_selic = sr_parcela * (1 + l.selic_mensal / 100) + l.sr_anterior;
-    total += sr_selic;
     return { ...l, diferenca, sr_parcela, sr_selic, total: sr_selic };
   });
-  return { linhas: calculadas, total };
+}
+
+/** Trimestre do PMPV (Nov–Jan, Fev–Abr, Mai–Jul, Ago–Out) que contém o mês. */
+function trimestrePMPV(mes: string): string {
+  const [m, a] = mes.split("/");
+  const idx = MESES.indexOf(m);
+  const inicio = (idx - ((idx + 2) % 3) + 12) % 12;
+  const anoIni = inicio > idx ? Number(a) - 1 : Number(a);
+  const fim = (inicio + 2) % 12;
+  return `${MESES[inicio]}/${anoIni} – ${MESES[fim]}/${fim < inicio ? anoIni + 1 : anoIni}`;
+}
+
+/** Número em pt-BR: mostra formatado e, ao focar, deixa editar o texto cru. */
+function CampoNumero({ valor, casas, onChange, rotulo, alerta }: {
+  valor: number; casas: number; onChange: (v: number) => void; rotulo: string; alerta?: boolean;
+}) {
+  const [texto, setTexto] = useState<string | null>(null);
+  return (
+    <input
+      aria-label={rotulo}
+      inputMode="decimal"
+      value={texto ?? (valor ? num(valor, casas) : "")}
+      placeholder="—"
+      onFocus={() => setTexto(valor ? num(valor, casas) : "")}
+      onChange={(e) => setTexto(e.target.value)}
+      onBlur={() => {
+        onChange(parseBRL(texto ?? "") ?? 0);
+        setTexto(null);
+      }}
+      className={`w-full rounded-md border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100
+        placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-sky-500/50
+        ${alerta ? "border-amber-400/40" : "border-white/[0.07]"}`}
+    />
+  );
+}
+
+interface Carregado {
+  linhas: SRLinhaCalculada[];
+  origemPR: Record<string, SROrigemPR>;
+  fonte: "salvo" | "banco";
+}
+
+/** Abre o SR já salvo do trimestre; sem ele (ou com `doBanco`), traz VP/VF/PR do banco. */
+async function buscarTrimestre(labels: string[], doBanco = false): Promise<Carregado> {
+  const salvo = doBanco ? [] : await buscarTrimestreSR(`${labels[0]}_${labels[2]}`).catch(() => []);
+  if (salvo.length) {
+    const linhas = labels.map((mes, i) => ({ ...linhaVazia(mes), ...(salvo[i] as Partial<SRLinhaCalculada>), mes }));
+    return { linhas: calcularLocal(linhas), origemPR: {}, fonte: "salvo" };
+  }
+  const dados = await carregarTrimestreSR(0, labels);
+  return {
+    linhas: calcularLocal(labels.map((mes, i) => ({ ...linhaVazia(mes), ...(dados[i] ?? {}), mes }))),
+    origemPR: Object.fromEntries(dados.map((d) => [d.mes, d.pr_origem])),
+    fonte: "banco",
+  };
 }
 
 export default function SRPage() {
-  const anoAtual = new Date().getFullYear();
-  const [ano, setAno] = useState(anoAtual);
-  const [meses, setMeses] = useState(["Jan", "Fev", "Mar"]);
-  const [linhas, setLinhas] = useState<SRLinhaCalculada[]>(() =>
-    labelsTrimestre(["Jan", "Fev", "Mar"], anoAtual).map(linhaVazia)
-  );
-  const [total, setTotal] = useState(0);
+  const hoje = new Date();
+  const [ano, setAno] = useState(hoje.getFullYear());
+  const [tri, setTri] = useState(Math.floor(hoje.getMonth() / 3));
+  const labels = useMemo(() => [0, 1, 2].map((i) => `${MESES[tri * 3 + i]}/${ano}`), [ano, tri]);
+  const trimestreLabel = `${labels[0]}_${labels[2]}`;
 
-  const [sessoes, setSessoes] = useState<SRSessaoPMPV[]>([]);
-  const [sessaoId, setSessaoId] = useState<number | null>(null);
-  const [carregandoSessoes, setCarregandoSessoes] = useState(false);
-  const [carregandoBanco, setCarregandoBanco] = useState(false);
+  const [linhas, setLinhas] = useState<SRLinhaCalculada[]>(() => labels.map(linhaVazia));
+  const [origemPR, setOrigemPR] = useState<Record<string, SROrigemPR>>({});
+  const [fonte, setFonte] = useState<"salvo" | "banco" | null>(null);
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+  const [sucesso, setSucesso] = useState<string | null>(null);
 
-  const labelsAtuais = useMemo(() => labelsTrimestre(meses, ano), [meses, ano]);
-  const trimestreLabel = useMemo(
-    () => (labelsAtuais.length ? `${labelsAtuais[0]}_${labelsAtuais[labelsAtuais.length - 1]}` : ""),
-    [labelsAtuais]
-  );
+  const total = linhas.reduce((s, l) => s + l.sr_selic, 0);
 
-  const carregarSessoes = async () => {
-    setCarregandoSessoes(true);
-    setErro(null);
-    try {
-      const dados = await listarSessoesSR();
-      setSessoes(dados);
-      if (dados.length && sessaoId === null) setSessaoId(dados[0].id);
-    } catch {
-      setErro("Não foi possível carregar as sessões do PMPV.");
-    } finally {
-      setCarregandoSessoes(false);
-    }
+  const aplicar = (r: Carregado) => {
+    setLinhas(r.linhas);
+    setOrigemPR(r.origemPR);
+    setFonte(r.fonte);
+    setCarregando(false);
+  };
+  const falhar = (e: unknown) => {
+    setLinhas(labels.map(linhaVazia));
+    setFonte(null);
+    setErro(mensagemDeErro(e, "Não foi possível carregar VP/VF/PR do banco para este trimestre."));
+    setCarregando(false);
   };
 
   useEffect(() => {
-    carregarSessoes();
+    buscarTrimestre(labels).then(aplicar).catch(falhar);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [trimestreLabel]);
 
-  const aplicarTrimestre = () => {
-    const labels = labelsTrimestre(meses, ano);
-    setLinhas(labels.map(linhaVazia));
-    setTotal(0);
-    setAviso(null);
-  };
-
-  const recalcularLocal = (novasLinhas: SRLinhaCalculada[]) => {
-    const resultado = calcularLocal(novasLinhas);
-    setLinhas(resultado.linhas);
-    setTotal(resultado.total);
-  };
-
-  const atualizarCampo = (idx: number, campo: keyof SRLinhaCalculada, valor: string) => {
-    const next = [...linhas];
-    next[idx] = { ...next[idx], [campo]: parseFloat(valor.replace(",", ".")) || 0 };
-    recalcularLocal(next);
-  };
-
-  const calcularNoBackend = async () => {
+  const irPara = (novoAno: number, novoTri: number) => {
+    if (novoAno === ano && novoTri === tri) return;
+    setCarregando(true);
     setErro(null);
-    try {
-      const resultado = await calcularTrimestreSR(
-        linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior }) => ({
-          mes,
-          vp,
-          vf,
-          pr,
-          selic_mensal,
-          sr_anterior,
-        }))
-      );
-      setLinhas(resultado.linhas);
-      setTotal(resultado.total);
-    } catch {
-      setErro("Falha ao calcular SR no servidor. Usando cálculo local.");
-      recalcularLocal(linhas);
-    }
+    setSucesso(null);
+    setAno(novoAno);
+    setTri(novoTri);
   };
 
-  const carregarDoBanco = async () => {
-    if (sessaoId === null) return;
-    setCarregandoBanco(true);
+  const recarregarDoBanco = () => {
+    setCarregando(true);
     setErro(null);
-    try {
-      const dados = await carregarTrimestreSR(sessaoId, labelsAtuais);
-      const novasLinhas = linhas.map((l, i) => ({
-        ...l,
-        vp: dados[i]?.vp ?? l.vp,
-        vf: dados[i]?.vf ?? l.vf,
-        pr: dados[i]?.pr ?? l.pr,
-      }));
-      recalcularLocal(novasLinhas);
-    } catch {
-      setErro("Não foi possível carregar VP/VF/PR do banco para este trimestre.");
-    } finally {
-      setCarregandoBanco(false);
-    }
+    setSucesso(null);
+    buscarTrimestre(labels, true).then(aplicar).catch(falhar);
+  };
+
+  const atualizar = (idx: number, campo: Campo, valor: number) => {
+    const next = linhas.map((l, i) => (i === idx ? { ...l, [campo]: valor } : l));
+    setLinhas(calcularLocal(next));
+    if (campo === "pr") setOrigemPR({ ...origemPR, [linhas[idx].mes]: "salvo" });
+    setSucesso(null);
   };
 
   const salvar = async () => {
-    if (linhas.every((l) => l.vp === 0 && l.vf === 0)) {
-      setAviso("Preencha os dados do trimestre antes de salvar.");
-      return;
-    }
-    setSalvando(true);
     setErro(null);
-    setAviso(null);
+    setSucesso(null);
+    setSalvando(true);
     try {
-      await salvarTrimestreSR(labelsAtuais, labelsAtuais[labelsAtuais.length - 1], linhas);
-      setAviso(`SR trimestral salvo. Total = ${brl(total)}`);
-    } catch {
-      setErro("Falha ao salvar o SR trimestral no banco.");
+      const calc = await calcularTrimestreSR(
+        linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior }) => ({ mes, vp, vf, pr, selic_mensal, sr_anterior }))
+      );
+      setLinhas(calc.linhas);
+      await salvarTrimestreSR(labels, labels[2], calc.linhas);
+      setFonte("salvo");
+      setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.`);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Falha ao salvar o SR trimestral."));
     } finally {
       setSalvando(false);
     }
   };
 
-  const carregarTrimestreSalvo = async () => {
-    setErro(null);
-    try {
-      const salvo = await buscarTrimestreSR(trimestreLabel);
-      if (!salvo.length) {
-        setAviso("Nenhum SR salvo para este trimestre ainda.");
-        return;
-      }
-      const novasLinhas = labelsAtuais.map((label, i) => {
-        const s = salvo[i] as Record<string, number> | undefined;
-        return s ? { ...linhaVazia(label), ...s, mes: label } : linhaVazia(label);
-      });
-      recalcularLocal(novasLinhas);
-    } catch {
-      setAviso("Nenhum SR salvo para este trimestre ainda.");
-    }
-  };
-
-  const limpar = () => {
-    aplicarTrimestre();
-  };
+  const semVP = linhas.filter((l) => !l.vp);
+  const prEstimado = linhas.filter((l) => origemPR[l.mes] === "estimado");
+  const semPR = linhas.filter((l) => l.vp && !l.pr);
+  const pendencias = semVP.length + prEstimado.length + semPR.length;
 
   return (
-    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+      <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div className="flex items-center gap-3">
-          <span
-            className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ backgroundColor: "#22d3ee17", color: "#22d3ee" }}
-          >
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
             <Activity size={16} />
           </span>
           <div>
-            <h1 className="text-[1.75rem] font-bold tracking-tight text-white">SR</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">
-              Saldo Remanescente Trimestral — SR = (VP − VF) × PR × (1 + SELIC) + SR anterior
-            </p>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">SR — Saldo Remanescente</h1>
+            <p className="mt-0.5 text-sm text-zinc-400">SR = (VP − VF) × PR × (1 + SELIC) + SR anterior, mês a mês no trimestre</p>
           </div>
         </div>
-      </div>
 
-      {erro && <Alert variant="error">{erro}</Alert>}
-      {aviso && <Alert variant="info">{aviso}</Alert>}
+        {erro && <Alert variant="error">{erro}</Alert>}
+        {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
-      <Card title="Carregar VP e VF do banco">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[280px] flex-1">
-            <Select
-              label="Sessão PMPV"
-              value={sessaoId ?? ""}
-              onChange={(e) => setSessaoId(Number(e.target.value))}
-              options={
-                sessoes.length
-                  ? sessoes.map((s) => ({
-                      value: String(s.id),
-                      label: `${s.nome}  —  VP: ${num(s.vp)} m³  [${s.data_criacao?.slice(0, 10) ?? ""}]`,
-                    }))
-                  : [{ value: "", label: "(nenhuma sessão)" }]
-              }
-            />
+        <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
+          <div className="flex items-center gap-1">
+            <button type="button" aria-label="Ano anterior" onClick={() => irPara(ano - 1, tri)}
+              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white">
+              <ChevronLeft size={16} />
+            </button>
+            <span className="w-14 text-center text-lg font-semibold tabular-nums text-white">{ano}</span>
+            <button type="button" aria-label="Próximo ano" onClick={() => irPara(ano + 1, tri)}
+              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white">
+              <ChevronRight size={16} />
+            </button>
           </div>
-          <Button
-            variant="success"
-            icon={<Zap size={14} />}
-            loading={carregandoBanco}
-            disabled={sessaoId === null}
-            onClick={carregarDoBanco}
-          >
-            Carregar VP/VF
+          <div role="radiogroup" aria-label="Trimestre" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
+            {TRIMESTRES.map((t, i) => (
+              <button key={t} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  tri === i ? "bg-sky-500/20 text-sky-200" : "text-zinc-400 hover:text-zinc-100"}`}>
+                {i + 1}º · {t}
+              </button>
+            ))}
+          </div>
+          <div className="ml-auto flex items-center gap-3">
+            {fonte && (
+              <span className="text-xs text-zinc-500">
+                {fonte === "salvo" ? "Mostrando o SR salvo deste trimestre" : "VP/VF/PR trazidos do banco (ainda não salvo)"}
+              </span>
+            )}
+            <Button variant="ghost" icon={<RefreshCw size={14} />} loading={carregando} onClick={recarregarDoBanco}>
+              Recarregar do banco
+            </Button>
+          </div>
+        </section>
+
+        {pendencias > 0 && (
+          <Alert variant="warning">
+            <ul className="space-y-1">
+              {semVP.map((l) => (
+                <li key={`vp-${l.mes}`}>
+                  <b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV ou digite o volume contratado.
+                </li>
+              ))}
+              {prEstimado.map((l) => (
+                <li key={`pr-${l.mes}`}>
+                  <b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de salvar.
+                </li>
+              ))}
+              {semPR.map((l) => (
+                <li key={`sempr-${l.mes}`}><b>{l.mes}</b> sem PR.</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
+
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[54rem] text-sm">
+              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Mês</th>
+                  <th className="px-2 py-3 text-right font-semibold">VP (m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold">VF (m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold">VP − VF</th>
+                  <th className="px-2 py-3 text-right font-semibold">PR (R$/m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold">SELIC (%)</th>
+                  <th className="px-2 py-3 text-right font-semibold">SR anterior</th>
+                  <th className="px-4 py-3 text-right font-semibold">SR do mês</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {linhas.map((l, idx) => {
+                  const estimado = origemPR[l.mes] === "estimado";
+                  return (
+                    <tr key={l.mes} className={carregando ? "opacity-50" : ""}>
+                      <td className="px-4 py-2.5 font-semibold text-zinc-100">
+                        <span className="flex items-center gap-1.5">
+                          {l.mes}
+                          {(!l.vp || estimado || !l.pr) && <AlertTriangle size={13} className="text-amber-300" aria-label="Pendência" />}
+                        </span>
+                      </td>
+                      <td className="w-36 px-2 py-2">
+                        <CampoNumero rotulo={`VP de ${l.mes}`} valor={l.vp} casas={0} alerta={!l.vp} onChange={(v) => atualizar(idx, "vp", v)} />
+                      </td>
+                      <td className="w-40 px-2 py-2">
+                        <CampoNumero rotulo={`VF de ${l.mes}`} valor={l.vf} casas={2} onChange={(v) => atualizar(idx, "vf", v)} />
+                      </td>
+                      <td className={`px-3 py-2 whitespace-nowrap text-right tabular-nums ${cor(l.diferenca)}`}>{num(l.diferenca)}</td>
+                      <td className="w-28 px-2 py-2">
+                        <CampoNumero rotulo={`PR de ${l.mes}`} valor={l.pr} casas={4} alerta={estimado || !l.pr} onChange={(v) => atualizar(idx, "pr", v)} />
+                        {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
+                      </td>
+                      <td className="w-24 px-2 py-2">
+                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={4} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
+                      </td>
+                      <td className="w-32 px-2 py-2">
+                        <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
+                      </td>
+                      <td className={`px-4 py-2.5 whitespace-nowrap text-right font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="border-t border-white/[0.1] bg-white/[0.02]">
+                <tr>
+                  <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                    SR do trimestre
+                  </td>
+                  <td className={`px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </section>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="purple" icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={salvar}>
+            Salvar SR do trimestre
           </Button>
-          <Button
-            variant="ghost"
-            icon={<RefreshCw size={14} />}
-            loading={carregandoSessoes}
-            onClick={carregarSessoes}
-          >
-            Recarregar sessões
-          </Button>
+          {pendencias > 0 && <span className="text-xs text-amber-300">Há {pendencias} pendência(s) acima.</span>}
         </div>
-
-        <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-white/[0.07] pt-4">
-          <Input
-            label="Ano"
-            type="number"
-            value={ano}
-            onChange={(e) => setAno(Number(e.target.value))}
-            className="w-24"
-          />
-          {[0, 1, 2].map((i) => (
-            <Select
-              key={i}
-              label={`Mês ${i + 1}`}
-              value={meses[i]}
-              onChange={(e) => {
-                const next = [...meses];
-                next[i] = e.target.value;
-                setMeses(next);
-              }}
-              options={MESES_ABREVS.map((m) => ({ value: m, label: m }))}
-            />
-          ))}
-          <Button variant="ghost" onClick={aplicarTrimestre}>
-            Aplicar trimestre
-          </Button>
-          <Button variant="ghost" onClick={carregarTrimestreSalvo}>
-            Abrir trimestre salvo
-          </Button>
-        </div>
-      </Card>
-
-      <div className="space-y-3">
-        {linhas.map((linha, idx) => (
-          <Card key={linha.mes} title={linha.mes}>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-6 items-end">
-              <Input
-                label="VP (m³)"
-                type="number"
-                step="0.01"
-                value={linha.vp || ""}
-                onChange={(e) => atualizarCampo(idx, "vp", e.target.value)}
-              />
-              <Input
-                label="VF (m³)"
-                type="number"
-                step="0.01"
-                value={linha.vf || ""}
-                onChange={(e) => atualizarCampo(idx, "vf", e.target.value)}
-              />
-              <Input
-                label="PR (R$/m³)"
-                type="number"
-                step="0.0001"
-                value={linha.pr || ""}
-                onChange={(e) => atualizarCampo(idx, "pr", e.target.value)}
-              />
-              <Input
-                label="SELIC mensal (%)"
-                type="number"
-                step="0.0001"
-                value={linha.selic_mensal || ""}
-                onChange={(e) => atualizarCampo(idx, "selic_mensal", e.target.value)}
-              />
-              <Input
-                label="SR anterior (R$)"
-                type="number"
-                step="0.01"
-                value={linha.sr_anterior || ""}
-                onChange={(e) => atualizarCampo(idx, "sr_anterior", e.target.value)}
-              />
-              <div className="flex flex-col gap-1">
-                <span className="text-[0.7rem] font-semibold text-zinc-500 uppercase tracking-[0.08em]">
-                  SR parcela
-                </span>
-                <span className={`text-sm font-bold ${colorForValue(linha.sr_selic)}`}>
-                  {brl(linha.sr_selic)}
-                </span>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="border border-cyan-500/20">
-        <div className="flex flex-wrap items-center gap-4">
-          <span className="text-sm text-zinc-400">SR TOTAL =</span>
-          <span className={`text-3xl font-extrabold ${colorForValue(total)}`}>{brl(total)}</span>
-          <span className="text-xs text-zinc-600">
-            {linhas.map((l) => `${l.mes}: ${brl(l.sr_selic)}`).join("   |   ")}
-          </span>
-        </div>
-      </Card>
-
-      <div className="flex flex-wrap gap-3">
-        <Button variant="success" icon={<Zap size={16} />} onClick={calcularNoBackend}>
-          Calcular SR
-        </Button>
-        <Button variant="purple" icon={<Save size={16} />} loading={salvando} onClick={salvar}>
-          Salvar no BD
-        </Button>
-        <Button variant="ghost" icon={<Download size={16} />} disabled title="Requer fluxo de Excel Final (Módulo 9) — pendente">
-          Excel Final (Módulo 9)
-        </Button>
-        <Button variant="ghost" icon={<Trash2 size={16} />} onClick={limpar}>
-          Limpar
-        </Button>
-      </div>
       </div>
     </div>
   );

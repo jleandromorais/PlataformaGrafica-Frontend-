@@ -7,7 +7,7 @@ import type {
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
-  SRSessaoPMPV, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
+  SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
   PVResultado, PVPeriodo, PVTrimestre,
 } from "../types";
 
@@ -300,7 +300,7 @@ export const listarSessoesSR = () =>
 
 export const carregarTrimestreSR = (sessaoId: number, labelsMeses: string[]) =>
   api
-    .post<{ mes: string; vp: number; vf: number; pr: number }[]>("/sr/trimestre/carregar", {
+    .post<{ mes: string; vp: number; vf: number; pr: number; pr_origem: SROrigemPR }[]>("/sr/trimestre/carregar", {
       sessao_id: sessaoId,
       labels_meses: labelsMeses,
     })

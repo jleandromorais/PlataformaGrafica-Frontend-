@@ -345,6 +345,8 @@ export interface SRSessaoPMPV {
   vf: number;
 }
 
+export type SROrigemPR = "salvo" | "estimado" | "ausente";
+
 export interface SRLinhaEntrada {
   mes: string; // label "Jan/2026"
   vp: number;
