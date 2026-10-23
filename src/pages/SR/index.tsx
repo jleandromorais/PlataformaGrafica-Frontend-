@@ -165,7 +165,13 @@ export default function SRPage() {
   const semVP = linhas.filter((l) => !l.vp);
   const prEstimado = linhas.filter((l) => origemPR[l.mes] === "estimado");
   const semPR = linhas.filter((l) => l.vp && !l.pr);
-  const pendencias = semVP.length + prEstimado.length + semPR.length;
+  // SR anterior igual ao SR do próprio mês = conta o mês duas vezes (erro comum
+  // ao copiar a linha "Saldo Remanescente (SELIC)" da planilha para cá).
+  const srDuplicado = linhas.filter((l) => {
+    const doMes = l.sr_parcela * (1 + l.selic_mensal / 100);
+    return l.sr_anterior !== 0 && Math.abs(l.sr_anterior - doMes) <= 0.02 * Math.abs(doMes);
+  });
+  const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length;
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -232,6 +238,12 @@ export default function SRPage() {
               {semPR.map((l) => (
                 <li key={`sempr-${l.mes}`}><b>{l.mes}</b> sem PR.</li>
               ))}
+              {srDuplicado.map((l) => (
+                <li key={`dup-${l.mes}`}>
+                  <b>{l.mes}</b>: o SR trim. anterior é (quase) igual ao SR do próprio mês, então ele está sendo contado duas vezes.
+                  SR anterior é o saldo de um trimestre <b>anterior</b>; deixe vazio se não houver.
+                </li>
+              ))}
             </ul>
           </Alert>
         )}
@@ -247,8 +259,10 @@ export default function SRPage() {
                   <th className="px-2 py-3 text-right font-semibold">VP − VF</th>
                   <th className="px-2 py-3 text-right font-semibold">PR (R$/m³)</th>
                   <th className="px-2 py-3 text-right font-semibold">SELIC (%)</th>
-                  <th className="px-2 py-3 text-right font-semibold">SR anterior</th>
-                  <th className="px-4 py-3 text-right font-semibold">SR do mês</th>
+                  <th className="px-2 py-3 text-right font-semibold" title="Saldo remanescente de um trimestre anterior, somado ao SR do mês. Vazio se não houver.">
+                    SR trim. anterior
+                  </th>
+                  <th className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-3 text-right font-semibold">SR do mês</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
@@ -279,7 +293,10 @@ export default function SRPage() {
                       <td className="w-32 px-2 py-2">
                         <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
                       </td>
-                      <td className={`px-4 py-2.5 whitespace-nowrap text-right font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</td>
+                      <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-2 text-right">
+                        <span className={`block whitespace-nowrap font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</span>
+                        <span className="block whitespace-nowrap text-[0.7rem] tabular-nums text-zinc-500">sem SELIC {brl(l.sr_parcela)}</span>
+                      </td>
                     </tr>
                   );
                 })}
@@ -289,11 +306,14 @@ export default function SRPage() {
                   <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold uppercase tracking-[0.08em] text-zinc-400">
                     SR do trimestre
                   </td>
-                  <td className={`px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
+                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
                 </tr>
               </tfoot>
             </table>
           </div>
+          <p className="border-t border-white/[0.05] px-4 py-3 text-xs text-zinc-500">
+            SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até a data da apuração.
+          </p>
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
