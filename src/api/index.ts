@@ -251,6 +251,12 @@ export const gerarExcelFinalGeral = () =>
     .post<Blob>("/excel-final/gerar-geral", null, { responseType: "blob", timeout: 5 * 60 * 1000 })
     .then((r) => r.data);
 
+/** Minuta da Nota Técnica (.docx) do ciclo cujo trimestre apurado contém `periodo`. */
+export const gerarMinutaNotaTecnica = (periodo: string) =>
+  api
+    .post<Blob>("/nota-tecnica/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+    .then((r) => r.data);
+
 // ─── PR ──────────────────────────────────────────────────────────────────────
 // PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.
 export const getPR = (periodo: string) =>

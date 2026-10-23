@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, Lightbulb, RefreshCw, Save } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, FileText, Lightbulb, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num } from "../../utils/format";
-import { apurarPR, getPR, salvarPR } from "../../api";
+import { apurarPR, gerarMinutaNotaTecnica, getPR, salvarPR } from "../../api";
+import { salvarArquivo } from "../../utils/download";
 import { mensagemDeErro } from "../../api/client";
 import type { PRApuracao } from "../../types";
 
@@ -54,6 +55,7 @@ export default function PRPage() {
   const [prSalvo, setPrSalvo] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const [gerandoNT, setGerandoNT] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
 
@@ -106,6 +108,21 @@ export default function PRPage() {
       setErro(mensagemDeErro(e, "Falha ao salvar o PR."));
     } finally {
       setSalvando(false);
+    }
+  };
+
+  const gerarNT = async () => {
+    if (!dados) return;
+    setGerandoNT(true);
+    setErro(null);
+    try {
+      const mp = dados.meses_pr;
+      salvarArquivo(await gerarMinutaNotaTecnica(dados.meses_apurados[2]),
+        `Minuta_NT_Repasse_${mp[0].replace("/", "-")}_a_${mp[2].replace("/", "-")}.docx`);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível gerar a minuta da Nota Técnica."));
+    } finally {
+      setGerandoNT(false);
     }
   };
 
@@ -237,6 +254,13 @@ export default function PRPage() {
                 disabled={carregando || !dados.vp} onClick={salvar}>
                 Salvar PR
               </Button>
+              <Button className="mt-2 w-full" variant="ghost" icon={<FileText size={16} />} loading={gerandoNT}
+                disabled={carregando || !dados.vp} onClick={gerarNT}>
+                Gerar minuta da Nota Técnica
+              </Button>
+              <p className="mt-1 text-center text-[0.7rem] text-zinc-500">
+                Word com os Quadros 5 a 8 e o Anexo A; os trechos do analista vêm destacados em amarelo.
+              </p>
             </section>
           </div>
         )}
