@@ -8,6 +8,7 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { carregarNaMemoria } from "../../utils/pasta";
+import { ComparacaoPlanilha } from "./ComparacaoPlanilha";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 
@@ -314,38 +315,7 @@ export default function AuditoriaPage() {
             </section>
 
             {resultado && (resultado.comparacao ? (
-              <section className={`${PANEL} p-5 sm:p-6`}>
-                <h2 className="text-base font-semibold text-white">Comparação com a planilha ({resultado.comparacao.periodo})</h2>
-                <p className="mt-0.5 text-sm text-zinc-400">
-                  Aba usada: {resultado.comparacao.abas_do_periodo.join(", ") || <span className="text-amber-300">nenhuma aba corresponde ao mês</span>}
-                </p>
-                <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                  {[
-                    ["Nas duas", resultado.comparacao.qtd_em_ambas, "text-emerald-300"],
-                    ["Só na auditoria", resultado.comparacao.notas_apenas_auditoria.length, "text-amber-300"],
-                    ["Só na planilha", resultado.comparacao.notas_apenas_planilha.length, "text-amber-300"],
-                  ].map(([r, v, c]) => (
-                    <div key={r as string} className="rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
-                      <p className={`text-2xl font-bold tabular-nums ${v ? c : "text-zinc-500"}`}>{v as number}</p>
-                      <p className="text-xs text-zinc-400">{r as string}</p>
-                    </div>
-                  ))}
-                </div>
-                {(["notas_apenas_auditoria", "notas_apenas_planilha"] as const).map((k) =>
-                  resultado.comparacao![k].length > 0 && (
-                    <details key={k} className="mt-3 text-sm">
-                      <summary className="cursor-pointer text-zinc-300 hover:text-white">
-                        {k === "notas_apenas_auditoria" ? "Notas só na auditoria" : "Notas só na planilha"} ({resultado.comparacao![k].length})
-                      </summary>
-                      <ul className="mt-2 max-h-48 space-y-0.5 overflow-y-auto font-mono text-xs text-zinc-400">
-                        {resultado.comparacao![k].map((n, i) => (
-                          <li key={i}>{[n.numero, n.empresa, n.tipo, n.linha_excel && `linha ${n.linha_excel}`].filter(Boolean).join(" · ")}</li>
-                        ))}
-                      </ul>
-                    </details>
-                  ))}
-                {resultado.comparacao.avisos.map((a) => <p key={a} className="mt-2 text-xs text-amber-300">{a}</p>)}
-              </section>
+              <ComparacaoPlanilha comparacao={resultado.comparacao} className={`${PANEL} p-5 sm:p-6`} />
             ) : (
               <p className="text-sm text-zinc-500">{resultado.aviso_comparacao}</p>
             ))}

@@ -155,6 +155,41 @@ export interface AuditoriaComparacao {
   abas_planilha: string[];
   abas_do_periodo: string[];
   avisos: string[];
+  // Modelo Alexandre: comparação valor a valor
+  modelo: "alexandre" | "generico";
+  notas_mes_na_planilha: boolean;
+  cgr_auditoria: number | null;
+  cgr_planilha_notas: number | null;
+  cgr_planilha_conta_grafica: number | null;
+  divergencias_valor: AuditoriaDivergencia[];
+  por_empresa: AuditoriaConferenciaEmpresa[];
+}
+
+export interface AuditoriaDivergencia {
+  empresa: string;
+  tipo: string;
+  numero: string;
+  linha_excel: number;
+  motivos: string[];
+  cgr_auditoria: number;
+  cgr_planilha: number;
+  diferenca_cgr: number;
+  valor_auditoria: number;
+  valor_planilha: number;
+  volume_auditoria: number;
+  volume_planilha: number;
+  aliquota_auditoria: string;
+  aliquota_planilha: string;
+}
+
+export interface AuditoriaConferenciaEmpresa {
+  empresa: string;
+  qtd_auditoria: number;
+  qtd_planilha: number;
+  cgr_auditoria: number;
+  cgr_planilha: number;
+  diferenca: number;
+  confere: boolean;
 }
 
 export interface AuditoriaResultado {
