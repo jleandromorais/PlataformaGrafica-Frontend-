@@ -51,7 +51,7 @@ function CampoNumero({ valor, casas, onChange, rotulo, alerta }: {
       inputMode="decimal"
       value={texto ?? (valor ? num(valor, casas) : "")}
       placeholder="—"
-      onFocus={() => setTexto(valor ? num(valor, casas) : "")}
+      onFocus={() => setTexto(valor ? String(valor).replace(".", ",") : "")}
       onChange={(e) => setTexto(e.target.value)}
       onBlur={() => {
         onChange(parseBRL(texto ?? "") ?? 0);
@@ -288,7 +288,7 @@ export default function SRPage() {
                         {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
                       </td>
                       <td className="w-24 px-2 py-2">
-                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={4} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
+                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={6} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
                       </td>
                       <td className="w-32 px-2 py-2">
                         <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
