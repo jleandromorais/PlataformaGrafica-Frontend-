@@ -77,7 +77,7 @@ export default function AuditoriaPage() {
   useEffect(() => {
     // Atributo que permite escolher uma pasta inteira (não existe nos tipos do React).
     inputPasta.current?.setAttribute("webkitdirectory", "");
-    getHistoricoAuditoria().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoAuditoria().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Auditoria CGR.")));
   }, []);
 
   const escolherPasta = (lista: FileList | null) => {
@@ -145,7 +145,7 @@ export default function AuditoriaPage() {
       const blob = await baixarRelatorioAuditoria(periodo, resultado.itens, planilha);
       salvarArquivo(blob, `Auditoria_${periodo.replace("/", "-")}.xlsx`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório."));
+      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório da Auditoria."));
     } finally {
       setOcupado(null);
     }
