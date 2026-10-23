@@ -88,7 +88,7 @@ export default function CGFPage() {
   };
 
   useEffect(() => {
-    getHistoricoCGF().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoCGF().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do CGF.")));
     buscarPmpv(periodo);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 

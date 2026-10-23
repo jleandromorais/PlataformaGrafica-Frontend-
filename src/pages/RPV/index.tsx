@@ -65,7 +65,7 @@ export default function RPVPage() {
   const carregarHistorico = useCallback(() => {
     getHistoricoRPV()
       .then((h) => { setHistorico(h); setErroHistorico(null); })
-      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico do RPV.")));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);

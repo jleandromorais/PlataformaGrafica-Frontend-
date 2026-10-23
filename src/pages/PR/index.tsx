@@ -105,7 +105,7 @@ export default function PRPage() {
       setPrSalvo(r.pr);
       setSucesso(`PR de ${meses[0]} a ${meses[2]} salvo: ${tarifa(r.pr)} R$/m³.`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Falha ao salvar o PR."));
+      setErro(mensagemDeErro(e, "Não foi possível salvar o PR."));
     } finally {
       setSalvando(false);
     }

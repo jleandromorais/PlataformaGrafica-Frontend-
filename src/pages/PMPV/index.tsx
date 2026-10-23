@@ -221,7 +221,7 @@ export default function PMPVPage() {
   const arquivoRef = useRef<HTMLInputElement>(null);
 
   const carregarHistorico = useCallback(() => {
-    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PMPV.")));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);

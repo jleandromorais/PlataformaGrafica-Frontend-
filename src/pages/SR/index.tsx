@@ -156,7 +156,7 @@ export default function SRPage() {
       setFonte("salvo");
       setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Falha ao salvar o SR trimestral."));
+      setErro(mensagemDeErro(e, "Não foi possível salvar o SR do trimestre."));
     } finally {
       setSalvando(false);
     }

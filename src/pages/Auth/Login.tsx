@@ -27,7 +27,7 @@ export default function LoginPage() {
       await entrar(email, senha);
       navegar(destino, { replace: true });
     } catch (err) {
-      setErro(mensagemDeErro(err, "Não foi possível entrar. Confira o e-mail e a senha e tente de novo."));
+      setErro(mensagemDeErro(err, "Não foi possível entrar."));
     } finally {
       setEnviando(false);
     }

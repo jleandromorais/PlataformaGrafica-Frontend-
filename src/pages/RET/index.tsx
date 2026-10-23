@@ -24,7 +24,7 @@ export default function RETPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
 
   useEffect(() => {
-    getHistoricoRET().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoRET().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do RET.")));
   }, []);
 
   const processar = async () => {
@@ -35,7 +35,7 @@ export default function RETPage() {
     try {
       setResultado(await processarRET(pasta.arquivos, pasta.raiz));
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível ler os PDFs."));
+      setErro(mensagemDeErro(e, "Não foi possível ler os PDFs de encargos de transporte."));
     } finally {
       setOcupado(null);
     }

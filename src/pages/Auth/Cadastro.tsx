@@ -32,7 +32,7 @@ export default function CadastroPage() {
       await cadastrar({ nome, email, senha, confirmar_senha: confirmar });
       navegar("/", { replace: true });
     } catch (err) {
-      setErro(mensagemDeErro(err, "Não foi possível criar a conta. Confira os campos e tente de novo."));
+      setErro(mensagemDeErro(err, "Não foi possível criar a conta."));
     } finally {
       setEnviando(false);
     }

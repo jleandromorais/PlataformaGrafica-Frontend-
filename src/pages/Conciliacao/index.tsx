@@ -41,7 +41,7 @@ export default function ConciliacaoPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
 
   useEffect(() => {
-    getHistoricoConcilia().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico.")));
+    getHistoricoConcilia().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Conciliação (RP).")));
   }, []);
 
   /** Itens com os valores digitados à mão nos PDFs que não foram lidos. */
@@ -69,7 +69,7 @@ export default function ConciliacaoPage() {
       setItens(r.itens);
       setEditados({});
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível ler os PDFs."));
+      setErro(mensagemDeErro(e, "Não foi possível ler os PDFs das notas de penalidade."));
     } finally {
       setOcupado(null);
     }
@@ -97,7 +97,7 @@ export default function ConciliacaoPage() {
     try {
       salvarArquivo(await baixarRelatorioConcilia(periodo, itensFinais), `Conciliacao_${periodo.replace("/", "-")}.xlsx`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório."));
+      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório da Conciliação."));
     } finally {
       setOcupado(null);
     }

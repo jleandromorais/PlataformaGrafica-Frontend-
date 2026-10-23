@@ -98,7 +98,7 @@ export default function PVPage() {
         const atual = trimestreAtual(t);
         mudar(atual.label, atual.ano);
       })
-      .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais. Recarregue a página.")));
+      .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar a lista de trimestres.")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -122,7 +122,7 @@ export default function PVPage() {
       setAvisos([]);
       setSucesso(`PV de ${trimestre}, ano ${ano} salvo: R$ ${r.pv.toFixed(4)}. Gravado em ${r.gravado_em.join(", ")}.`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar o PV. Tente de novo."));
+      setErro(mensagemDeErro(e, "Não foi possível salvar o PV."));
     } finally {
       setSalvando(false);
     }
