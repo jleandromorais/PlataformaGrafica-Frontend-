@@ -173,6 +173,12 @@ export default function SRPage() {
   });
   const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length;
 
+  const limparSrDuplicado = () => {
+    const meses = new Set(srDuplicado.map((l) => l.mes));
+    setLinhas(calcularLocal(linhas.map((l) => (meses.has(l.mes) ? { ...l, sr_anterior: 0 } : l))));
+    setSucesso(null);
+  };
+
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
@@ -238,12 +244,16 @@ export default function SRPage() {
               {semPR.map((l) => (
                 <li key={`sempr-${l.mes}`}><b>{l.mes}</b> sem PR.</li>
               ))}
-              {srDuplicado.map((l) => (
-                <li key={`dup-${l.mes}`}>
-                  <b>{l.mes}</b>: o SR trim. anterior é (quase) igual ao SR do próprio mês, então ele está sendo contado duas vezes.
-                  SR anterior é o saldo de um trimestre <b>anterior</b>; deixe vazio se não houver.
+              {srDuplicado.length > 0 && (
+                <li>
+                  <b>{srDuplicado.map((l) => l.mes).join(", ")}</b>: o "SR trim. anterior" é o próprio SR do mês, então ele está
+                  sendo somado duas vezes. Esse campo é só para saldo de um trimestre <b>anterior</b>.
+                  <button type="button" onClick={limparSrDuplicado}
+                    className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                    Apagar SR trim. anterior {srDuplicado.length > 1 ? "desses meses" : "desse mês"}
+                  </button>
                 </li>
-              ))}
+              )}
             </ul>
           </Alert>
         )}
