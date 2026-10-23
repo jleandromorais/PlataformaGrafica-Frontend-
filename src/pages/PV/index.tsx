@@ -70,11 +70,12 @@ export default function PVPage() {
       const d = await getPVTrimestre(label, a);
       if (busca !== ultimaBusca.current) return; // o usuário já trocou de trimestre
       setPeriodos(d.periodos);
-      // Já salvo: mostra o que foi gravado (é o que o Excel Final usa); os avisos
-      // dizem se os módulos PMPV/PR mudaram depois.
-      setPmpv(d.salvo ? d.salvo.pmpv : d.pmpv);
-      setPr(d.salvo ? d.salvo.pr : d.pr);
-      setAvisos(d.salvo ? [`PV já salvo em ${d.salvo.data || "data não registrada"}: mostrando os valores salvos.`, ...d.avisos] : d.avisos);
+      // Sempre os valores atuais dos módulos PMPV e PR: mostrar o PV já salvo
+      // escondia o PR novo (salvo depois) e não havia como trazê-lo para a tela.
+      // O aviso diz quando o PV salvo difere; "Salvar" atualiza.
+      setPmpv(d.pmpv);
+      setPr(d.pr);
+      setAvisos(d.avisos);
       setCarregadoPara(`${label}/${a}`);
     } catch (e) {
       if (busca === ultimaBusca.current) setErro(mensagemDeErro(e, `Não foi possível carregar o PV de ${label}/${a}.`));
