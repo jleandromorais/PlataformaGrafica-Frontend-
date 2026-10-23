@@ -311,6 +311,31 @@ export interface PRResultado {
   pr: number;
 }
 
+/** PR da Nota Técnica (POST /pr/apurar): SCG e SR com SELIC do trimestre
+ * civil apurado ÷ VP do trimestre do PR, arredondado a 4 casas. */
+export interface PRApuracaoMes {
+  periodo: string;
+  scg: number;
+  selic: number; // % acumulada até o fim do trimestre (a mesma do SR)
+  scg_selic: number;
+  sr: number; // SR do mês já com SELIC
+}
+
+export interface PRApuracao {
+  meses_pr: string[];
+  meses_apurados: string[];
+  meses: PRApuracaoMes[];
+  vps: number[];
+  scg_selic: number;
+  sr: number;
+  saldo_total: number;
+  vp: number;
+  pr: number;
+  pmpv: number;
+  pv: number;
+  pendencias: string[];
+}
+
 export interface PRMesDecomposicao {
   periodo: string;
   scg: number;
