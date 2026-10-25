@@ -156,7 +156,10 @@ export interface AuditoriaComparacao {
   abas_do_periodo: string[];
   avisos: string[];
   // Modelo Alexandre: comparação valor a valor
-  modelo: "alexandre" | "nt" | "generico";
+  modelo: string;                       // "alexandre" | "apuracao" | "nt" | "generico"
+  modelo_rotulo: string;                // nome para mostrar
+  tipo: "por_nota" | "por_supridor" | "generico";   // define o layout da tela
+  fontes_cgr: { rotulo: string; valor: number | null }[];   // CGR da planilha, a comparar com o das notas
   notas_mes_na_planilha: boolean;
   cgr_auditoria: number | null;
   cgr_planilha_notas: number | null;
@@ -180,6 +183,7 @@ export interface AuditoriaDivergencia {
   volume_planilha: number;
   aliquota_auditoria: string;
   aliquota_planilha: string;
+  explicacao?: string;   // o que diverge, com os dois lados
 }
 
 export interface AuditoriaConferenciaEmpresa {
