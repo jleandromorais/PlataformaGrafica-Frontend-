@@ -156,7 +156,7 @@ export interface AuditoriaComparacao {
   abas_do_periodo: string[];
   avisos: string[];
   // Modelo Alexandre: comparação valor a valor
-  modelo: "alexandre" | "generico";
+  modelo: "alexandre" | "nt" | "generico";
   notas_mes_na_planilha: boolean;
   cgr_auditoria: number | null;
   cgr_planilha_notas: number | null;
@@ -190,6 +190,11 @@ export interface AuditoriaConferenciaEmpresa {
   cgr_planilha: number;
   diferenca: number;
   confere: boolean;
+  // Modelo NT: comparação por supridor, com o porquê de cada diferença
+  volume_auditoria?: number;
+  volume_planilha?: number;
+  diferenca_volume?: number;
+  explicacoes?: string[];
 }
 
 export interface AuditoriaResultado {
