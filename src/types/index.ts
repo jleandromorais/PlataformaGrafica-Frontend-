@@ -242,6 +242,7 @@ export interface ConciliaResultado {
   itens: ConciliaItem[];
   totais: { total_receitas: number; total_despesas: number; rp: number; qtd_revisar: number };
   logs: string[];
+  ocr_disponivel: boolean;   // false: PDF de imagem não é lido neste computador
 }
 
 export interface ConciliaHistoricoLinha {
@@ -287,6 +288,7 @@ export interface RETResultado {
   pis_cofins_rate: number;
   meses: RETMes[];
   documentos: RETDocumento[];
+  ocr_disponivel: boolean;   // false: PDF de imagem não é lido neste computador
 }
 
 export interface RETHistoricoLinha {

@@ -6,6 +6,7 @@ import { brl, num, parseBRL } from "../../utils/format";
 import { buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { SRLinhaCalculada, SROrigemPR } from "../../types";
+import { dicaDe, tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -187,7 +188,7 @@ export default function SRPage() {
             <Activity size={16} />
           </span>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">SR — Saldo Remanescente</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("SR")}</h1>
             <p className="mt-0.5 text-sm text-zinc-400">SR = (VP − VF) × PR × (1 + SELIC) + SR anterior, mês a mês no trimestre</p>
           </div>
         </div>
@@ -264,10 +265,12 @@ export default function SRPage() {
               <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Mês</th>
-                  <th className="px-2 py-3 text-right font-semibold">VP (m³)</th>
-                  <th className="px-2 py-3 text-right font-semibold">VF (m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold" title={dicaDe("VP")}>VP (m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold" title={dicaDe("VF")}>VF (m³)</th>
                   <th className="px-2 py-3 text-right font-semibold">VP − VF</th>
-                  <th className="px-2 py-3 text-right font-semibold">PR (R$/m³)</th>
+                  <th className="px-2 py-3 text-right font-semibold" title="Parcela de Recuperação (PR) do trimestre em que o mês está, em R$/m³. PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR">
+                    PR (R$/m³)
+                  </th>
                   <th className="px-2 py-3 text-right font-semibold">SELIC (%)</th>
                   <th className="px-2 py-3 text-right font-semibold" title="Saldo remanescente de um trimestre anterior, somado ao SR do mês. Vazio se não houver.">
                     SR trim. anterior
@@ -322,7 +325,7 @@ export default function SRPage() {
             </table>
           </div>
           <p className="border-t border-white/[0.05] px-4 py-3 text-xs text-zinc-500">
-            SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até a data da apuração.
+            SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até a data da apuração. PR = Parcela de Recuperação: (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR.
           </p>
         </section>
 

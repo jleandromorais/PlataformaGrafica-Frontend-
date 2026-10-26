@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, Loader2, Play, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
+import { AvisoPdfNaoLido } from "../../components/ui/AvisoPdfNaoLido";
 import { SeletorMes } from "../../components/ui/SeletorMes";
 import { SeletorPasta } from "../../components/ui/SeletorPasta";
 import {
@@ -12,6 +13,7 @@ import { salvarArquivo } from "../../utils/download";
 import { lerPasta } from "../../utils/pasta";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
@@ -25,6 +27,9 @@ const FATOR_PIS_COFINS = 1 - 0.0925;
 /** TOP não recuperável (mesma regra do backend: "top" como palavra, não "Desktop"). Sempre receita. */
 const ehTop = (it: ConciliaItem) => /(^|[^a-z])top([^a-z]|$)/i.test(it.caminho);
 
+/** Despesa que já foi contada no RET: o backend zera o valor para não contar de novo no RP. */
+const JA_NO_RET = "JA_NO_RET";
+
 export default function ConciliacaoPage() {
   const hoje = new Date();
   const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
@@ -34,6 +39,7 @@ export default function ConciliacaoPage() {
   const [receitas, setReceitas] = useState<Pasta | null>(null);
   const [despesas, setDespesas] = useState<Pasta | null>(null);
   const [itens, setItens] = useState<ConciliaItem[] | null>(null);
+  const [ocrDisponivel, setOcrDisponivel] = useState(true);
   const [editados, setEditados] = useState<Record<number, string>>({});
   const [historico, setHistorico] = useState<ConciliaHistoricoLinha[]>([]);
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
@@ -58,7 +64,7 @@ export default function ConciliacaoPage() {
   const totalTop = (itensFinais ?? []).filter(ehTop).reduce((s, i) => s + i.valor, 0) * FATOR_PIS_COFINS;
   const totalDesp = soma("Despesa");
   const rp = totalDesp - totalRec;
-  const pendentes = (itensFinais ?? []).filter((i) => i.status !== "OK").length;
+  const pendentes = (itensFinais ?? []).filter((i) => i.status !== "OK" && i.status !== JA_NO_RET).length;
 
   const processar = async () => {
     setErro(null);
@@ -67,6 +73,7 @@ export default function ConciliacaoPage() {
     try {
       const r = await processarConcilia(receitas?.arquivos ?? [], despesas?.arquivos ?? []);
       setItens(r.itens);
+      setOcrDisponivel(r.ocr_disponivel);
       setEditados({});
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível ler os PDFs das notas de penalidade."));
@@ -112,7 +119,7 @@ export default function ConciliacaoPage() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Conciliação RP</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RP")}</h1>
           <p className="mt-1 text-sm text-zinc-400">Penalidades: RP = (Σ despesas − Σ receitas) × (1 − 9,25% PIS/COFINS) (linha “Saldo de penalidade” da planilha oficial)</p>
         </div>
 
@@ -171,11 +178,13 @@ export default function ConciliacaoPage() {
                       </div>
                     ))}
                   </dl>
-                  {pendentes > 0 && (
-                    <p className="mt-3 text-sm text-amber-300">
-                      {pendentes} PDF(s) não foram lidos e estão contando R$ 0,00. Digite o valor na tabela abaixo ou confira o arquivo.
-                    </p>
-                  )}
+                  <div className="mt-3">
+                    <AvisoPdfNaoLido
+                      quantidade={pendentes}
+                      ocrDisponivel={ocrDisponivel}
+                      oQueFazer="Por enquanto cada um conta R$ 0,00: digite o valor nos campos amarelos da tabela abaixo (o total se atualiza na hora) ou confira o arquivo."
+                    />
+                  </div>
                   <div className="mt-4 flex flex-wrap justify-end gap-2">
                     <button type="button" onClick={relatorio} disabled={ocupado !== null || invalidos} className={BOTAO_SEC}>
                       {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
@@ -208,7 +217,7 @@ export default function ConciliacaoPage() {
                 </thead>
                 <tbody className="divide-y divide-white/[0.05]">
                   {itens.map((it, i) => {
-                    const falhou = it.status !== "OK";
+                    const falhou = it.status !== "OK" && it.status !== JA_NO_RET;
                     const texto = editados[i];
                     const invalido = texto !== undefined && texto.trim() !== "" && parseBRL(texto) === null;
                     return (
@@ -218,7 +227,7 @@ export default function ConciliacaoPage() {
                         </td>
                         <td className="max-w-[22rem] truncate px-4 py-2 text-zinc-200" title={it.caminho}>{it.arquivo}</td>
                         <td className="px-4 py-2 text-xs">
-                          <span className={falhou ? "text-amber-300" : "text-zinc-500"}>{texto !== undefined ? "digitado" : it.status}</span>
+                          <span className={falhou ? "text-amber-300" : "text-zinc-500"}>{texto !== undefined ? "digitado" : it.status === JA_NO_RET ? "já no RET" : it.status}</span>
                         </td>
                         <td className="px-4 py-2 text-right">
                           {falhou ? (

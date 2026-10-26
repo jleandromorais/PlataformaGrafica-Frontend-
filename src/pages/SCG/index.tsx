@@ -7,6 +7,7 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
@@ -139,7 +140,7 @@ export default function SCGPage() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">SCG</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("SCG")}</h1>
           <p className="mt-1 text-sm text-zinc-400">Consolidação mensal: SCG = RPV + RET + RP, com RPV = CGR − CGF</p>
         </div>
 

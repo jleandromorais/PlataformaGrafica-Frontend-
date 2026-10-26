@@ -7,6 +7,7 @@ import { getHistoricoRPV, getRPV, salvarRPV } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import type { RPVHistoricoLinha } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
@@ -139,7 +140,7 @@ export default function RPVPage() {
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">RPV</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RPV")}</h1>
             <p className="mt-1 text-sm text-zinc-400">RPV = CGR − CGF, por mês</p>
           </div>
         </div>

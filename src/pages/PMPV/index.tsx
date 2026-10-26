@@ -5,6 +5,7 @@ import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, i
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -418,7 +419,7 @@ export default function PMPVPage() {
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">PMPV</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("PMPV")}</h1>
             <p className="mt-1 text-sm text-zinc-400">Preço Médio Ponderado por Volume — cálculo trimestral</p>
           </div>
           <span className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 font-mono text-xs text-zinc-400">
@@ -482,7 +483,7 @@ export default function PMPVPage() {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="cg" className={`${LABEL} mb-2 block`}>Conta Gráfica (R$/m³)</label>
+                  <label htmlFor="cg" className={`${LABEL} mb-2 block`}>Conta Gráfica = PR, Parcela de Recuperação (R$/m³)</label>
                   <div className="flex flex-wrap items-center gap-3">
                     <input
                       id="cg" inputMode="decimal" value={contaGrafica}

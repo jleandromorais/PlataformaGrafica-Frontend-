@@ -1,3 +1,4 @@
+import { dicaDe, type Sigla } from "../../utils/glossario";
 import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, BarChart2, FileSearch,
@@ -7,33 +8,33 @@ import {
 import { moduleColor } from "../../theme";
 import { useAuth } from "../../auth/AuthContext";
 
-type Item = { to: string; icon: LucideIcon; label: string; key: string };
+type Item = { to: string; icon: LucideIcon; label: string; key: string; sigla?: Sigla };
 type Grupo = { titulo?: string; itens: Item[] };
 
 const grupos: Grupo[] = [
   {
     itens: [
       { to: "/",     icon: LayoutDashboard, label: "Dashboard", key: "dashboard" },
-      { to: "/pmpv", icon: Calculator,      label: "PMPV",      key: "pmpv" },
+      { to: "/pmpv", icon: Calculator,      label: "PMPV — Preço Médio de Venda", key: "pmpv", sigla: "PMPV" },
     ],
   },
   {
     titulo: "Conta Gráfica",
     itens: [
       { to: "/auditoria",   icon: FileSearch, label: "Auditoria CGR",       key: "auditoria" },
-      { to: "/cgf",         icon: BarChart2,  label: "CGF — Volume Faturado", key: "cgf" },
-      { to: "/rpv",         icon: PieChart,   label: "RPV",                 key: "rpv" },
-      { to: "/ret",         icon: Zap,        label: "RET — Encargos",      key: "ret" },
-      { to: "/conciliacao", icon: FileText,   label: "RP — Conciliação",    key: "conciliacao" },
-      { to: "/scg",         icon: Layers,     label: "SCG — Consolidação",  key: "scg" },
-      { to: "/sr",          icon: Activity,   label: "SR — Saldo Regulatório", key: "sr" },
+      { to: "/cgf",         icon: BarChart2,  label: "CGF — Custo do Gás Faturado", key: "cgf", sigla: "CGF" },
+      { to: "/rpv",         icon: PieChart,   label: "RPV — Recup. Preço de Venda", key: "rpv", sigla: "RPV" },
+      { to: "/ret",         icon: Zap,        label: "RET — Encargos de Transporte", key: "ret", sigla: "RET" },
+      { to: "/conciliacao", icon: FileText,   label: "RP — Recup. das Penalidades", key: "conciliacao", sigla: "RP" },
+      { to: "/scg",         icon: Layers,     label: "SCG — Saldo da Conta Gráfica", key: "scg", sigla: "SCG" },
+      { to: "/sr",          icon: Activity,   label: "SR — Saldo Remanescente", key: "sr", sigla: "SR" },
     ],
   },
   {
     titulo: "Módulo 3 · Consolidação",
     itens: [
-      { to: "/pr", icon: TrendingUp, label: "PR — Preço Regulatório", key: "pr" },
-      { to: "/pv", icon: DollarSign, label: "PV Final",               key: "pv" },
+      { to: "/pr", icon: TrendingUp, label: "PR — Parcela de Recuperação", key: "pr", sigla: "PR" },
+      { to: "/pv", icon: DollarSign, label: "PV — Preço de Venda", key: "pv", sigla: "PV" },
     ],
   },
   {
@@ -108,11 +109,12 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
                 </div>
               )}
               <ul className="space-y-0.5">
-                {g.itens.map(({ to, icon: Icon, label, key }) => (
+                {g.itens.map(({ to, icon: Icon, label, key, sigla }) => (
                   <li key={to}>
                     <NavLink
                       to={to}
                       end={to === "/"}
+                      title={sigla ? dicaDe(sigla) : undefined}
                       onClick={onFechar}
                       className={({ isActive }) =>
                         `group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150 ${

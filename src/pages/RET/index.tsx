@@ -1,3 +1,4 @@
+import { AvisoPdfNaoLido } from "../../components/ui/AvisoPdfNaoLido";
 import { useEffect, useState } from "react";
 import { Loader2, Play, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -7,6 +8,7 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { lerPasta } from "../../utils/pasta";
 import type { RETHistoricoLinha, RETResultado } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 
@@ -65,7 +67,7 @@ export default function RETPage() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">RET</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RET")}</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Encargos de transporte, por mês: RET = Σ EAT × (1 − {pct}% PIS/COFINS) + Σ EC
           </p>
@@ -167,9 +169,13 @@ export default function RETPage() {
           <section className={`${PANEL} overflow-hidden`}>
             <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
               <h2 className="text-base font-semibold text-white">Documentos ({resultado.documentos.length})</h2>
-              {semValor.length > 0 && (
-                <p className="mt-0.5 text-sm text-amber-300">{semValor.length} PDF(s) sem valor extraído: confira se são realmente de encargos.</p>
-              )}
+              <div className="mt-2">
+                <AvisoPdfNaoLido
+                  quantidade={semValor.length}
+                  ocrDisponivel={resultado.ocr_disponivel}
+                  oQueFazer="Eles contam R$ 0,00 no RET: confira se são mesmo documentos de encargos e se o valor está no arquivo antes de salvar."
+                />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[56rem] text-sm">
