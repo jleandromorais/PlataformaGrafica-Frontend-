@@ -1,3 +1,4 @@
+import { GLOSSARIO, dicaDe } from "../../utils/glossario";
 import { AvisoPdfNaoLido } from "../../components/ui/AvisoPdfNaoLido";
 import { useEffect, useState } from "react";
 import { Loader2, Play, Save } from "lucide-react";
@@ -15,6 +16,12 @@ const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-whit
 const COR_TIPO: Record<string, string> = {
   EAT: "border-sky-500/25 bg-sky-500/10 text-sky-300",
   EC: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
+};
+
+const DICA_COLUNA: Record<string, string> = {
+  "Σ EAT (bruto)": `${GLOSSARIO.EAT.nome} (EAT): soma dos documentos, antes de tirar o PIS/COFINS`,
+  "Σ EC": `${GLOSSARIO.EC.nome} (EC): soma dos documentos`,
+  RET: dicaDe("RET"),
 };
 
 export default function RETPage() {
@@ -135,7 +142,7 @@ export default function RETPage() {
                     <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
                       <tr>
                         {["Mês", "Documentos", "Σ EAT (bruto)", "Σ EC", "RET"].map((h, i) => (
-                          <th key={h} className={`px-5 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                          <th key={h} title={DICA_COLUNA[h]} className={`px-5 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
                         ))}
                       </tr>
                     </thead>

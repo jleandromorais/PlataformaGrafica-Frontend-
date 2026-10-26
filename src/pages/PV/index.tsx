@@ -182,7 +182,7 @@ export default function PVPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card title="PMPV" subtitle="Preço médio ponderado do trimestre (R$/m³)">
+        <Card title={tituloDe("PMPV")} subtitle="Do trimestre, em R$/m³">
           <Input
             label="PMPV (R$/m³)"
             type="number"

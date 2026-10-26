@@ -8,6 +8,7 @@ import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
 import { tituloDe } from "../../utils/glossario";
+import { dicaDe, type Sigla } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
@@ -16,10 +17,10 @@ type Campo = "cgr" | "cgf" | "ret" | "rp";
 type Fonte = "modulos" | "gravado" | "manual";
 
 const CAMPOS: { chave: Campo; nome: string; origem: string }[] = [
-  { chave: "cgr", nome: "CGR", origem: "Auditoria: NF-e + CT-e de gasoduto" },
-  { chave: "cgf", nome: "CGF", origem: "Volume Faturado" },
-  { chave: "ret", nome: "RET", origem: "Encargos (EAT + EC)" },
-  { chave: "rp", nome: "RP", origem: "Penalidades (Conciliação)" },
+  { chave: "cgr", nome: tituloDe("CGR"), origem: "Auditoria: NF-e + CT-e de gasoduto" },
+  { chave: "cgf", nome: tituloDe("CGF"), origem: "Tela CGF (PMPV × volume faturado)" },
+  { chave: "ret", nome: tituloDe("RET"), origem: "Encargos (EAT + EC)" },
+  { chave: "rp", nome: tituloDe("RP"), origem: "Penalidades (Conciliação)" },
 ];
 
 const cor = (v: number) => (v > 0 ? "text-emerald-300" : v < 0 ? "text-red-300" : "text-zinc-300");
@@ -278,7 +279,7 @@ export default function SCGPage() {
               <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
                 <tr>
                   {["Período", "CGR", "CGF", "RPV", "RET", "RP", "SCG"].map((h, i) => (
-                    <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                    <th key={h} title={i ? dicaDe(h as Sigla) : undefined} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
                   ))}
                 </tr>
               </thead>

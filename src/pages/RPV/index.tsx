@@ -164,9 +164,9 @@ export default function RPVPage() {
 
         {/* CGR − CGF = RPV */}
         <div className={`flex flex-col items-stretch gap-3 md:flex-row md:items-center ${carregando ? "opacity-60" : ""}`}>
-          <CampoValor id="cgr" titulo="CGR" origem="Vem da Auditoria CGR" valor={cgr} onChange={setCgr} />
+          <CampoValor id="cgr" titulo={tituloDe("CGR")} origem="Vem da Auditoria CGR" valor={cgr} onChange={setCgr} />
           <Minus size={22} className="mx-auto shrink-0 text-zinc-500" aria-hidden />
-          <CampoValor id="cgf" titulo="CGF" origem="Vem do Volume Faturado (CGF)" valor={cgf} onChange={setCgf} />
+          <CampoValor id="cgf" titulo={tituloDe("CGF")} origem="Vem da tela CGF (PMPV × volume faturado)" valor={cgf} onChange={setCgf} />
         </div>
 
         <section className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6`}>
