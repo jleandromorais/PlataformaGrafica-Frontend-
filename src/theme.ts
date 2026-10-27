@@ -34,6 +34,7 @@ export function colorForValue(value: number): string {
  */
 export const moduleColor: Record<string, string> = {
   dashboard: "text-sky-400",
+  ciclo: "text-sky-300",
   pmpv: "text-blue-400",
   cgf: "text-emerald-400",
   auditoria: "text-violet-400",

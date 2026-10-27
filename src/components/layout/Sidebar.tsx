@@ -2,7 +2,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Calculator, BarChart2, FileSearch,
   FileText, Zap, TrendingUp, DollarSign, PieChart, Activity, Layers, X, FileSpreadsheet,
-  LogOut, type LucideIcon,
+  LogOut, Route, type LucideIcon,
 } from "lucide-react";
 import { moduleColor } from "../../theme";
 import { useAuth } from "../../auth/AuthContext";
@@ -13,6 +13,7 @@ type Grupo = { titulo?: string; itens: Item[] };
 const grupos: Grupo[] = [
   {
     itens: [
+      { to: "/ciclo", icon: Route,          label: "Painel do Ciclo", key: "ciclo" },
       { to: "/",     icon: LayoutDashboard, label: "Dashboard", key: "dashboard" },
       { to: "/pmpv", icon: Calculator,      label: "PMPV",      key: "pmpv" },
     ],
