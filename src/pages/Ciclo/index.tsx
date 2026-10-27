@@ -318,6 +318,12 @@ function MapaPasta({ mapa, meses, raiz, total }: {
         {problemas ? <span className="text-amber-200">{problemas} ponto(s) para conferir</span> : <span className="text-emerald-300">tudo encontrado</span>}
         {" "}· {num(mapa.ignorados)} de outros meses ignorados
       </p>
+      {mapa.semMes.length > 0 && (
+        <p className="mt-1 text-sm text-amber-200">
+          ⚠ {mapa.semMes.length === 1 ? "Esta pasta não tem" : "Estas pastas não têm"} o mês no nome e não foram usadas:{" "}
+          {mapa.semMes.map((p) => `“${p.split("/").pop()}”`).join(", ")}. Renomeie com mês e ano (ex.: “09 set-26 NFs”).
+        </p>
+      )}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[36rem] text-sm">
           <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">

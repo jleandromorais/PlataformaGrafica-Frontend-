@@ -29,12 +29,13 @@ const EXTENSOES: Record<Etapa, string[]> = {
   conciliacao: ["pdf"],
 };
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const semAcento = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 /** Mês e ano de um trecho do caminho: "01 jan-26", "jan26", "total mensal 01-2026",
  * "56. Agosto 2026", "02 fev -26". Ano ausente ("06 jun") → ano null. */
 export function mesDoTexto(texto: string): { mes: number; ano: number | null } | null {
-  const t = semAcento(texto);
+  // Data completa (ex.: "OneDrive_1_14-07-2026", dia em que foi baixado) não diz o mês da pasta.
+  const t = semAcento(texto).replace(/(?<!\d)\d{1,2}[-./]\d{1,2}[-./]\d{2,4}(?!\d)/g, " ");
   // Intervalo ("RET-jan-mar-26", "jan a mar"): pasta de trimestre, não de um mês.
   const M = "(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)";
   if (new RegExp(String.raw`(?:^|[^a-z])${M}[a-z]*\s*(?:-|a|ate)\s*${M}(?![a-z])`).test(t)) return null;
@@ -48,17 +49,30 @@ export function mesDoTexto(texto: string): { mes: number; ano: number | null } |
   return null;
 }
 
-function etapaDoCaminho(segs: string[]): { etapa: Etapa; categoria?: Categoria } | null {
-  const t = semAcento(segs.join("/"));
-  if (/(^|\/)rp\b|penalidade|\btop\b|receita|despesa/.test(t)) {
-    // TOP não recuperável é receita mesmo dentro da pasta de despesa.
-    const receita = /\btop\b|receita/.test(semAcento(segs.slice(1).join("/")));
-    return { etapa: "conciliacao", categoria: receita ? "receita" : "despesa" };
-  }
-  if (/(^|\/)ret\b|\beat\b|encargos? de transporte/.test(t)) return { etapa: "ret" };
-  if (/\bcgf\b|total mensal/.test(t)) return { etapa: "cgf" };
-  if (/\bcgr\b|notas fiscais|\bnfs?\b/.test(t)) return { etapa: "auditoria" };
+function etapaDoSegmento(seg: string): Etapa | null {
+  const t = semAcento(seg);
+  if (/^rp\b|penalidade|\btop\b|receita|despesa/.test(t)) return "conciliacao";
+  if (/^ret\b|\beat\b|encargos? de transporte/.test(t)) return "ret";
+  if (/\bcgf\b|total mensal/.test(t)) return "cgf";
+  if (/\bcgr\b|notas fiscais|\bnfs?\b/.test(t)) return "auditoria";
   return null;
+}
+
+/** Vale a pasta mais próxima do arquivo ("RP/abr-26/07 jul-26 NFs.zip" são notas de
+ * compra, não penalidade); se uma pasta acima for de outra etapa, ela volta em
+ * `pastaDeOutraEtapa` para virar aviso. */
+function etapaDoCaminho(segs: string[]): { etapa: Etapa; indice: number; categoria?: Categoria; pastaDeOutraEtapa?: string } | null {
+  const etapas = segs.map(etapaDoSegmento);
+  let i = etapas.length - 1;
+  while (i >= 0 && !etapas[i]) i--;
+  if (i < 0) return null;
+  const etapa = etapas[i]!;
+  const raiz = etapas.findIndex(Boolean);
+  const pastaDeOutraEtapa = etapas[raiz] !== etapa ? segs[raiz] : undefined;
+  if (etapa !== "conciliacao") return { etapa, indice: i, pastaDeOutraEtapa };
+  // TOP não recuperável é receita mesmo dentro da pasta de despesa.
+  const receita = /\btop\b|receita/.test(semAcento(segs.slice(1).join("/")));
+  return { etapa, indice: i, categoria: receita ? "receita" : "despesa", pastaDeOutraEtapa };
 }
 
 export interface ArquivoClassificado {
@@ -84,6 +98,7 @@ export function classificar(caminho: string, anoPadrao: number): ArquivoClassifi
   if (!zip && !EXTENSOES[e.etapa].includes(ext)) return null;
 
   const avisos: string[] = [];
+  if (e.pastaDeOutraEtapa) avisos.push(`Está na pasta “${e.pastaDeOutraEtapa}”, mas parece ser de ${NOMES_ETAPA[e.etapa]}.`);
   // O mês vem da pasta mais próxima do arquivo que tenha mês no nome.
   const pastas = zip ? segs : segs.slice(0, -1);
   let achado: { mes: number; ano: number | null } | null = null;
@@ -112,7 +127,8 @@ export function classificar(caminho: string, anoPadrao: number): ArquivoClassifi
       }
     }
   }
-  const conjunto = (idx >= 0 ? pastas.slice(0, idx + 1) : pastas).join("/").replace(/\.zip$/i, "");
+  // Sem mês: agrupa pela pasta da etapa ("CGR/09 -nf"), não por subpasta de empresa.
+  const conjunto = pastas.slice(0, (idx >= 0 ? idx : e.indice) + 1).join("/").replace(/\.zip$/i, "");
   return { caminho, etapa: e.etapa, categoria: e.categoria, periodo, conjunto, zip, avisos };
 }
 
@@ -134,6 +150,7 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
   celulas: CelulaMapa[];
   ignorados: number;
   semEtapa: number;
+  semMes: string[]; // pastas de alguma etapa sem mês no nome (ex.: "09 -nf")
 } {
   const ano = Number(meses[0].split("/")[1]);
   const lista = caminhos.map((c) => classificar(c, ano));
@@ -173,5 +190,6 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
     celulas,
     ignorados: reconhecidos.filter((a) => !a.periodo || !meses.includes(a.periodo)).length,
     semEtapa: lista.length - reconhecidos.length,
+    semMes: [...new Set(reconhecidos.filter((a) => !a.periodo).map((a) => a.conjunto))],
   };
 }
