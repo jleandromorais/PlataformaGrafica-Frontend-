@@ -360,7 +360,7 @@ function MapaPasta({ mapa, meses, raiz, total }: {
           <p className="font-semibold text-zinc-100">{NOMES_ETAPA[aberta.etapa]} · {aberta.periodo}</p>
           {aberta.conjuntos.length > 0 && (
             <ul className="mt-2 space-y-0.5 text-xs text-zinc-400">
-              {aberta.conjuntos.map((c) => <li key={c} className="break-all">📁 {c}</li>)}
+              {aberta.conjuntos.map((c) => <li key={c} className="break-all">📁 {c || "(direto na pasta escolhida)"}</li>)}
             </ul>
           )}
           {aberta.avisos.map((a) => <p key={a} className="mt-2 text-amber-200">⚠ {a}</p>)}
