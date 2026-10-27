@@ -75,10 +75,23 @@ function etapaDoCaminho(segs: string[]): { etapa: Etapa; indice: number; categor
   return { etapa, indice: i, categoria: receita ? "receita" : "despesa", pastaDeOutraEtapa };
 }
 
+export type TipoCGF = "faturada" | "cancelada" | "devolucao";
+
+/** Mesmas palavras de ServicosCGF.tipo_do_nome (backend): é o nome da planilha
+ * que diz o tipo, não a pasta. */
+export function tipoPlanilhaCGF(nome: string): TipoCGF | null {
+  const n = semAcento(nome);
+  if (/faturad|complementar/.test(n)) return "faturada";
+  if (/canc|deneg|rejeitad/.test(n)) return "cancelada";
+  if (/devolu|devolv/.test(n)) return "devolucao";
+  return null;
+}
+
 export interface ArquivoClassificado {
   caminho: string;
   etapa: Etapa;
   categoria?: Categoria;
+  tipoCGF?: TipoCGF;
   periodo: string | null; // "Jan/2026"
   conjunto: string;       // pasta que agrupa os arquivos daquele mês
   zip: boolean;
@@ -92,17 +105,27 @@ export function classificar(caminho: string, anoPadrao: number): ArquivoClassifi
   const nome = segs[segs.length - 1];
   const ext = nome.toLowerCase().split(".").pop() ?? "";
   if (nome.startsWith("~$")) return null; // arquivo temporário do Office
-  const e = etapaDoCaminho(segs.slice(0, -1).concat(ext === "zip" ? [nome] : []));
-  if (!e) return null;
+  // Versões antigas guardadas em "substituídas"/"Substituídos" (mesma regra do backend).
+  if (segs.slice(0, -1).some((x) => semAcento(x).includes("substitu"))) return null;
   const zip = ext === "zip";
-  if (!zip && !EXTENSOES[e.etapa].includes(ext)) return null;
+  // Planilha de NF do CGF: o nome do arquivo decide, esteja onde estiver.
+  const tipoCGF = EXTENSOES.cgf.includes(ext) ? tipoPlanilhaCGF(nome) : null;
+  const pelaPasta = etapaDoCaminho(segs.slice(0, -1).concat(zip ? [nome] : []));
+  const e = tipoCGF
+    ? { etapa: "cgf" as Etapa, indice: segs.length - 2, categoria: undefined,
+        pastaDeOutraEtapa: pelaPasta && pelaPasta.etapa !== "cgf" ? segs.find((x) => etapaDoSegmento(x)) : undefined }
+    : pelaPasta;
+  if (!e) return null;
+  // No CGF só contam as planilhas de NF (ex.: "Relatório Finan 02.26.xlsx" fica de fora).
+  if (!zip && (!EXTENSOES[e.etapa].includes(ext) || (e.etapa === "cgf" && !tipoCGF))) return null;
 
   const avisos: string[] = [];
   if (e.pastaDeOutraEtapa) avisos.push(`Está na pasta “${e.pastaDeOutraEtapa}”, mas parece ser de ${NOMES_ETAPA[e.etapa]}.`);
-  // O mês vem da pasta mais próxima do arquivo que tenha mês no nome.
+  // O mês vem do nome da planilha do CGF ("NF Faturadas 01.26") ou da pasta mais
+  // próxima do arquivo que tenha mês no nome.
   const pastas = zip ? segs : segs.slice(0, -1);
-  let achado: { mes: number; ano: number | null } | null = null;
-  let idx = -1;
+  let achado: { mes: number; ano: number | null } | null = tipoCGF ? mesDoTexto(nome.replace(/\.[^.]+$/, "")) : null;
+  let idx = achado ? pastas.length : -1;
   for (let i = pastas.length - 1; i >= 0 && !achado; i--) {
     achado = mesDoTexto(pastas[i].replace(/\.zip$/i, ""));
     if (achado) idx = i;
@@ -129,7 +152,7 @@ export function classificar(caminho: string, anoPadrao: number): ArquivoClassifi
   }
   // Sem mês: agrupa pela pasta da etapa ("CGR/09 -nf"), não por subpasta de empresa.
   const conjunto = pastas.slice(0, (idx >= 0 ? idx : e.indice) + 1).join("/").replace(/\.zip$/i, "");
-  return { caminho, etapa: e.etapa, categoria: e.categoria, periodo, conjunto, zip, avisos };
+  return { caminho, etapa: e.etapa, categoria: e.categoria, tipoCGF: tipoCGF ?? undefined, periodo, conjunto, zip, avisos };
 }
 
 export type Situacao = "ok" | "atencao" | "falta";
@@ -169,15 +192,18 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
       const ehCopia = (z: ArquivoClassificado) =>
         pastas.some((p) => p.conjunto === z.conjunto || p.caminho.startsWith(z.caminho.replace(/\.zip$/i, "") + "/"));
       const zipsSoltos = zips.filter((z) => !ehCopia(z));
-      const notas = zips.length && zipsSoltos.length < zips.length ? ["Havia um .zip igual à pasta; usei a pasta."] : [];
+      const notas: string[] = zips.length && zipsSoltos.length < zips.length ? ["Havia um .zip igual à pasta; usei a pasta."] : [];
       if (zipsSoltos.length) avisos.push(`${zipsSoltos.length} arquivo(s) .zip: o sistema vai extrair antes de processar.`);
       if (etapa === "conciliacao" && pastas.length) {
         const cats = new Set(pastas.map((a) => a.categoria));
         if (!cats.has("receita")) avisos.push("Não achei a pasta de receitas deste mês.");
         if (!cats.has("despesa")) avisos.push("Não achei a pasta de despesas deste mês.");
       }
-      if (etapa === "cgf" && pastas.length && !pastas.some((a) => /devol/i.test(a.caminho))) {
-        avisos.push("Não achei a planilha de devoluções: sem ela o VF fica maior.");
+      if (etapa === "cgf" && pastas.length) {
+        const tipos = new Set(pastas.map((a) => a.tipoCGF));
+        if (!tipos.has("faturada")) avisos.push("Falta a planilha de NF faturadas: é dela que sai o volume faturado.");
+        if (!tipos.has("devolucao")) avisos.push("Falta a planilha de devoluções: sem ela o VF fica maior.");
+        if (!tipos.has("cancelada")) notas.push("Sem planilha de canceladas (só informativa: não muda o VF).");
       }
       const arquivos = pastas.length + zipsSoltos.length;
       celulas.push({
