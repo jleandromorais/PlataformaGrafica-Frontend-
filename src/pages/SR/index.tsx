@@ -5,6 +5,7 @@ import { Alert } from "../../components/ui/Alert";
 import { brl, num, parseBRL } from "../../utils/format";
 import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SRLinhaCalculada, SROrigemPR } from "../../types";
 import { dicaDe, tituloDe } from "../../utils/glossario";
 
@@ -109,9 +110,13 @@ const dataBR = (iso: string) => iso.split("-").reverse().join("/");
 
 export default function SRPage() {
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [tri, setTri] = useState(Math.floor(hoje.getMonth() / 3));
+  // "Fazer agora" do Painel do Ciclo abre no trimestre certo (?trimestre=Abr/2026, 1º mês).
+  const daUrl = usePeriodoDaUrl("trimestre");
+  const inicio = daUrl && daUrl.mes % 3 === 0 ? daUrl : null;
+  const [ano, setAno] = useState(inicio?.ano ?? hoje.getFullYear());
+  const [tri, setTri] = useState(inicio ? inicio.mes / 3 : Math.floor(hoje.getMonth() / 3));
   const labels = useMemo(() => [0, 1, 2].map((i) => `${MESES[tri * 3 + i]}/${ano}`), [ano, tri]);
+  useManterPeriodoNaUrl("trimestre", labels[0]);
   const trimestreLabel = `${labels[0]}_${labels[2]}`;
 
   const [linhas, setLinhas] = useState<SRLinhaCalculada[]>(() => labels.map(linhaVazia));

@@ -12,6 +12,7 @@ import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { lerPasta } from "../../utils/pasta";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 
@@ -32,8 +33,11 @@ const JA_NO_RET = "JA_NO_RET";
 
 export default function ConciliacaoPage() {
   const hoje = new Date();
-  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
-  const [ano, setAno] = useState(hoje.getFullYear());
+  // "Fazer agora" do Painel do Ciclo abre no mês certo (?periodo=Mai/2026).
+  const daUrl = usePeriodoDaUrl("periodo");
+  const [mes, setMes] = useState(MESES_ABREV[daUrl?.mes ?? hoje.getMonth()]);
+  const [ano, setAno] = useState(daUrl?.ano ?? hoje.getFullYear());
+  useManterPeriodoNaUrl("periodo", `${mes}/${ano}`);
   const periodo = `${mes}/${ano}`;
 
   const [receitas, setReceitas] = useState<Pasta | null>(null);

@@ -12,6 +12,8 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
+import { mesesDoPRDoCivil } from "../../utils/periodos";
+import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type {
   AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
   SCGHistoricoLinha,
@@ -21,12 +23,6 @@ const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-whit
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
-
-function desloca(p: string, n: number): string {
-  const [m, a] = p.split("/");
-  const t = Number(a) * 12 + MESES.indexOf(m) + n;
-  return `${MESES[t % 12]}/${Math.floor(t / 12)}`;
-}
 
 interface Dados {
   auditoria: AuditoriaHistoricoLinha[];
@@ -60,26 +56,35 @@ interface Etapa_ {
   descricao: string;
   situacao: Situacao;
   detalhe: ReactNode;
-  rota: string;
+  link: string; // tela da etapa já no período certo (S2)
 }
 
 function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valor: (l: T) => string,
-  alerta?: (l: T) => string | null): { situacao: Situacao; detalhe: ReactNode } {
+  alerta?: (l: T) => string | null, linkDoMes?: (m: string) => string,
+): { situacao: Situacao; detalhe: ReactNode; pendente?: string } {
   const linhas = meses.map((m) => ({ m, l: lista.find((x) => x.periodo === m) }));
   const alertas = linhas.map(({ l }) => (l && alerta ? alerta(l) : null));
   const faltam = linhas.filter(({ l }) => !l).length;
+  const chip = (l: T | undefined, i: number) =>
+    `rounded-md border px-2 py-1 text-xs tabular-nums ${
+      !l ? "border-white/[0.07] text-zinc-500" : alertas[i] ? "border-amber-400/30 text-amber-200" : "border-emerald-400/20 text-zinc-200"}`;
   return {
     situacao: faltam ? "falta" : alertas.some(Boolean) ? "atencao" : "ok",
+    // 1º mês, em ordem, que falta ou tem ⚠: é onde o "Fazer agora" abre.
+    pendente: linhas.find(({ l }, i) => !l || alertas[i])?.m,
     detalhe: (
       <>
         <div className="flex flex-wrap gap-2">
-          {linhas.map(({ m, l }, i) => (
-            <span key={m}
-              className={`rounded-md border px-2 py-1 text-xs tabular-nums ${
-                !l ? "border-white/[0.07] text-zinc-500" : alertas[i] ? "border-amber-400/30 text-amber-200" : "border-emerald-400/20 text-zinc-200"}`}>
-              {m.split("/")[0]}: {l ? valor(l) : "falta"}{alertas[i] ? " ⚠" : ""}
-            </span>
-          ))}
+          {linhas.map(({ m, l }, i) => {
+            const texto = `${m.split("/")[0]}: ${l ? valor(l) : "falta"}${alertas[i] ? " ⚠" : ""}`;
+            return linkDoMes ? (
+              <Link key={m} to={linkDoMes(m)} title={`Abrir ${m}`} className={`${chip(l, i)} hover:border-sky-400/50 hover:text-white`}>
+                {texto}
+              </Link>
+            ) : (
+              <span key={m} className={chip(l, i)}>{texto}</span>
+            );
+          })}
         </div>
         {/* O motivo do ⚠ escrito, não só no passar do mouse. */}
         {[...new Set(alertas.filter(Boolean))].map((a) => (
@@ -92,31 +97,42 @@ function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valo
   };
 }
 
+/** Etapa mensal: "Fazer agora" abre no 1º mês pendente; cada chip de mês abre aquele mês. */
+function etapaMensal<T extends { periodo: string }>(titulo: string, descricao: string, rota: string, lista: T[],
+  meses: string[], valor: (l: T) => string, alerta?: (l: T) => string | null): Etapa_ {
+  const linkDoMes = (m: string) => linkDoCiclo(rota, meses[0], { chave: "periodo", valor: m });
+  const { pendente, ...resto } = porMes(lista, meses, valor, alerta, linkDoMes);
+  return { titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
+}
+
 function etapas(d: Dados, meses: string[], mesesPR: string[]): Etapa_[] {
   const faixaPR = `${mesesPR[0]} a ${mesesPR[2]}`;
   const srTotal = d.srSalvo.reduce((s, l) => s + Number(l.sr_selic ?? 0), 0);
   const prDifere = d.pr && d.prSalvo !== null && Math.abs(d.prSalvo - d.pr.pr) > 1e-9;
   const pvDifere = d.pv?.salvo && Math.abs(d.pv.salvo.pv - d.pv.pv) > 1e-9;
+  const trimestrePR = { chave: "trimestre" as const, valor: mesesPR[0] };
   return [
-    { titulo: "Auditoria CGR", descricao: "NF de compra de gás e CT-e da TAG de cada mês", rota: "/auditoria",
-      ...porMes(d.auditoria, meses, (l) => brl(l.cgr_gravado)) },
-    { titulo: "CGF — Volume Faturado", descricao: "Planilhas de NF faturadas, canceladas e devolvidas", rota: "/cgf",
-      ...porMes(d.cgf, meses, (l) => brl(l.cgf_rs),
-        (l) => (l.volume_devolucoes ? null : "Devoluções = 0: confira se a planilha de devoluções entrou.")) },
-    { titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", rota: "/ret",
+    etapaMensal("Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
+      (l) => brl(l.cgr_gravado)),
+    etapaMensal("CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
+      (l) => brl(l.cgf_rs), (l) => (l.volume_devolucoes ? null : "Devoluções = 0: confira se a planilha de devoluções entrou.")),
+    // RET não tem seletor de mês: o período vem dos próprios arquivos.
+    { titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo("/ret", meses[0]),
       ...porMes(d.ret, meses, (l) => brl(l.ret_gravado)) },
-    { titulo: "RP — Conciliação de penalidades", descricao: "Receitas (inclui TOP) e despesas de penalidade", rota: "/conciliacao",
-      ...porMes(d.concilia, meses, (l) => brl(l.rp_gravado),
-        (l) => (Math.abs(l.rp_dos_itens - l.rp_gravado) > 1 ? "O RP gravado difere da soma dos itens." : null)) },
-    { titulo: "SCG — Saldo da Conta Gráfica", descricao: "SCG = RPV + RET + RP, por mês", rota: "/scg",
-      ...porMes(d.scg, meses, (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)) },
+    etapaMensal("RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", "/conciliacao", d.concilia,
+      meses, (l) => brl(l.rp_gravado),
+      (l) => (Math.abs(l.rp_dos_itens - l.rp_gravado) > 1 ? "O RP gravado difere da soma dos itens." : null)),
+    etapaMensal("SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", "/scg", d.scg, meses,
+      (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)),
     {
-      titulo: "SR — Saldo Remanescente", descricao: "Quadro 6 do trimestre, com SELIC", rota: "/sr",
+      titulo: "SR — Saldo Remanescente", descricao: "Quadro 6 do trimestre, com SELIC",
+      link: linkDoCiclo("/sr", meses[0], { chave: "trimestre", valor: meses[0] }),
       situacao: d.srSalvo.length ? "ok" : "falta",
       detalhe: d.srSalvo.length ? <span>Salvo · total {brl(srTotal)}</span> : <span>Ainda não salvo para este trimestre.</span>,
     },
     {
-      titulo: `PR — Parcela de Recuperação de ${faixaPR}`, descricao: "Quadro 7: (SCG + SR com SELIC) ÷ VP", rota: "/pr",
+      titulo: `PR — Parcela de Recuperação de ${faixaPR}`, descricao: "Quadro 7: (SCG + SR com SELIC) ÷ VP",
+      link: linkDoCiclo("/pr", meses[0], trimestrePR),
       situacao: !d.pr || d.pr.pendencias.length ? "falta" : prDifere || d.prSalvo === null ? "atencao" : "ok",
       detalhe: !d.pr ? <span>Não consegui calcular agora: abra a tela PR para ver o motivo.</span> : d.pr.pendencias.length ? (
         <span>{d.pr.pendencias.join(" ")}</span>
@@ -125,7 +141,8 @@ function etapas(d: Dados, meses: string[], mesesPR: string[]): Etapa_[] {
       ),
     },
     {
-      titulo: `PV — Preço de Venda de ${faixaPR}`, descricao: "Quadro 8: PMPV + PR", rota: "/pv",
+      titulo: `PV — Preço de Venda de ${faixaPR}`, descricao: "Quadro 8: PMPV + PR",
+      link: linkDoCiclo("/pv", meses[0], trimestrePR),
       situacao: !d.pv ? "falta" : !d.pv.salvo || pvDifere ? "atencao" : "ok",
       detalhe: !d.pv ? <span>Não consegui consultar agora: abra a tela PV para ver o motivo.</span> : (
         <span>Atual {num(d.pv.pv, 4)} · {!d.pv.salvo ? "ainda não salvo" : pvDifere ? `salvo ${num(d.pv.salvo.pv, 4)} (diferente — salve de novo)` : "salvo"}</span>
@@ -144,10 +161,14 @@ const ICONE: Record<Situacao, ReactNode> = {
 
 export default function CicloPage() {
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [tri, setTri] = useState(Math.max(0, Math.floor(hoje.getMonth() / 3) - 1));
+  // "Voltar ao Painel" das telas reabre o mesmo trimestre (?trimestre=Abr/2026, 1º mês).
+  const daUrl = usePeriodoDaUrl("trimestre");
+  const inicio = daUrl && daUrl.mes % 3 === 0 ? daUrl : null;
+  const [ano, setAno] = useState(inicio?.ano ?? hoje.getFullYear());
+  const [tri, setTri] = useState(inicio ? inicio.mes / 3 : Math.max(0, Math.floor(hoje.getMonth() / 3) - 1));
   const meses = useMemo(() => [0, 1, 2].map((i) => `${MESES[tri * 3 + i]}/${ano}`), [ano, tri]);
-  const mesesPR = useMemo(() => [2, 3, 4].map((n) => desloca(meses[2], n)), [meses]);
+  const mesesPR = useMemo(() => mesesDoPRDoCivil(meses[2]), [meses]);
+  useManterPeriodoNaUrl("trimestre", meses[0]);
 
   const [dados, setDados] = useState<Dados | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -157,9 +178,12 @@ export default function CicloPage() {
   const [gerandoNT, setGerandoNT] = useState(false);
 
   useEffect(() => {
+    // Só a carga mais recente vale: uma anterior que falhe depois não pinta erro sobre dados bons.
+    let vigente = true;
     carregar(meses, mesesPR)
-      .then((d) => { setDados(d); setErro(null); setCarregando(false); })
-      .catch((e) => { setErro(mensagemDeErro(e, "Não foi possível carregar a situação do ciclo.")); setCarregando(false); });
+      .then((d) => { if (vigente) { setDados(d); setErro(null); setCarregando(false); } })
+      .catch((e) => { if (vigente) { setErro(mensagemDeErro(e, "Não foi possível carregar a situação do ciclo.")); setCarregando(false); } });
+    return () => { vigente = false; };
   }, [meses, mesesPR]);
 
   const irPara = (novoAno: number, novoTri: number) => {
@@ -272,7 +296,7 @@ export default function CicloPage() {
                     <p className="text-xs text-zinc-500">{e.descricao}</p>
                     <div className="mt-2 text-sm text-zinc-300">{e.detalhe}</div>
                   </div>
-                  <Link to={e.rota}
+                  <Link to={e.link}
                     className={`rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok"
                       ? "text-zinc-400 hover:text-white" : "bg-sky-500/15 text-sky-200 hover:bg-sky-500/25"}`}>
                     {e.situacao === "ok" ? "Ver" : "Fazer agora"}

@@ -10,6 +10,7 @@ import { salvarArquivo } from "../../utils/download";
 import { carregarNaMemoria } from "../../utils/pasta";
 import { ComparacaoPlanilha } from "./ComparacaoPlanilha";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
@@ -56,8 +57,11 @@ function lerPasta(lista: FileList): { raiz: string; arquivos: ArquivoDaPasta[]; 
 
 export default function AuditoriaPage() {
   const hoje = new Date();
-  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
-  const [ano, setAno] = useState(hoje.getFullYear());
+  // "Fazer agora" do Painel do Ciclo abre no mês certo (?periodo=Mai/2026).
+  const daUrl = usePeriodoDaUrl("periodo");
+  const [mes, setMes] = useState(MESES_ABREV[daUrl?.mes ?? hoje.getMonth()]);
+  const [ano, setAno] = useState(daUrl?.ano ?? hoje.getFullYear());
+  useManterPeriodoNaUrl("periodo", `${mes}/${ano}`);
   const periodo = `${mes}/${ano}`;
 
   const [pasta, setPasta] = useState<ReturnType<typeof lerPasta> | null>(null);

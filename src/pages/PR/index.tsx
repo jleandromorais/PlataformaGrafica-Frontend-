@@ -6,6 +6,7 @@ import { brl, num } from "../../utils/format";
 import { apurarPR, gerarMinutaNotaTecnica, getPR, salvarPR } from "../../api";
 import { salvarArquivo } from "../../utils/download";
 import { mensagemDeErro } from "../../api/client";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { PRApuracao } from "../../types";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
@@ -46,9 +47,15 @@ function Linha({ rotulo, valor, destaque }: { rotulo: string; valor: string; des
 
 export default function PRPage() {
   const hoje = new Date();
-  const [ano, setAno] = useState(hoje.getMonth() >= 10 ? hoje.getFullYear() + 1 : hoje.getFullYear());
-  const [tri, setTri] = useState(trimestreAtual());
+  // "Fazer agora" do Painel do Ciclo abre no trimestre do PR (?trimestre=Ago/2026, 1º mês).
+  const daUrl = usePeriodoDaUrl("trimestre");
+  const triUrl = daUrl ? TRIMESTRES.findIndex((t) => t.inicio === daUrl.mes) : -1;
+  // Ano do último mês: Nov/2026 a Jan/2027 é o "Nov - Jan/2027".
+  const anoUrl = daUrl && triUrl >= 0 ? daUrl.ano + (daUrl.mes === 10 ? 1 : 0) : null;
+  const [ano, setAno] = useState(anoUrl ?? (hoje.getMonth() >= 10 ? hoje.getFullYear() + 1 : hoje.getFullYear()));
+  const [tri, setTri] = useState(triUrl >= 0 ? triUrl : trimestreAtual());
   const meses = useMemo(() => mesesDoPR(tri, ano), [tri, ano]);
+  useManterPeriodoNaUrl("trimestre", meses[0]);
   const chave = `${TRIMESTRES[tri].label}/${ano}`;
 
   const [dados, setDados] = useState<PRApuracao | null>(null);

@@ -6,6 +6,7 @@ import { getHistoricoSCG, getSCGComparacao, salvarSCG } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 import { dicaDe, type Sigla } from "../../utils/glossario";
@@ -47,8 +48,11 @@ function Escolha({ opcoes, valor, onChange, rotulo }: {
 
 export default function SCGPage() {
   const hoje = new Date();
-  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
-  const [ano, setAno] = useState(hoje.getFullYear());
+  // "Fazer agora" do Painel do Ciclo abre no mês certo (?periodo=Mai/2026).
+  const daUrl = usePeriodoDaUrl("periodo");
+  const [mes, setMes] = useState(MESES_ABREV[daUrl?.mes ?? hoje.getMonth()]);
+  const [ano, setAno] = useState(daUrl?.ano ?? hoje.getFullYear());
+  useManterPeriodoNaUrl("periodo", `${mes}/${ano}`);
   const periodo = `${mes}/${ano}`;
 
   const [comp, setComp] = useState<SCGComparacao | null>(null);
@@ -89,12 +93,12 @@ export default function SCGPage() {
     buscar(`${m}/${a}`);
   };
 
-  // Abre no período mais recente que já tem SCG gravado.
+  // Abre no mês do endereço (Painel do Ciclo) ou no mais recente que já tem SCG gravado.
   useEffect(() => {
     getHistoricoSCG()
       .then((h) => {
         setHistorico(h);
-        const [m, a] = (h[0]?.periodo ?? periodo).split("/");
+        const [m, a] = (daUrl ? periodo : h[0]?.periodo ?? periodo).split("/");
         mudarPeriodo(m, Number(a));
       })
       .catch((e) => {

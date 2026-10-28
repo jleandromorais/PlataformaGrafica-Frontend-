@@ -8,6 +8,7 @@ import { calcularCGFRs, getHistoricoCGF, getPMPVMensal, processarCGF, salvarCGF 
 import { mensagemDeErro } from "../../api/client";
 import { arredondarTarifa, brl, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 
@@ -48,8 +49,11 @@ const m3 = (v: number) => `${num(v, 4)} m³`;
 
 export default function CGFPage() {
   const hoje = new Date();
-  const [mes, setMes] = useState(MESES_ABREV[hoje.getMonth()]);
-  const [ano, setAno] = useState(hoje.getFullYear());
+  // "Fazer agora" do Painel do Ciclo abre no mês certo (?periodo=Mai/2026).
+  const daUrl = usePeriodoDaUrl("periodo");
+  const [mes, setMes] = useState(MESES_ABREV[daUrl?.mes ?? hoje.getMonth()]);
+  const [ano, setAno] = useState(daUrl?.ano ?? hoje.getFullYear());
+  useManterPeriodoNaUrl("periodo", `${mes}/${ano}`);
   const periodo = `${mes}/${ano}`;
 
   const [arquivos, setArquivos] = useState<File[]>([]);

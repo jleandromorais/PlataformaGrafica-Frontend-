@@ -9,6 +9,7 @@ import { getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../a
 import { mensagemDeErro } from "../../api/client";
 import { MESES_ABREV } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
+import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -28,9 +29,12 @@ function trimestreAtual(trimestres: Trimestre[]): { label: string; ano: number }
 }
 
 export default function PVPage() {
+  const daUrl = usePeriodoDaUrl("trimestre");
   const [trimestres, setTrimestres] = useState<Trimestre[]>([]);
   const [trimestre, setTrimestre] = useState("");
   const [ano, setAno] = useState(new Date().getFullYear());
+  const primeiroMes = trimestres.find((t) => t.label === trimestre)?.meses[0];
+  useManterPeriodoNaUrl("trimestre", primeiroMes ? `${primeiroMes}/${ano}` : "");
   const [periodos, setPeriodos] = useState<string[]>([]);
 
   const [pmpv, setPmpv] = useState(0);
@@ -96,7 +100,9 @@ export default function PVPage() {
     getTrimestresFiscais()
       .then((t) => {
         setTrimestres(t);
-        const atual = trimestreAtual(t);
+        // "Fazer agora" do Painel do Ciclo: ?trimestre=Ago/2026 (1º mês; o ano do PV é o dele).
+        const doLink = daUrl && t.find((x) => x.meses[0] === MESES_ABREV[daUrl.mes]);
+        const atual = doLink && daUrl ? { label: doLink.label, ano: daUrl.ano } : trimestreAtual(t);
         mudar(atual.label, atual.ano);
       })
       .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar a lista de trimestres.")));
