@@ -428,6 +428,14 @@ export interface SRTrimestreCalculo {
   total: number;
 }
 
+/** SELIC acumulada de cada mês até o fim do trimestre civil, do Banco Central. */
+export interface SRSelic {
+  disponivel: boolean; // false: o trimestre ainda não fechou
+  valores: Record<string, number>; // {"Jan/2026": 3.411174, ...}
+  fecha_em: string; // aaaa-mm-dd
+  fonte: string;
+}
+
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
 // Modelo real: CGR/RET/CGF/RP/RPV/SCG mensais + PMPV (ver dashboard_resumo.py).
 // Não confundir com PR/SR — esses módulos têm páginas próprias.

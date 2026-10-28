@@ -7,7 +7,7 @@ import type {
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
-  SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo,
+  SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre,
 } from "../types";
 
@@ -337,4 +337,10 @@ export const salvarTrimestreSR = (
 export const buscarTrimestreSR = (label: string) =>
   api
     .get<Record<string, unknown>[]>("/sr/trimestre", { params: { label } })
+    .then((r) => r.data);
+
+// `meses=Jan/2026&meses=Fev/2026…` (sem colchetes), como o FastAPI espera.
+export const buscarSelicSR = (meses: string[]) =>
+  api
+    .get<SRSelic>("/sr/selic", { params: { meses }, paramsSerializer: { indexes: null } })
     .then((r) => r.data);

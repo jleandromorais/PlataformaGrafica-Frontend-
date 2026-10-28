@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num, parseBRL } from "../../utils/format";
-import { buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
+import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { SRLinhaCalculada, SROrigemPR } from "../../types";
 
@@ -85,6 +85,27 @@ async function buscarTrimestre(labels: string[], doBanco = false): Promise<Carre
   };
 }
 
+type EstadoSelic =
+  | { estado: "buscando" }
+  | { estado: "ok"; valores: Record<string, number> }
+  | { estado: "aberto"; fechaEm: string } // trimestre ainda não fechou
+  | { estado: "erro"; mensagem: string };
+
+/** SELIC acumulada de cada mês até o fim do trimestre, calculada pelo backend com os dados do Banco Central. */
+function consultarSelic(labels: string[]): Promise<EstadoSelic> {
+  return buscarSelicSR(labels).then(
+    (s): EstadoSelic => (s.disponivel ? { estado: "ok", valores: s.valores } : { estado: "aberto", fechaEm: s.fecha_em }),
+    (e): EstadoSelic => ({ estado: "erro", mensagem: mensagemDeErro(e, "Não foi possível buscar a SELIC no Banco Central.") }),
+  );
+}
+
+/** Preenche com a SELIC do BC só os meses ainda sem SELIC: valor digitado não é trocado sozinho. */
+function preencherSelic(linhas: SRLinhaCalculada[], valores: Record<string, number>): SRLinhaCalculada[] {
+  return calcularLocal(linhas.map((l) => (!l.selic_mensal && valores[l.mes] !== undefined ? { ...l, selic_mensal: valores[l.mes] } : l)));
+}
+
+const dataBR = (iso: string) => iso.split("-").reverse().join("/");
+
 export default function SRPage() {
   const hoje = new Date();
   const [ano, setAno] = useState(hoje.getFullYear());
@@ -99,6 +120,9 @@ export default function SRPage() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [selic, setSelic] = useState<EstadoSelic>({ estado: "buscando" });
+  // Respostas de um trimestre que o usuário já deixou para trás são descartadas.
+  const pedido = useRef(0);
 
   const total = linhas.reduce((s, l) => s + l.sr_selic, 0);
 
@@ -115,14 +139,38 @@ export default function SRPage() {
     setCarregando(false);
   };
 
+  const aplicarSelic = (n: number, s: EstadoSelic) => {
+    if (n !== pedido.current) return;
+    setSelic(s);
+    if (s.estado === "ok") setLinhas((atuais) => preencherSelic(atuais, s.valores));
+  };
+
+  /** Linhas do trimestre e SELIC do BC em paralelo; a SELIC entra depois que as linhas chegam. */
+  const carregar = (doBanco = false) => {
+    const n = ++pedido.current;
+    const selicPromessa = consultarSelic(labels);
+    buscarTrimestre(labels, doBanco)
+      .then((r) => n === pedido.current && aplicar(r))
+      .catch((e) => n === pedido.current && falhar(e))
+      .then(() => selicPromessa)
+      .then((s) => aplicarSelic(n, s));
+  };
+
+  const buscarSelicDeNovo = () => {
+    const n = pedido.current;
+    setSelic({ estado: "buscando" });
+    consultarSelic(labels).then((s) => aplicarSelic(n, s));
+  };
+
   useEffect(() => {
-    buscarTrimestre(labels).then(aplicar).catch(falhar);
+    carregar();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trimestreLabel]);
 
   const irPara = (novoAno: number, novoTri: number) => {
     if (novoAno === ano && novoTri === tri) return;
     setCarregando(true);
+    setSelic({ estado: "buscando" });
     setErro(null);
     setSucesso(null);
     setAno(novoAno);
@@ -133,7 +181,8 @@ export default function SRPage() {
     setCarregando(true);
     setErro(null);
     setSucesso(null);
-    buscarTrimestre(labels, true).then(aplicar).catch(falhar);
+    setSelic({ estado: "buscando" });
+    carregar(true);
   };
 
   const atualizar = (idx: number, campo: Campo, valor: number) => {
@@ -171,7 +220,16 @@ export default function SRPage() {
     const doMes = l.sr_parcela * (1 + l.selic_mensal / 100);
     return l.sr_anterior !== 0 && Math.abs(l.sr_anterior - doMes) <= 0.02 * Math.abs(doMes);
   });
-  const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length;
+  const selicBC = selic.estado === "ok" ? selic.valores : {};
+  const selicDiferente = linhas.filter(
+    (l) => l.selic_mensal && selicBC[l.mes] !== undefined && Math.abs(l.selic_mensal - selicBC[l.mes]) > 5e-7,
+  );
+  const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length + selicDiferente.length;
+
+  const usarSelicBC = () => {
+    setLinhas(calcularLocal(linhas.map((l) => (selicBC[l.mes] !== undefined ? { ...l, selic_mensal: selicBC[l.mes] } : l))));
+    setSucesso(null);
+  };
 
   const limparSrDuplicado = () => {
     const meses = new Set(srDuplicado.map((l) => l.mes));
@@ -254,7 +312,27 @@ export default function SRPage() {
                   </button>
                 </li>
               )}
+              {selicDiferente.length > 0 && (
+                <li>
+                  <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC digitada é diferente da do Banco Central
+                  ({selicDiferente.map((l) => `${num(l.selic_mensal, 6)}% × ${num(selicBC[l.mes], 6)}%`).join("; ")}).
+                  <button type="button" onClick={usarSelicBC}
+                    className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                    Usar a SELIC do Banco Central
+                  </button>
+                </li>
+              )}
             </ul>
+          </Alert>
+        )}
+
+        {selic.estado === "erro" && (
+          <Alert variant="warning">
+            {selic.mensagem}
+            <button type="button" onClick={buscarSelicDeNovo}
+              className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+              Tentar de novo
+            </button>
           </Alert>
         )}
 
@@ -298,7 +376,11 @@ export default function SRPage() {
                         {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
                       </td>
                       <td className="w-24 px-2 py-2">
-                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={6} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
+                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={6}
+                          alerta={selicDiferente.includes(l)} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
+                        {selicBC[l.mes] !== undefined && l.selic_mensal !== 0 && !selicDiferente.includes(l) && (
+                          <span className="mt-0.5 block text-right text-[0.7rem] text-emerald-300/80">Banco Central</span>
+                        )}
                       </td>
                       <td className="w-32 px-2 py-2">
                         <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
@@ -322,7 +404,11 @@ export default function SRPage() {
             </table>
           </div>
           <p className="border-t border-white/[0.05] px-4 py-3 text-xs text-zinc-500">
-            SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até a data da apuração.
+            SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até o fim do trimestre.{" "}
+            {selic.estado === "buscando" && "Buscando a SELIC no Banco Central…"}
+            {selic.estado === "ok" && "Os campos vazios foram preenchidos com a SELIC do Banco Central (mesma conta das planilhas da ARPE)."}
+            {selic.estado === "aberto" &&
+              `A SELIC deste trimestre só fecha em ${dataBR(selic.fechaEm)}; até lá, digite à mão se precisar.`}
           </p>
         </section>
 
