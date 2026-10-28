@@ -8,6 +8,7 @@ import { colorForValue } from "../../theme";
 import { getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { MESES_ABREV } from "../../utils/periodos";
+import { tituloDe } from "../../utils/glossario";
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -139,7 +140,7 @@ export default function PVPage() {
           <DollarSign size={16} />
         </span>
         <div>
-          <h1 className="text-[1.75rem] font-bold tracking-tight text-white">PV</h1>
+          <h1 className="text-[1.75rem] font-bold tracking-tight text-white">{tituloDe("PV")}</h1>
           <p className="text-sm text-zinc-500 mt-0.5">Preço Final do trimestre — PV = PMPV + PR do mesmo trimestre</p>
         </div>
       </div>
@@ -181,7 +182,7 @@ export default function PVPage() {
       </Card>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Card title="PMPV" subtitle="Preço médio ponderado do trimestre (R$/m³)">
+        <Card title={tituloDe("PMPV")} subtitle="Do trimestre, em R$/m³">
           <Input
             label="PMPV (R$/m³)"
             type="number"
@@ -191,7 +192,7 @@ export default function PVPage() {
           />
         </Card>
 
-        <Card title="PR" subtitle="Parcela de recuperação do trimestre (R$/m³)">
+        <Card title="PR — Parcela de Recuperação" subtitle="Do trimestre, em R$/m³">
           <Input
             label="PR (R$/m³)"
             type="number"
@@ -199,6 +200,9 @@ export default function PVPage() {
             value={pr || ""}
             onChange={(e) => setPr(parseFloat(e.target.value) || 0)}
           />
+          <p className="mt-2 text-xs text-zinc-500">
+            PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR
+          </p>
         </Card>
       </div>
 

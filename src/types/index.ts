@@ -156,7 +156,10 @@ export interface AuditoriaComparacao {
   abas_do_periodo: string[];
   avisos: string[];
   // Modelo Alexandre: comparação valor a valor
-  modelo: "alexandre" | "generico";
+  modelo: string;                       // "alexandre" | "apuracao" | "nt" | "generico"
+  modelo_rotulo: string;                // nome para mostrar
+  tipo: "por_nota" | "por_supridor" | "generico";   // define o layout da tela
+  fontes_cgr: { rotulo: string; valor: number | null }[];   // CGR da planilha, a comparar com o das notas
   notas_mes_na_planilha: boolean;
   cgr_auditoria: number | null;
   cgr_planilha_notas: number | null;
@@ -180,6 +183,7 @@ export interface AuditoriaDivergencia {
   volume_planilha: number;
   aliquota_auditoria: string;
   aliquota_planilha: string;
+  explicacao?: string;   // o que diverge, com os dois lados
 }
 
 export interface AuditoriaConferenciaEmpresa {
@@ -190,6 +194,11 @@ export interface AuditoriaConferenciaEmpresa {
   cgr_planilha: number;
   diferenca: number;
   confere: boolean;
+  // Modelo NT: comparação por supridor, com o porquê de cada diferença
+  volume_auditoria?: number;
+  volume_planilha?: number;
+  diferenca_volume?: number;
+  explicacoes?: string[];
 }
 
 export interface AuditoriaResultado {
@@ -233,6 +242,7 @@ export interface ConciliaResultado {
   itens: ConciliaItem[];
   totais: { total_receitas: number; total_despesas: number; rp: number; qtd_revisar: number };
   logs: string[];
+  ocr_disponivel: boolean;   // false: PDF de imagem não é lido neste computador
 }
 
 export interface ConciliaHistoricoLinha {
@@ -278,6 +288,7 @@ export interface RETResultado {
   pis_cofins_rate: number;
   meses: RETMes[];
   documentos: RETDocumento[];
+  ocr_disponivel: boolean;   // false: PDF de imagem não é lido neste computador
 }
 
 export interface RETHistoricoLinha {

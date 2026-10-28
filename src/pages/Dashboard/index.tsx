@@ -22,16 +22,17 @@ import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { DashboardResponse, KpiMensal } from "../../types";
 import { PaineisExtras } from "./PaineisExtras";
+import { GLOSSARIO, tituloDe, type Sigla } from "../../utils/glossario";
 
 const TODOS_OS_ANOS = "Todos os anos";
 
 const KPI_CAMPOS: { chave: keyof KpiMensal; label: string; Icon: typeof Search; accent: string }[] = [
-  { chave: "cgr", label: "CGR", Icon: Search, accent: "#3987e5" },
-  { chave: "ret", label: "RET", Icon: Receipt, accent: "#f59e0b" },
-  { chave: "cgf", label: "CGF", Icon: FileText, accent: "#16a085" },
-  { chave: "rp", label: "RP", Icon: Coins, accent: "#9085e9" },
-  { chave: "rpv", label: "RPV", Icon: Scale, accent: "#ec4899" },
-  { chave: "scg", label: "SCG", Icon: Briefcase, accent: "#22c55e" },
+  { chave: "cgr", label: tituloDe("CGR"), Icon: Search, accent: "#3987e5" },
+  { chave: "ret", label: tituloDe("RET"), Icon: Receipt, accent: "#f59e0b" },
+  { chave: "cgf", label: tituloDe("CGF"), Icon: FileText, accent: "#16a085" },
+  { chave: "rp", label: tituloDe("RP"), Icon: Coins, accent: "#9085e9" },
+  { chave: "rpv", label: tituloDe("RPV"), Icon: Scale, accent: "#ec4899" },
+  { chave: "scg", label: tituloDe("SCG"), Icon: Briefcase, accent: "#22c55e" },
 ];
 
 // Paleta categórica validada no dashboard original (Tkinter).
@@ -394,7 +395,7 @@ export default function DashboardPage() {
                   <Area
                     type="monotone"
                     dataKey="valor"
-                    name="SCG"
+                    name={GLOSSARIO.SCG.nome}
                     stroke={COR_SCG}
                     strokeWidth={2.5}
                     fill="url(#scgFill)"
@@ -424,7 +425,7 @@ export default function DashboardPage() {
                   {(["rpv", "ret", "rp"] as const).map((chave) => (
                     <CompositionRow
                       key={chave}
-                      label={chave.toUpperCase()}
+                      label={tituloDe(chave.toUpperCase() as Sigla)}
                       value={ultimoTrimestre[chave]}
                       maxAbs={maxAbsComposicao}
                       color={stageColors[chave]}
@@ -460,7 +461,7 @@ export default function DashboardPage() {
                     domain={["dataMin - 0.1", "dataMax + 0.1"]}
                   />
                   <Tooltip content={<TooltipBRL casas={4} />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
-                  <Line type="monotone" dataKey="valor" name="PMPV" stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
+                  <Line type="monotone" dataKey="valor" name={GLOSSARIO.PMPV.nome} stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -494,8 +495,8 @@ export default function DashboardPage() {
                     width={88}
                   />
                   <Tooltip content={<TooltipBRL />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <Bar dataKey="cgr" name="CGR" fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="cgf" name="CGF" fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="cgr" name={GLOSSARIO.CGR.nome} fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />
+                  <Bar dataKey="cgf" name={GLOSSARIO.CGF.nome} fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

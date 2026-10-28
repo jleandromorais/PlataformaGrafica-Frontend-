@@ -9,6 +9,7 @@ import { mensagemDeErro } from "../../api/client";
 import { arredondarTarifa, brl, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
@@ -169,7 +170,7 @@ export default function CGFPage() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">CGF</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("CGF")}</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Volume final = faturado (sem consumo próprio) − devoluções · CGF em R$ = volume final × PMPV do mês
           </p>

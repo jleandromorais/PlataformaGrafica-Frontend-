@@ -7,6 +7,7 @@ import { getHistoricoRPV, getRPV, salvarRPV } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import type { RPVHistoricoLinha } from "../../types";
+import { tituloDe } from "../../utils/glossario";
 
 const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
 const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
@@ -139,7 +140,7 @@ export default function RPVPage() {
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">RPV</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RPV")}</h1>
             <p className="mt-1 text-sm text-zinc-400">RPV = CGR − CGF, por mês</p>
           </div>
         </div>
@@ -163,9 +164,9 @@ export default function RPVPage() {
 
         {/* CGR − CGF = RPV */}
         <div className={`flex flex-col items-stretch gap-3 md:flex-row md:items-center ${carregando ? "opacity-60" : ""}`}>
-          <CampoValor id="cgr" titulo="CGR" origem="Vem da Auditoria CGR" valor={cgr} onChange={setCgr} />
+          <CampoValor id="cgr" titulo={tituloDe("CGR")} origem="Vem da Auditoria CGR" valor={cgr} onChange={setCgr} />
           <Minus size={22} className="mx-auto shrink-0 text-zinc-500" aria-hidden />
-          <CampoValor id="cgf" titulo="CGF" origem="Vem do Volume Faturado (CGF)" valor={cgf} onChange={setCgf} />
+          <CampoValor id="cgf" titulo={tituloDe("CGF")} origem="Vem da tela CGF (PMPV × volume faturado)" valor={cgf} onChange={setCgf} />
         </div>
 
         <section className={`${PANEL} flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6`}>
