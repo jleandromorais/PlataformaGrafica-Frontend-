@@ -28,22 +28,10 @@ export function colorForValue(value: number): string {
 }
 
 /**
- * Cor de identidade de cada módulo — usada só na Sidebar e em títulos de
- * página (ícone + heading). NÃO usar para indicar positivo/negativo/aviso
- * dentro do conteúdo da página; isso é sempre `semantic`.
+ * Ícone do módulo na Sidebar e no cabeçalho: todos no marinho da ARPE. Uma cor
+ * por módulo virava arco-íris e competia com as cores de positivo/negativo/aviso.
  */
-export const moduleColor: Record<string, string> = {
-  dashboard: "text-sky-400",
-  ciclo: "text-sky-300",
-  pmpv: "text-blue-400",
-  cgf: "text-emerald-400",
-  auditoria: "text-violet-400",
-  conciliacao: "text-orange-400",
-  ret: "text-yellow-400",
-  pr: "text-pink-400",
-  pv: "text-teal-400",
-  rpv: "text-indigo-400",
-  scg: "text-red-400",
-  sr: "text-cyan-400",
-  excel: "text-emerald-400",
-};
+export const moduleColor: Record<string, string> = Object.fromEntries(
+  ["dashboard", "ciclo", "pmpv", "cgf", "auditoria", "conciliacao", "ret", "pr", "pv", "rpv", "scg", "sr", "excel"]
+    .map((k) => [k, "text-marinho"]),
+);

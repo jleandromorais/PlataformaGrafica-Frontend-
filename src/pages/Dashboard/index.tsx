@@ -15,6 +15,7 @@ import {
 } from "recharts";
 import { ArrowDownRight, ArrowUpRight, Briefcase, Coins, FileText, Receipt, RefreshCw, Scale, Search } from "lucide-react";
 import { Select } from "../../components/ui/Input";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { Alert } from "../../components/ui/Alert";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { brl, brlCompact } from "../../utils/format";
@@ -27,23 +28,23 @@ import { GLOSSARIO, tituloDe, type Sigla } from "../../utils/glossario";
 const TODOS_OS_ANOS = "Todos os anos";
 
 const KPI_CAMPOS: { chave: keyof KpiMensal; label: string; Icon: typeof Search; accent: string }[] = [
-  { chave: "cgr", label: tituloDe("CGR"), Icon: Search, accent: "#3987e5" },
-  { chave: "ret", label: tituloDe("RET"), Icon: Receipt, accent: "#f59e0b" },
-  { chave: "cgf", label: tituloDe("CGF"), Icon: FileText, accent: "#16a085" },
-  { chave: "rp", label: tituloDe("RP"), Icon: Coins, accent: "#9085e9" },
-  { chave: "rpv", label: tituloDe("RPV"), Icon: Scale, accent: "#ec4899" },
-  { chave: "scg", label: tituloDe("SCG"), Icon: Briefcase, accent: "#22c55e" },
+  { chave: "cgr", label: tituloDe("CGR"), Icon: Search, accent: "var(--chart-azul)" },
+  { chave: "ret", label: tituloDe("RET"), Icon: Receipt, accent: "var(--chart-ambar)" },
+  { chave: "cgf", label: tituloDe("CGF"), Icon: FileText, accent: "var(--chart-teal)" },
+  { chave: "rp", label: tituloDe("RP"), Icon: Coins, accent: "var(--chart-violeta)" },
+  { chave: "rpv", label: tituloDe("RPV"), Icon: Scale, accent: "var(--chart-rosa)" },
+  { chave: "scg", label: tituloDe("SCG"), Icon: Briefcase, accent: "var(--chart-verde)" },
 ];
 
 // Paleta categórica validada no dashboard original (Tkinter).
-const COR_CGR = "#3987e5";
-const COR_RET = "#f59e0b";
-const COR_RP = "#9085e9";
-const COR_RPV = "#ec4899";
-const COR_PMPV = "#3987e5";
-const COR_SCG = "#22c55e";
-const COR_CGF = "#16a085";
-const COR_NEG = "#ef4444";
+const COR_CGR = "var(--chart-azul)";
+const COR_RET = "var(--chart-ambar)";
+const COR_RP = "var(--chart-violeta)";
+const COR_RPV = "var(--chart-rosa)";
+const COR_PMPV = "var(--chart-azul)";
+const COR_SCG = "var(--chart-verde)";
+const COR_CGF = "var(--chart-teal)";
+const COR_NEG = "var(--chart-neg)";
 
 function agruparTrimestres(
   historico: KpiMensal[],
@@ -71,9 +72,9 @@ function agruparTrimestres(
   return resultado;
 }
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const AXIS_TICK = { fill: "#71717a", fontSize: 11 };
-const GRID_STROKE = "rgba(255,255,255,0.05)";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const AXIS_TICK = { fill: "var(--chart-eixo)", fontSize: 11 };
+const GRID_STROKE = "var(--chart-grade)";
 
 interface TooltipProps {
   active?: boolean;
@@ -85,7 +86,7 @@ interface TooltipProps {
 const TooltipBRL = ({ active, payload, label, casas = 2 }: TooltipProps) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+    <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_-8px_rgba(16,39,89,0.25)]">
       <p className="mb-1 font-medium text-zinc-400">{label}</p>
       {payload.map((p) => (
         <p key={p.dataKey} className="font-semibold tabular-nums" style={{ color: p.color ?? p.fill }}>
@@ -110,12 +111,10 @@ function SectionHeading({ title, subtitle, right }: { title: string; subtitle?: 
 
 function KpiTile({
   label,
-  Icon,
   value,
   rawValue,
   delta,
   varLabel,
-  accent,
 }: {
   label: string;
   Icon: typeof Search;
@@ -129,19 +128,10 @@ function KpiTile({
   const isZero = rawValue === 0;
   const isNegative = rawValue < 0;
   return (
-    <div className={`${PANEL} p-5 shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] transition-colors hover:border-white/[0.14] sm:p-6`}>
-      <div className="flex items-center justify-between">
-        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400">{label}</span>
-        <span
-          aria-hidden
-          className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ backgroundColor: `${accent}17`, color: accent }}
-        >
-          <Icon size={16} />
-        </span>
-      </div>
+    <div className={`${PANEL} p-5 transition-colors hover:border-white/[0.14] sm:p-6`}>
+      <span className="text-sm font-medium text-zinc-400">{label}</span>
       <p
-        className={`mt-4 truncate text-[1.625rem] font-bold leading-none tracking-tight tabular-nums sm:text-[1.75rem] ${
+        className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none tabular-nums xl:text-[1.625rem] ${
           isZero ? "text-zinc-600" : isNegative ? "text-red-400" : "text-white"
         }`}
       >
@@ -165,10 +155,7 @@ function KpiTile({
 function KpiSkeleton() {
   return (
     <div className={`${PANEL} p-5 sm:p-6`} aria-hidden>
-      <div className="flex items-center justify-between">
-        <div className="h-3 w-10 animate-pulse rounded bg-white/[0.06]" />
-        <div className="h-9 w-9 animate-pulse rounded-xl bg-white/[0.04]" />
-      </div>
+      <div className="h-3 w-24 animate-pulse rounded bg-white/[0.06]" />
       <div className="mt-4 h-7 w-44 animate-pulse rounded bg-white/[0.06]" />
       <div className="mt-3 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
     </div>
@@ -181,11 +168,13 @@ function KpiSkeleton() {
  * de cada lado do eixo, proporcional ao maior |valor| do grupo. */
 function CompositionRow({
   label,
+  dica,
   value,
   maxAbs,
   color,
 }: {
   label: string;
+  dica?: string;
   value: number;
   maxAbs: number;
   color: string;
@@ -195,7 +184,7 @@ function CompositionRow({
   const isZero = value === 0;
   return (
     <div className={`flex items-center gap-3 ${isZero ? "opacity-40" : ""}`}>
-      <span className="w-9 shrink-0 text-xs font-semibold text-zinc-400">{label}</span>
+      <span className="w-9 shrink-0 text-xs font-semibold text-zinc-400" title={dica}>{label}</span>
       <div className="flex h-6 flex-1 items-center">
         <div className="flex h-full flex-1 justify-end overflow-hidden rounded-l bg-white/[0.04]">
           {isNeg && (
@@ -289,13 +278,11 @@ export default function DashboardPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6 lg:gap-8">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Visão geral</h1>
-            {ultimoMes && (
-              <p className="mt-1 text-sm text-zinc-400">Período mais recente: <span className="font-medium text-zinc-200">{ultimoMes.periodo}</span></p>
-            )}
-          </div>
+        <PageHeader
+          modulo="dashboard"
+          titulo="Visão geral"
+          descricao={ultimoMes && <>Período mais recente: <span className="font-medium text-white">{ultimoMes.periodo}</span></>}
+          acoes={
           <div className="flex items-center gap-2">
             <Select
               aria-label="Filtrar por ano"
@@ -313,7 +300,8 @@ export default function DashboardPage() {
               <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
             </button>
           </div>
-        </div>
+          }
+        />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {incompletos.length > 0 && ultimoMes && (
@@ -390,8 +378,8 @@ export default function DashboardPage() {
                     width={88}
                     domain={["auto", "auto"]}
                   />
-                  <Tooltip content={<TooltipBRL />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
-                  <ReferenceLine y={0} stroke="#27272a" strokeDasharray="4 4" />
+                  <Tooltip content={<TooltipBRL />} cursor={{ stroke: "var(--chart-cursor)" }} />
+                  <ReferenceLine y={0} stroke="var(--chart-ref)" strokeDasharray="4 4" />
                   <Area
                     type="monotone"
                     dataKey="valor"
@@ -425,7 +413,8 @@ export default function DashboardPage() {
                   {(["rpv", "ret", "rp"] as const).map((chave) => (
                     <CompositionRow
                       key={chave}
-                      label={tituloDe(chave.toUpperCase() as Sigla)}
+                      label={chave.toUpperCase()}
+                      dica={tituloDe(chave.toUpperCase() as Sigla)}
                       value={ultimoTrimestre[chave]}
                       maxAbs={maxAbsComposicao}
                       color={stageColors[chave]}
@@ -460,7 +449,7 @@ export default function DashboardPage() {
                     width={48}
                     domain={["dataMin - 0.1", "dataMax + 0.1"]}
                   />
-                  <Tooltip content={<TooltipBRL casas={4} />} cursor={{ stroke: "rgba(255,255,255,0.1)" }} />
+                  <Tooltip content={<TooltipBRL casas={4} />} cursor={{ stroke: "var(--chart-cursor)" }} />
                   <Line type="monotone" dataKey="valor" name={GLOSSARIO.PMPV.nome} stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -494,7 +483,7 @@ export default function DashboardPage() {
                     tickFormatter={brlCompact}
                     width={88}
                   />
-                  <Tooltip content={<TooltipBRL />} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <Tooltip content={<TooltipBRL />} cursor={{ fill: "var(--chart-cursor-area)" }} />
                   <Bar dataKey="cgr" name={GLOSSARIO.CGR.nome} fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />
                   <Bar dataKey="cgf" name={GLOSSARIO.CGF.nome} fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
                 </BarChart>

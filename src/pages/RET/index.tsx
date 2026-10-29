@@ -9,9 +9,9 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { lerPasta } from "../../utils/pasta";
 import type { RETHistoricoLinha, RETResultado } from "../../types";
-import { tituloDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
 const COR_TIPO: Record<string, string> = {
   EAT: "border-sky-500/25 bg-sky-500/10 text-sky-300",
@@ -73,12 +73,7 @@ export default function RETPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RET")}</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Encargos de transporte, por mês: RET = Σ EAT × (1 − {pct}% PIS/COFINS) + Σ EC
-          </p>
-        </div>
+        <PageHeader modulo="ret" formula={<>RET = Σ EAT × (1 − {pct}% PIS/COFINS) + Σ EC, por mês</>} />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -103,10 +98,11 @@ export default function RETPage() {
               }}
             />
             <button type="button" onClick={processar} disabled={!pasta?.arquivos.length || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? `Lendo ${pasta?.arquivos.length} PDFs…` : "Processar PDFs"}
             </button>
+            {!pasta?.arquivos.length && ocupado === null && <p className="-mt-1 text-center text-xs text-zinc-400">Escolha a pasta do RET para liberar o processamento.</p>}
           </section>
 
           <section className={`${PANEL} overflow-hidden xl:col-span-8`}>
@@ -122,7 +118,7 @@ export default function RETPage() {
               {resultado && (
                 <button type="button" onClick={salvar} disabled={ocupado !== null || semMes}
                   title={semMes ? "Há documentos sem mês no caminho" : undefined}
-                  className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40">
+                  className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
                   {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                   Salvar {resultado.meses.length > 1 ? `os ${resultado.meses.length} meses` : resultado.meses[0]?.periodo}
                 </button>
@@ -139,7 +135,7 @@ export default function RETPage() {
                 )}
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[40rem] text-sm">
-                    <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                    <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                       <tr>
                         {["Mês", "Documentos", "Σ EAT (bruto)", "Σ EC", "RET"].map((h, i) => (
                           <th key={h} title={DICA_COLUNA[h]} className={`px-5 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
@@ -186,7 +182,7 @@ export default function RETPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[56rem] text-sm">
-                <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                   <tr>
                     {["Mês", "Tipo", "Empresa", "Nota", "Nº", "Vencimento", "Valor", "Arquivo"].map((h) => (
                       <th key={h} className={`px-4 py-3 font-semibold ${h === "Valor" ? "text-right" : "text-left"}`}>{h}</th>
@@ -222,7 +218,7 @@ export default function RETPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "Documentos", "RET gravado", "Atualizado"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>

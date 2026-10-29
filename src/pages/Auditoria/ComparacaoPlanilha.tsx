@@ -42,7 +42,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-zinc-500">
+              <tr className="text-left text-xs text-zinc-500">
                 <th className="pb-2 font-medium">CGR</th>
                 <th className="pb-2 text-right font-medium">Valor</th>
                 <th className="pb-2 text-right font-medium">Auditoria − planilha</th>
@@ -92,7 +92,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
           <div className="mt-2 max-h-72 overflow-auto">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-panel">
-                <tr className="text-left uppercase tracking-wide text-zinc-500">
+                <tr className="text-left text-zinc-500">
                   <th className="py-1.5 font-medium">Nota</th>
                   <th className="py-1.5 font-medium">O que diverge</th>
                   <th className="py-1.5 text-right font-medium">CGR auditoria</th>
@@ -127,7 +127,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
           <div className="mt-2 overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-left uppercase tracking-wide text-zinc-500">
+                <tr className="text-left text-zinc-500">
                   <th className="py-1.5 font-medium">Supridor</th>
                   <th className="py-1.5 text-right font-medium">Notas aud. / plan.</th>
                   <th className="py-1.5 text-right font-medium">CGR auditoria</th>
@@ -195,7 +195,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                         </>
                       )}
                     </dl>
-                    <p className="mt-2 text-xs font-medium uppercase tracking-wide text-zinc-500">Por que difere</p>
+                    <p className="mt-2 text-xs font-medium text-zinc-500">Por que difere</p>
                     <ul className="mt-1 list-disc space-y-1 pl-4 text-xs text-zinc-300">
                       {(e.explicacoes?.length ? e.explicacoes : ["Sem causa identificada pelas notas lidas."]).map((t) => <li key={t}>{t}</li>)}
                     </ul>
@@ -210,7 +210,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="text-left uppercase tracking-wide text-zinc-500">
+                  <tr className="text-left text-zinc-500">
                     <th className="py-1.5 font-medium">Supridor</th>
                     <th className="py-1.5 text-right font-medium">Volume notas / NT (m³)</th>
                     <th className="py-1.5 text-right font-medium">CGR notas</th>

@@ -14,10 +14,10 @@ import { lerPasta } from "../../utils/pasta";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
-import { tituloDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const LABEL = "text-xs font-semibold text-zinc-400";
 const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
 
 type Pasta = { raiz: string; arquivos: ArquivoDaPasta[] };
@@ -122,13 +122,14 @@ export default function ConciliacaoPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RP")}</h1>
-          <p className="mt-1 text-sm text-zinc-400">Penalidades: RP = (Σ despesas − Σ receitas) × (1 − 9,25% PIS/COFINS) (linha “Saldo de penalidade” da planilha oficial)</p>
-        </div>
+        <PageHeader modulo="conciliacao" formula="RP = (Σ despesas − Σ receitas) × (1 − 9,25% PIS/COFINS) (linha “Saldo de penalidade” da planilha oficial)" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+
+        <section className={`${PANEL} p-5 sm:p-6`}>
+          <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <section className={`${PANEL} flex flex-col gap-4 p-5 sm:p-6 xl:col-span-5`}>
@@ -150,16 +151,14 @@ export default function ConciliacaoPage() {
             </div>
             <button type="button" onClick={processar}
               disabled={!(receitas?.arquivos.length || despesas?.arquivos.length) || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? "Lendo PDFs…" : "Processar e conciliar"}
             </button>
+            {!(receitas?.arquivos.length || despesas?.arquivos.length) && ocupado === null && <p className="-mt-1 text-center text-xs text-zinc-400">Escolha ao menos uma pasta (receitas ou despesas) para liberar.</p>}
           </section>
 
           <div className="flex flex-col gap-6 xl:col-span-7">
-            <section className={`${PANEL} p-5 sm:p-6`}>
-              <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
-            </section>
             <section className={`${PANEL} p-5 sm:p-6`}>
               {!itensFinais ? (
                 <p className="py-6 text-center text-sm text-zinc-500">Escolha as pastas e clique em Processar.</p>
@@ -194,7 +193,7 @@ export default function ConciliacaoPage() {
                       {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
                     </button>
                     <button type="button" onClick={salvar} disabled={ocupado !== null || invalidos || !anoValido(ano)}
-                      className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40">
+                      className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
                       {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar RP de {periodo}
                     </button>
                   </div>
@@ -212,7 +211,7 @@ export default function ConciliacaoPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[52rem] text-sm">
-                <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                   <tr>
                     {["Categoria", "Arquivo", "Status", "Valor", "Leitura"].map((h) => (
                       <th key={h} className={`px-4 py-3 font-semibold ${h === "Valor" ? "text-right" : "text-left"}`}>{h}</th>
@@ -263,7 +262,7 @@ export default function ConciliacaoPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "PDFs", "Receitas", "Despesas", "RP dos PDFs", "RP gravado"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>

@@ -8,9 +8,10 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import type { RPVHistoricoLinha } from "../../types";
 import { tituloDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const LABEL = "text-xs font-semibold text-zinc-400";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
 
 function corDoValor(v: number) {
@@ -138,12 +139,7 @@ export default function RPVPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("RPV")}</h1>
-            <p className="mt-1 text-sm text-zinc-400">RPV = CGR − CGF, por mês</p>
-          </div>
-        </div>
+        <PageHeader modulo="rpv" formula="RPV = CGR − CGF, por mês" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -185,7 +181,7 @@ export default function RPVPage() {
           </div>
           <button
             type="button" onClick={salvar} disabled={salvando || carregando || !alterado}
-            className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-40"
+            className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
           >
             {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
             Salvar {periodo}
@@ -201,7 +197,7 @@ export default function RPVPage() {
           {erroHistorico && <Alert variant="error" className="m-4 whitespace-pre-line">{erroHistorico}</Alert>}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[40rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   <th className="px-5 py-3 text-left font-semibold">Período</th>
                   <th className="px-5 py-3 text-right font-semibold">CGR</th>

@@ -10,7 +10,7 @@ interface CardProps {
 
 export function Card({ title, subtitle, children, className = "", accent }: CardProps) {
   return (
-    <div className={`rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] overflow-hidden ${className}`}>
+    <div className={`rounded-xl border border-white/[0.07] bg-panel overflow-hidden ${className}`}>
       {accent && <div className={`h-1 ${accent}`} />}
       {(title || subtitle) && (
         <div className="px-6 py-4 border-b border-white/[0.07]">
@@ -33,9 +33,9 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, color = "text-white", icon }: StatCardProps) {
   return (
-    <div className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-[#0d0d0f] p-5 flex flex-col gap-1">
+    <div className="rounded-xl border border-white/[0.07] bg-panel p-5 flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</span>
+        <span className="text-xs font-semibold text-zinc-500">{label}</span>
         {icon && <span className="text-zinc-600">{icon}</span>}
       </div>
       <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>

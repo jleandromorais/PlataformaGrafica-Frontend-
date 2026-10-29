@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, Loader2, Route,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, Loader2,
 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import {
@@ -18,8 +18,9 @@ import type {
   AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
   SCGHistoricoLinha,
 } from "../../types";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
@@ -218,15 +219,7 @@ export default function CicloPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300"><Route size={16} /></span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Painel do Ciclo</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              Tudo o que o trimestre precisa, na ordem: o que já está pronto, o que falta e onde fazer.
-            </p>
-          </div>
-        </div>
+        <PageHeader modulo="ciclo" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -350,7 +343,7 @@ function MapaPasta({ mapa, meses, raiz, total }: {
       )}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[36rem] text-sm">
-          <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Etapa</th>
               {meses.map((m) => <th key={m} className="px-3 py-2.5 text-left font-semibold">{m}</th>)}
@@ -396,7 +389,7 @@ function MapaPasta({ mapa, meses, raiz, total }: {
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" disabled
-          className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white opacity-50">
+          className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper opacity-50">
           Processar {meses[0]} a {meses[2]}
         </button>
         <span className="text-xs text-zinc-500">

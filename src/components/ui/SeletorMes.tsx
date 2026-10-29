@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const LABEL = "text-xs font-semibold text-zinc-400";
 
 /** Escolha de mês (Jan…Dez) + ano, no formato de período "Mmm/AAAA". */
 export function SeletorMes({ mes, ano, onChange, status }: {

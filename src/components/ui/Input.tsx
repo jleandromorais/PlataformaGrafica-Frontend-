@@ -9,7 +9,7 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
 export function Input({ label, error, icon, className = "", ...rest }: InputProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</label>}
+      {label && <label className="text-xs font-semibold text-zinc-500">{label}</label>}
       <div className="relative">
         {icon && (
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">{icon}</span>
@@ -40,7 +40,7 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 export function Select({ label, options, className = "", ...rest }: SelectProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      {label && <label className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{label}</label>}
+      {label && <label className="text-xs font-semibold text-zinc-500">{label}</label>}
       <select
         {...rest}
         className={`
@@ -51,7 +51,7 @@ export function Select({ label, options, className = "", ...rest }: SelectProps)
         `}
       >
         {options.map((o) => (
-          <option key={o.value} value={o.value} className="bg-[#0d0d0f] text-zinc-100">{o.label}</option>
+          <option key={o.value} value={o.value} className="bg-panel text-zinc-100">{o.label}</option>
         ))}
       </select>
     </div>

@@ -47,7 +47,7 @@ export default function LoginPage() {
         <Input label="Senha" type="password" autoComplete="current-password" required
           icon={<Lock size={15} />} placeholder="Sua senha"
           value={senha} onChange={(e) => setSenha(e.target.value)} />
-        <Button type="submit" loading={enviando} className="mt-1 w-full justify-center">Entrar</Button>
+        <Button type="submit" variant="solid" size="lg" loading={enviando} className="mt-1 w-full justify-center text-sm">Entrar</Button>
       </form>
     </AuthShell>
   );

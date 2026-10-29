@@ -14,17 +14,17 @@ import { brl, brlCompact, num } from "../../utils/format";
 import { getDashEmpresas, getDashRet, getDashVolumes } from "../../api";
 import type { DashEmpresasResponse, DashRetResponse, DashVolumesResponse } from "../../types";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const AXIS_TICK = { fill: "#71717a", fontSize: 11 };
-const GRID_STROKE = "rgba(255,255,255,0.05)";
-const SUPERFICIE = "#0d0d0f"; // cor do painel: serve de vão entre segmentos empilhados
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const AXIS_TICK = { fill: "var(--chart-eixo)", fontSize: 11 };
+const GRID_STROKE = "var(--chart-grade)";
+const SUPERFICIE = "var(--chart-superficie)"; // cor do painel: serve de vão entre segmentos empilhados
 
 // Paleta categórica validada (modo escuro), na ordem fixa dos slots 1-3.
 // "Outros" fica em cinza para nunca competir com um tipo nomeado.
-const CORES_RET = ["#3987e5", "#d95926", "#199e70"];
-const COR_OUTROS = "#71717a";
-const COR_EMPRESA = "#3987e5";
-const COR_VOLUME = "#199e70";
+const CORES_RET = ["var(--chart-azul)", "var(--chart-laranja)", "var(--chart-teal)"];
+const COR_OUTROS = "var(--chart-eixo)";
+const COR_EMPRESA = "var(--chart-azul)";
+const COR_VOLUME = "var(--chart-teal)";
 
 const corDoTipo = (tipo: string, tipos: string[]) =>
   tipo === "Outros" ? COR_OUTROS : CORES_RET[tipos.indexOf(tipo)] ?? COR_OUTROS;
@@ -146,7 +146,7 @@ function Vazio({ carregando, falhou }: { carregando: boolean; falhou: boolean })
 
 function TooltipCaixa({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_rgba(0,0,0,0.5)]">
+    <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_-8px_rgba(16,39,89,0.25)]">
       <p className="mb-1.5 font-medium text-zinc-300">{titulo}</p>
       <div className="space-y-0.5 tabular-nums text-zinc-400">{children}</div>
     </div>
@@ -169,7 +169,7 @@ function TabelaDados({ colunas, linhas }: { colunas: string[]; linhas: string[][
       <summary className="cursor-pointer text-zinc-500 hover:text-zinc-300">Ver como tabela</summary>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[28rem] text-xs">
-          <thead className="text-[0.68rem] uppercase tracking-[0.08em] text-zinc-500">
+          <thead className="text-[0.68rem] text-zinc-500">
             <tr>{colunas.map((c, i) => <th key={c} className={`px-2 py-2 font-semibold ${i ? "text-right" : "text-left"}`}>{c}</th>)}</tr>
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
@@ -201,9 +201,9 @@ function PainelEmpresas({ ano }: { ano?: string }) {
               <BarChart data={dados.empresas} layout="vertical" margin={{ top: 4, right: 88, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
                 <XAxis type="number" hide />
-                <YAxis type="category" dataKey="empresa" tick={{ ...AXIS_TICK, fontSize: 12, fill: "#a1a1aa" }} tickLine={false} axisLine={false} width={112} />
+                <YAxis type="category" dataKey="empresa" tick={{ ...AXIS_TICK, fontSize: 12, fill: "var(--chart-rotulo)" }} tickLine={false} axisLine={false} width={112} />
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  cursor={{ fill: "var(--chart-cursor-area)" }}
                   content={({ active, payload }) => {
                     const e = payload?.[0]?.payload as DashEmpresasResponse["empresas"][number] | undefined;
                     if (!active || !e) return null;
@@ -219,7 +219,7 @@ function PainelEmpresas({ ano }: { ano?: string }) {
                   }}
                 />
                 <Bar dataKey="cgr_liquido" name="CGR líquido" fill={COR_EMPRESA} radius={[0, 4, 4, 0]} maxBarSize={26}>
-                  <LabelList dataKey="cgr_liquido" position="right" formatter={(v) => brlCompact(Number(v))} fill="#e4e4e7" fontSize={12} />
+                  <LabelList dataKey="cgr_liquido" position="right" formatter={(v) => brlCompact(Number(v))} fill="var(--chart-rotulo-forte)" fontSize={12} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -276,7 +276,7 @@ function PainelRet({ ano, trimestres }: { ano?: string; trimestres: Trimestre[] 
                 <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                 <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={brlCompact} width={72} />
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  cursor={{ fill: "var(--chart-cursor-area)" }}
                   content={({ active, payload, label }) => {
                     const linha = payload?.[0]?.payload as Record<string, number> | undefined;
                     if (!active || !linha) return null;
@@ -350,7 +350,7 @@ function PainelVolumes({ ano, trimestres }: { ano?: string; trimestres: Trimestr
               ["Volume final", totais.volume_final],
             ].map(([rotulo, valor]) => (
               <div key={rotulo as string}>
-                <dt className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">{rotulo}</dt>
+                <dt className="text-xs font-semibold text-zinc-500">{rotulo}</dt>
                 <dd className="mt-1 text-lg font-bold tabular-nums text-white">
                   {m3Compacto(valor as number)} <span className="text-xs font-normal text-zinc-500">m³</span>
                 </dd>
@@ -364,7 +364,7 @@ function PainelVolumes({ ano, trimestres }: { ano?: string; trimestres: Trimestr
                 <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
                 <YAxis tick={AXIS_TICK} tickLine={false} axisLine={false} tickFormatter={m3Compacto} width={56} />
                 <Tooltip
-                  cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                  cursor={{ fill: "var(--chart-cursor-area)" }}
                   content={({ active, payload, label }) => {
                     const m = payload?.[0]?.payload as ComMeses<DashVolumesResponse["meses"][number]> | undefined;
                     if (!active || !m) return null;

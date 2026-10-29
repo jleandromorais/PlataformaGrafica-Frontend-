@@ -12,9 +12,10 @@ import { ComparacaoPlanilha } from "./ComparacaoPlanilha";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const LABEL = "text-xs font-semibold text-zinc-400";
 const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
 const LIMITE_NOTAS = 50;
 
@@ -164,17 +165,16 @@ export default function AuditoriaPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Auditoria CGR</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            CGR = Σ compra sem tributos das NF-e e dos CT-e de gasoduto (TAG, Mastergás). Devoluções subtraem; frete de outras transportadoras fica fora.
-          </p>
-        </div>
+        <PageHeader modulo="auditoria" formula="CGR = Σ compra sem tributos das NF-e e dos CT-e de gasoduto (TAG, Mastergás). Devoluções subtraem; frete de outras transportadoras fica fora." />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         <ListaProblemas problemas={problemas} />
+
+        <section className={`${PANEL} p-5 sm:p-6`}>
+          <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           {/* Entrada */}
@@ -249,10 +249,11 @@ export default function AuditoriaPage() {
             </div>
 
             <button type="button" onClick={processar} disabled={!enviados.length || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? `Auditando ${enviados.length} arquivos…` : "Executar auditoria"}
             </button>
+            {!enviados.length && ocupado === null && <p className="-mt-2 text-center text-xs text-zinc-400">Escolha a pasta das notas (e marque ao menos uma empresa) para liberar a auditoria.</p>}
             {ocupado === "processar" && qtdPdf > 20 && (
               <p className="-mt-2 text-xs text-zinc-500">Ler {qtdPdf} PDFs leva alguns minutos (cerca de 1 min a cada 90). Não feche a página.</p>
             )}
@@ -260,9 +261,6 @@ export default function AuditoriaPage() {
 
           {/* Resultado */}
           <div className="flex flex-col gap-6 xl:col-span-7">
-            <section className={`${PANEL} p-5 sm:p-6`}>
-              <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />
-            </section>
 
             <section className={`${PANEL} p-5 sm:p-6`}>
               {!t ? (
@@ -284,14 +282,14 @@ export default function AuditoriaPage() {
                         {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
                       </button>
                       <button type="button" onClick={salvar} disabled={ocupado !== null || !anoValido(ano)}
-                        className="flex items-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40">
+                        className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
                         {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar CGR de {periodo}
                       </button>
                     </div>
                   </div>
                   <div className="mt-5 overflow-x-auto">
                     <table className="w-full min-w-[36rem] text-sm">
-                      <thead className="text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                      <thead className="text-[0.7rem] text-zinc-400">
                         <tr className="border-b border-white/[0.07]">
                           {["Empresa", "NF-e", "CT-e", "Valor das notas", "CGR líquido"].map((h, i) => (
                             <th key={h} className={`py-2 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
@@ -333,7 +331,7 @@ export default function AuditoriaPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[56rem] text-sm">
-                <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                   <tr>
                     {["Empresa", "Tipo", "Número", "Valor", "ICMS", "CGR líquido", "Origem"].map((h, i) => (
                       <th key={h} className={`px-4 py-3 font-semibold ${i >= 3 && i <= 5 ? "text-right" : "text-left"}`}>{h}</th>
@@ -371,7 +369,7 @@ export default function AuditoriaPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[32rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "Notas gravadas", "CGR gravado", "Atualizado"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
