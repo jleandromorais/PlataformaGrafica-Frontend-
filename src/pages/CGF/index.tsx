@@ -9,19 +9,14 @@ import { mensagemDeErro } from "../../api/client";
 import { arredondarTarifa, brl, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
+import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
 
-const COLUNAS_PADRAO: CGFColunas = {
-  col_fat_volume: "Volume Faturado",
-  col_fat_consumo: "Produto",
-  val_fat_consumo: "consumo proprio",
-  col_canc_volume: "Volume Canc/Deneg",
-  col_dev_volume: "Volume Devolução",
-};
+const COLUNAS_PADRAO = COLUNAS_PADRAO_CGF;
 
 // Mesma regra do backend (ServicosCGF.tipo_do_nome em servicos_cgf.py): mantenha as listas iguais.
 // Ordem importa: faturada/complementar é testada antes de cancelada.

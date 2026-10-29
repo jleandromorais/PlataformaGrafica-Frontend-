@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "gray-on-color",
+        "value": "*",
+        "files": [
+          "src/components/ui/Button.tsx"
+        ],
+        "createdAt": "2026-10-29T12:52:51.425Z",
+        "reason": "Claude: zinc-400 só aparece no estado disabled, quando o fundo também vira neutro (bg-white/6); não fica sobre o sky-600"
+      }
+    ]
+  }
+}
