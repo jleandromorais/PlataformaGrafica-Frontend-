@@ -5,7 +5,7 @@ import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, i
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
-import { tituloDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -16,8 +16,8 @@ const EMPRESAS_PADRAO = ["PETROBRAS", "GALP", "PETRORECONCAVO", "BRAVA", "ENEVA"
 const ABAS = ["Mês 1", "Mês 2", "Mês 3"] as const;
 type Aba = (typeof ABAS)[number];
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
-const LABEL = "text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-400";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+const LABEL = "text-xs font-semibold text-zinc-400";
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -145,7 +145,7 @@ function TabelaMes({ linhas, dias, onChange }: {
   return (
     <div className="overflow-x-auto">
       <div className="min-w-[56rem] space-y-1.5">
-        <div className={`${GRADE} rounded-lg bg-white/[0.03] px-3 py-2.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-zinc-400`}>
+        <div className={`${GRADE} rounded-lg bg-white/[0.03] px-3 py-2.5 text-xs font-semibold text-zinc-400`}>
           <span>Empresa</span>
           <span>Molécula</span>
           <span>Transporte</span>
@@ -417,15 +417,7 @@ export default function PMPVPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("PMPV")}</h1>
-            <p className="mt-1 text-sm text-zinc-400">Preço Médio Ponderado por Volume — cálculo trimestral</p>
-          </div>
-          <span className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 font-mono text-xs text-zinc-400">
-            PMPV = Σ(Pᵢ·Vᵢ) / ΣVᵢ
-          </span>
-        </div>
+        <PageHeader modulo="pmpv" formula="PMPV = Σ(Pᵢ·Vᵢ) / ΣVᵢ · preço médio ponderado por volume, cálculo trimestral" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {aviso && <Alert variant="warning" className="whitespace-pre-line">{aviso}</Alert>}
@@ -577,7 +569,7 @@ export default function PMPVPage() {
               <div className="flex flex-col gap-3">
                 <button
                   type="button" onClick={calcular} disabled={!pronto || ocupado !== null}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
                 >
                   {ocupado === "calcular" ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
                   {ocupado === "calcular" ? "Calculando…" : "Calcular PMPV"}
@@ -645,7 +637,7 @@ export default function PMPVPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[48rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   <th className="px-5 py-3 text-left font-semibold">Sessão</th>
                   <th className="px-5 py-3 text-right font-semibold">PMPV (R$/m³)</th>

@@ -10,8 +10,9 @@ import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl
 import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 import { dicaDe, type Sigla } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
 
 type Campo = "cgr" | "cgf" | "ret" | "rp";
@@ -144,10 +145,7 @@ export default function SCGPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("SCG")}</h1>
-          <p className="mt-1 text-sm text-zinc-400">Consolidação mensal: SCG = RPV + RET + RP, com RPV = CGR − CGF</p>
-        </div>
+        <PageHeader modulo="scg" formula="SCG = RPV + RET + RP, com RPV = CGR − CGF (consolidação mensal)" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -181,7 +179,7 @@ export default function SCGPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[56rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   <th className="px-5 py-3 text-left font-semibold">Valor</th>
                   <th className="px-5 py-3 text-right font-semibold">Dos módulos</th>
@@ -263,7 +261,7 @@ export default function SCGPage() {
             </p>
             <button
               type="button" onClick={salvar} disabled={!alterado || salvando || carregando}
-              className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-40"
+              className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
             >
               {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Salvar SCG de {periodo}
@@ -280,7 +278,7 @@ export default function SCGPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[52rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "CGR", "CGF", "RPV", "RET", "RP", "SCG"].map((h, i) => (
                     <th key={h} title={i ? dicaDe(h as Sigla) : undefined} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>

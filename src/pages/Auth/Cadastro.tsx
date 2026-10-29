@@ -60,7 +60,7 @@ export default function CadastroPage() {
           icon={<Lock size={15} />} placeholder="Digite a senha novamente"
           error={naoConfere ? "As senhas não coincidem." : undefined}
           value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
-        <Button type="submit" loading={enviando} className="mt-1 w-full justify-center">Criar conta</Button>
+        <Button type="submit" variant="solid" size="lg" loading={enviando} className="mt-1 w-full justify-center text-sm">Criar conta</Button>
       </form>
     </AuthShell>
   );

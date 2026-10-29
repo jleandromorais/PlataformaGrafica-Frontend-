@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, Loader2, Route,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, Loader2,
 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import {
@@ -13,13 +13,15 @@ import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
 import { mesesDoPRDoCivil } from "../../utils/periodos";
+import { ProcessarTrimestre } from "./Processar";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type {
   AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
   SCGHistoricoLinha,
 } from "../../types";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
@@ -174,6 +176,10 @@ export default function CicloPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [caminhos, setCaminhos] = useState<string[] | null>(null);
+  // Os arquivos da pasta escolhida (caminho sem a pasta raiz → File), para o "Processar" enviar.
+  const [arquivos, setArquivos] = useState<Map<string, File>>(new Map());
+  const [processando, setProcessando] = useState(false);
+  const [versao, setVersao] = useState(0); // muda depois de gravar: recarrega as etapas
   const [raiz, setRaiz] = useState("");
   const [gerandoNT, setGerandoNT] = useState(false);
 
@@ -184,10 +190,11 @@ export default function CicloPage() {
       .then((d) => { if (vigente) { setDados(d); setErro(null); setCarregando(false); } })
       .catch((e) => { if (vigente) { setErro(mensagemDeErro(e, "Não foi possível carregar a situação do ciclo.")); setCarregando(false); } });
     return () => { vigente = false; };
-  }, [meses, mesesPR]);
+  }, [meses, mesesPR, versao]);
 
   const irPara = (novoAno: number, novoTri: number) => {
     setCarregando(true);
+    setProcessando(false);
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -198,9 +205,11 @@ export default function CicloPage() {
 
   const escolherPasta = (files: FileList | null) => {
     if (!files?.length) return;
-    const lista = Array.from(files).map((f) => f.webkitRelativePath || f.name);
-    setRaiz(lista[0].split("/")[0]);
-    setCaminhos(lista.map((c) => c.split("/").slice(1).join("/")));
+    const lista = Array.from(files).map((f) => ({ f, rel: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") }));
+    setRaiz((files[0].webkitRelativePath || files[0].name).split("/")[0]);
+    setCaminhos(lista.map((x) => x.rel));
+    setArquivos(new Map(lista.map((x) => [x.rel, x.f])));
+    setProcessando(false);
   };
 
   const gerarNT = async () => {
@@ -218,15 +227,7 @@ export default function CicloPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sky-400/10 text-sky-300"><Route size={16} /></span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Painel do Ciclo</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              Tudo o que o trimestre precisa, na ordem: o que já está pronto, o que falta e onde fazer.
-            </p>
-          </div>
-        </div>
+        <PageHeader modulo="ciclo" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -275,7 +276,14 @@ export default function CicloPage() {
                 onChange={(e) => escolherPasta(e.target.files)} />
             </label>
           </div>
-          {mapa && <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} />}
+          {mapa && (
+            <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length}
+              processar={dados && !processando ? () => setProcessando(true) : undefined} />
+          )}
+          {mapa && processando && dados && (
+            <ProcessarTrimestre key={`${raiz}-${meses[0]}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
+              cgf={dados.cgf} ret={dados.ret} onGravado={() => setVersao((v) => v + 1)} onFechar={() => setProcessando(false)} />
+          )}
         </section>
 
         {/* Etapas */}
@@ -328,8 +336,9 @@ export default function CicloPage() {
 
 // ── Mapa da pasta ─────────────────────────────────────────────────────────────
 
-function MapaPasta({ mapa, meses, raiz, total }: {
+function MapaPasta({ mapa, meses, raiz, total, processar }: {
   mapa: ReturnType<typeof mapaDoTrimestre>; meses: string[]; raiz: string; total: number;
+  processar?: () => void; // ausente: Painel ainda carregando ou Processar já aberto
 }) {
   const [aberta, setAberta] = useState<CelulaMapa | null>(null);
   const etapasMapa: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
@@ -350,7 +359,7 @@ function MapaPasta({ mapa, meses, raiz, total }: {
       )}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[36rem] text-sm">
-          <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Etapa</th>
               {meses.map((m) => <th key={m} className="px-3 py-2.5 text-left font-semibold">{m}</th>)}
@@ -395,12 +404,12 @@ function MapaPasta({ mapa, meses, raiz, total }: {
         </div>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" disabled
-          className="rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white opacity-50">
+        <button type="button" disabled={!processar} onClick={processar}
+          className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
           Processar {meses[0]} a {meses[2]}
         </button>
         <span className="text-xs text-zinc-500">
-          Protótipo: no próximo passo este botão envia só estes arquivos e roda cada etapa na ordem, pedindo sua confirmação antes de gravar.
+          Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Por enquanto: CGF e RET.
         </span>
       </div>
     </div>

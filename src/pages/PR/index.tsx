@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, FileText, Lightbulb, RefreshCw, Save } from "lucide-react";
+import { ArrowRight, ChevronLeft, ChevronRight, FileText, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num } from "../../utils/format";
@@ -8,8 +8,9 @@ import { salvarArquivo } from "../../utils/download";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { PRApuracao } from "../../types";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 // PR segue o trimestre do PMPV (Nov–Jan …), não o civil. O ano é o do último
 // mês (Nov/25–Jan/26 = "Nov - Jan/2026"), como o módulo PR sempre gravou.
@@ -139,17 +140,7 @@ export default function PRPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-pink-400/10 text-pink-300">
-            <Lightbulb size={16} />
-          </span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">PR — Parcela de Recuperação</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">
-              PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR, em 4 casas
-            </p>
-          </div>
-        </div>
+        <PageHeader modulo="pr" formula="PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR, em 4 casas" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -206,7 +197,7 @@ export default function PRPage() {
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[36rem] text-sm">
-                  <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+                  <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                     <tr>
                       <th className="px-4 py-3 text-left font-semibold">Mês</th>
                       <th className="px-3 py-3 text-right font-semibold">SCG</th>
@@ -228,7 +219,7 @@ export default function PRPage() {
                   </tbody>
                   <tfoot className="border-t border-white/[0.1] bg-white/[0.02] font-semibold">
                     <tr>
-                      <td colSpan={3} className="px-4 py-3 text-right text-xs uppercase tracking-[0.08em] text-zinc-400">Totais</td>
+                      <td colSpan={3} className="px-4 py-3 text-right text-xs text-zinc-400">Totais</td>
                       <td className={`whitespace-nowrap px-3 py-3 text-right tabular-nums ${cor(dados.scg_selic)}`}>{brl(dados.scg_selic)}</td>
                       <td className={`whitespace-nowrap px-4 py-3 text-right tabular-nums ${cor(dados.sr)}`}>{brl(dados.sr)}</td>
                     </tr>
@@ -257,7 +248,7 @@ export default function PRPage() {
                   PR salvo: {tarifa(prSalvo)}{difereDoSalvo ? " — diferente do calculado; salve para atualizar." : " (igual ao calculado)."}
                 </p>
               )}
-              <Button className="mt-4 w-full" variant="purple" icon={<Save size={16} />} loading={salvando}
+              <Button className="mt-4 w-full" variant="solid" icon={<Save size={16} />} loading={salvando}
                 disabled={carregando || !dados.vp} onClick={salvar}>
                 Salvar PR
               </Button>

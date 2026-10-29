@@ -4,8 +4,9 @@ import { Alert } from "../../components/ui/Alert";
 import { gerarExcelFinalGeral, gerarMinutaNotaTecnica, getCoberturaExcelFinal } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { salvarArquivo } from "../../utils/download";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
 type Cobertura = { anos: string[]; periodos: string[]; total: number };
 
@@ -83,12 +84,7 @@ export default function ExcelFinalPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[900px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">Excel Final</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            A planilha consolidada da Conta Gráfica (Módulo 9), com todos os módulos e todos os anos gravados.
-          </p>
-        </div>
+        <PageHeader modulo="excel" titulo="Excel Final" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -107,7 +103,7 @@ export default function ExcelFinalPage() {
             </div>
           </div>
           <button type="button" onClick={gerar} disabled={gerando || vazio}
-            className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50">
+            className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
             {gerando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {gerando ? "Gerando…" : "Gerar e baixar"}
           </button>
@@ -129,7 +125,7 @@ export default function ExcelFinalPage() {
                   disabled={!listaCiclos.length}
                   className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-500/50">
                   {listaCiclos.map((c) => (
-                    <option key={c.ultimo} value={c.ultimo} className="bg-[#0d0d0f]">
+                    <option key={c.ultimo} value={c.ultimo} className="bg-panel">
                       Apura {c.apurado} → PR de {c.pr}
                     </option>
                   ))}
@@ -154,15 +150,15 @@ export default function ExcelFinalPage() {
             <>
               <dl className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
-                  <dt className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Anos</dt>
+                  <dt className="text-xs font-semibold text-zinc-500">Anos</dt>
                   <dd className="mt-1 text-lg font-semibold text-zinc-100">{cobertura.anos.join(", ")}</dd>
                 </div>
                 <div>
-                  <dt className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Meses gravados</dt>
+                  <dt className="text-xs font-semibold text-zinc-500">Meses gravados</dt>
                   <dd className="mt-1 text-lg font-semibold tabular-nums text-zinc-100">{cobertura.total}</dd>
                 </div>
                 <div>
-                  <dt className="text-[0.7rem] font-semibold uppercase tracking-[0.08em] text-zinc-500">Intervalo</dt>
+                  <dt className="text-xs font-semibold text-zinc-500">Intervalo</dt>
                   <dd className="mt-1 text-lg font-semibold text-zinc-100">{primeiro} a {ultimo}</dd>
                 </div>
               </dl>

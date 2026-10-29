@@ -1,9 +1,11 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 
-type Variant = "primary" | "success" | "danger" | "ghost" | "warning" | "purple";
+type Variant = "solid" | "primary" | "success" | "danger" | "ghost" | "warning" | "purple";
 type Size = "sm" | "md" | "lg";
 
+// solid: a ação principal da tela. Desabilitado fica cinza, sem azul, para não parecer clicável.
 const variants: Record<Variant, string> = {
+  solid: "border border-transparent bg-marinho text-paper hover:bg-marinho-claro disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none",
   primary: "border border-sky-500/25 bg-sky-500/10 hover:bg-sky-500/15 text-sky-400",
   success: "border border-emerald-500/25 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-400",
   danger:  "border border-red-500/25 bg-red-500/10 hover:bg-red-500/15 text-red-400",
@@ -42,7 +44,7 @@ export function Button({
       disabled={disabled || loading}
       className={`
         inline-flex items-center gap-2 rounded-lg font-semibold
-        transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed
+        transition-colors duration-150 disabled:cursor-not-allowed ${variant === "solid" ? "" : "disabled:opacity-50"}
         ${variants[variant]} ${sizes[size]} ${className}
       `}
     >

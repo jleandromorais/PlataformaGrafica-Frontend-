@@ -33,7 +33,7 @@ export function Table<T extends Record<string, any>>({
   return (
     <div className="overflow-x-auto rounded-xl border border-white/[0.07]">
       <table className="w-full text-sm text-zinc-300">
-        <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-500">
+        <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-500">
           <tr>
             {columns.map((col) => (
               <th

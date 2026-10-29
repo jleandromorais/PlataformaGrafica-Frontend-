@@ -167,6 +167,27 @@ export interface CelulaMapa {
   notas: string[];  // só informam (ex.: .zip repetido ignorado)
 }
 
+/** Arquivos de uma etapa-mês: os que não são .zip e os .zip "soltos". Um .zip com o
+ * mesmo nome de uma pasta presente (ou de uma pasta acima dela, como "fev-26.zip" ao
+ * lado de "fev-26/") é cópia: fica de fora. É o que o mapa conta e o "Processar" envia. */
+export function arquivosDaCelula(reconhecidos: ArquivoClassificado[], etapa: Etapa, periodo: string) {
+  const daqui = reconhecidos.filter((a) => a.etapa === etapa && a.periodo === periodo);
+  const pastas = daqui.filter((a) => !a.zip);
+  const zips = daqui.filter((a) => a.zip);
+  const ehCopia = (z: ArquivoClassificado) =>
+    pastas.some((p) => p.conjunto === z.conjunto || p.caminho.startsWith(z.caminho.replace(/\.zip$/i, "") + "/"));
+  const zipsSoltos = zips.filter((z) => !ehCopia(z));
+  return { daqui, pastas, zipsSoltos, copias: zips.length - zipsSoltos.length };
+}
+
+/** Caminho para enviar ao backend a partir da pasta do mês ("EAT 07 jul26/x.pdf") e o
+ * nome da pasta logo acima (a "raiz" do envio), como se o usuário tivesse escolhido
+ * essa pasta na tela da etapa. O backend lê EAT/EC, empresa e mês desses nomes. */
+export function envioDaPastaDoMes(a: ArquivoClassificado): { caminho: string; raiz: string } {
+  const acima = a.conjunto.split("/").filter(Boolean).slice(0, -1);
+  return { caminho: a.caminho.split("/").slice(acima.length).join("/"), raiz: acima[acima.length - 1] ?? "" };
+}
+
 /** Mapa do trimestre: para cada etapa × mês, o que foi encontrado. Arquivos de
  * outros meses entram só na contagem de `ignorados`. */
 export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
@@ -182,17 +203,10 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
   const celulas: CelulaMapa[] = [];
   for (const etapa of etapas) {
     for (const periodo of meses) {
-      const daqui = reconhecidos.filter((a) => a.etapa === etapa && a.periodo === periodo);
-      const pastas = daqui.filter((a) => !a.zip);
-      const zips = daqui.filter((a) => a.zip);
+      const { daqui, pastas, zipsSoltos, copias } = arquivosDaCelula(reconhecidos, etapa, periodo);
       const avisos = [...new Set(daqui.flatMap((a) => a.avisos))];
       const conjuntos = [...new Set(daqui.map((a) => a.conjunto))];
-      // .zip com o mesmo nome de uma pasta já presente (ou de uma pasta acima dela,
-      // como "fev-26.zip" ao lado de "fev-26/"): é cópia, usa a pasta.
-      const ehCopia = (z: ArquivoClassificado) =>
-        pastas.some((p) => p.conjunto === z.conjunto || p.caminho.startsWith(z.caminho.replace(/\.zip$/i, "") + "/"));
-      const zipsSoltos = zips.filter((z) => !ehCopia(z));
-      const notas: string[] = zips.length && zipsSoltos.length < zips.length ? ["Havia um .zip igual à pasta; usei a pasta."] : [];
+      const notas: string[] = copias ? ["Havia um .zip igual à pasta; usei a pasta."] : [];
       if (zipsSoltos.length) avisos.push(`${zipsSoltos.length} arquivo(s) .zip: o sistema vai extrair antes de processar.`);
       if (etapa === "conciliacao" && pastas.length) {
         const cats = new Set(pastas.map((a) => a.categoria));

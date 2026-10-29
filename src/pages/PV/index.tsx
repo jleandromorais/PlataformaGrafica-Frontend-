@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { DollarSign, RefreshCw, Save, Trash2 } from "lucide-react";
+import { RefreshCw, Save, Trash2 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input, Select } from "../../components/ui/Input";
@@ -10,6 +10,7 @@ import { mensagemDeErro } from "../../api/client";
 import { MESES_ABREV } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
+import { PageHeader } from "../../components/layout/PageHeader";
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -136,20 +137,9 @@ export default function PVPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] px-6 py-8 sm:px-10">
-      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-6">
-      <div className="flex items-center gap-3">
-        <span
-          className="flex h-9 w-9 items-center justify-center rounded-xl"
-          style={{ backgroundColor: "#2dd4bf17", color: "#2dd4bf" }}
-        >
-          <DollarSign size={16} />
-        </span>
-        <div>
-          <h1 className="text-[1.75rem] font-bold tracking-tight text-white">{tituloDe("PV")}</h1>
-          <p className="text-sm text-zinc-500 mt-0.5">Preço Final do trimestre — PV = PMPV + PR do mesmo trimestre</p>
-        </div>
-      </div>
+    <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
+      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6">
+      <PageHeader modulo="pv" formula="PV = PMPV + PR do mesmo trimestre" />
 
       {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
       {avisos.length > 0 && <Alert variant="warning" className="whitespace-pre-line">{avisos.join("\n")}</Alert>}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Activity, AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
+import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num, parseBRL } from "../../utils/format";
@@ -7,9 +7,10 @@ import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestr
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SRLinhaCalculada, SROrigemPR } from "../../types";
-import { dicaDe, tituloDe } from "../../utils/glossario";
+import { dicaDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 // SR segue o trimestre civil (Jan–Mar …), não o do PMPV/PR (Nov–Jan …).
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
@@ -246,15 +247,7 @@ export default function SRPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div className="flex items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-400/10 text-cyan-300">
-            <Activity size={16} />
-          </span>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("SR")}</h1>
-            <p className="mt-0.5 text-sm text-zinc-400">SR = (VP − VF) × PR × (1 + SELIC) + SR anterior, mês a mês no trimestre</p>
-          </div>
-        </div>
+        <PageHeader modulo="sr" formula="SR = (VP − VF) × PR × (1 + SELIC) + SR anterior, mês a mês no trimestre" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -345,7 +338,7 @@ export default function SRPage() {
         <section className={`${PANEL} overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[54rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Mês</th>
                   <th className="px-2 py-3 text-right font-semibold" title={dicaDe("VP")}>VP (m³)</th>
@@ -358,7 +351,7 @@ export default function SRPage() {
                   <th className="px-2 py-3 text-right font-semibold" title="Saldo remanescente de um trimestre anterior, somado ao SR do mês. Vazio se não houver.">
                     SR trim. anterior
                   </th>
-                  <th className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-3 text-right font-semibold">SR do mês</th>
+                  <th className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 text-right font-semibold">SR do mês</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
@@ -393,7 +386,7 @@ export default function SRPage() {
                       <td className="w-32 px-2 py-2">
                         <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
                       </td>
-                      <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-2 text-right">
+                      <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-2 text-right">
                         <span className={`block whitespace-nowrap font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</span>
                         <span className="block whitespace-nowrap text-[0.7rem] tabular-nums text-zinc-500">sem SELIC {brl(l.sr_parcela)}</span>
                       </td>
@@ -403,10 +396,10 @@ export default function SRPage() {
               </tbody>
               <tfoot className="border-t border-white/[0.1] bg-white/[0.02]">
                 <tr>
-                  <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold uppercase tracking-[0.08em] text-zinc-400">
+                  <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold text-zinc-400">
                     SR do trimestre
                   </td>
-                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.6)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
+                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -422,7 +415,7 @@ export default function SRPage() {
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="purple" icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={salvar}>
+          <Button variant="solid" icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={salvar}>
             Salvar SR do trimestre
           </Button>
           {pendencias > 0 && <span className="text-xs text-amber-300">Há {pendencias} pendência(s) acima.</span>}

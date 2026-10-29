@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { classificar, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF } from "./pastaCiclo";
+import {
+  arquivosDaCelula, classificar, envioDaPastaDoMes, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF,
+  type ArquivoClassificado,
+} from "./pastaCiclo";
 
 // Estrutura real da pasta do ciclo (SCG-26). Só nomes de pastas e planilhas; os
 // PDFs/XML de empresas viram nomes genéricos.
@@ -228,5 +231,41 @@ describe("mapaDoTrimestre", () => {
     expect(mapa.semEtapa).toBe(1);
     expect(mapa.semMes).toEqual([`${CGR}/09 -nf`]);
     expect(mapa.ignorados).toBe(2);
+  });
+});
+
+describe("Processar: arquivos de cada etapa-mês", () => {
+  const reconhecidos = (caminhos: string[]) =>
+    caminhos.map((c) => cls(c)).filter((x): x is ArquivoClassificado => !!x);
+
+  it("CGF de abril: as 3 planilhas, sem as substituídas nem o e-mail em PDF", () => {
+    const caminhos = [
+      `${CGF}/total mensal 04-2026/2026.05.12 Email, solicitando atualização de dados.pdf`,
+      `${CGF}/total mensal 04-2026/NF CANCELADAS E DENEGADAS 04.2026 (1).xlsx`,
+      `${CGF}/total mensal 04-2026/NF DEVOLUÇÃO 04.2026 (1).xlsx`,
+      `${CGF}/total mensal 04-2026/NF FATURADAS 04.2026 (1).xlsx`,
+      `${CGF}/total mensal 04-2026/substituídas/NF FATURADAS 04.2026.xlsx`,
+      `${CGF}/total mensal 04-2026.zip`,
+    ];
+    const { pastas, zipsSoltos, copias } = arquivosDaCelula(reconhecidos(caminhos), "cgf", "Abr/2026");
+    expect(pastas.map((a) => a.tipoCGF).sort()).toEqual(["cancelada", "devolucao", "faturada"]);
+    expect(zipsSoltos).toEqual([]);
+    expect(copias).toBe(1);
+  });
+
+  it("zip sem pasta igual ao lado vai para o envio", () => {
+    const { pastas, zipsSoltos } = arquivosDaCelula(reconhecidos([`${CGF}/total mensal 04-2026 CGR.zip`]), "cgf", "Abr/2026");
+    expect(pastas).toEqual([]);
+    expect(zipsSoltos).toHaveLength(1);
+  });
+
+  it("RET é enviado a partir da pasta do mês, com a pasta de cima como raiz", () => {
+    const a = cls(`${RET}/RET-jan-mar-26/EAT 07 jul26/ND 1 - COPERGAS.pdf`)!;
+    expect(envioDaPastaDoMes(a)).toEqual({ caminho: "EAT 07 jul26/ND 1 - COPERGAS.pdf", raiz: "RET-jan-mar-26" });
+  });
+
+  it("subpasta dentro da pasta do mês é preservada (ex.: download do OneDrive)", () => {
+    const a = cls(`${RET}/RET-jan-mar-26/EAT 06 jun26/OneDrive_1_14-07-2026/x.pdf`)!;
+    expect(envioDaPastaDoMes(a)).toEqual({ caminho: "EAT 06 jun26/OneDrive_1_14-07-2026/x.pdf", raiz: "RET-jan-mar-26" });
   });
 });

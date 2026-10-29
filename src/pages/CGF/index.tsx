@@ -9,19 +9,14 @@ import { mensagemDeErro } from "../../api/client";
 import { arredondarTarifa, brl, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
+import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
-import { tituloDe } from "../../utils/glossario";
+import { PageHeader } from "../../components/layout/PageHeader";
 
-const PANEL = "rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.025] to-transparent bg-panel";
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
 
-const COLUNAS_PADRAO: CGFColunas = {
-  col_fat_volume: "Volume Faturado",
-  col_fat_consumo: "Produto",
-  val_fat_consumo: "consumo proprio",
-  col_canc_volume: "Volume Canc/Deneg",
-  col_dev_volume: "Volume Devolução",
-};
+const COLUNAS_PADRAO = COLUNAS_PADRAO_CGF;
 
 // Mesma regra do backend (ServicosCGF.tipo_do_nome em servicos_cgf.py): mantenha as listas iguais.
 // Ordem importa: faturada/complementar é testada antes de cancelada.
@@ -173,17 +168,25 @@ export default function CGFPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{tituloDe("CGF")}</h1>
-          <p className="mt-1 text-sm text-zinc-400">
-            Volume final = faturado (sem consumo próprio) − devoluções · CGF em R$ = volume final × PMPV do mês
-          </p>
-        </div>
+        <PageHeader modulo="cgf" formula="Volume final = faturado (sem consumo próprio) − devoluções · CGF em R$ = volume final × PMPV do mês" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         <ListaProblemas problemas={problemas} />
+
+        <section className={`${PANEL} p-5 sm:p-6`}>
+          <SeletorMes
+            mes={mes}
+            ano={ano}
+            onChange={(m, a) => {
+              // Os volumes processados são do mês anterior: sem limpar, dava para
+              // salvar a planilha de um mês no outro (Jun/2026 gravado com os dados de Mai).
+              if (m !== mes || a !== ano) setResultado(null);
+              mudarPeriodo(m, a);
+            }}
+          />
+        </section>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <div className="flex flex-col gap-6 xl:col-span-5">
@@ -237,27 +240,16 @@ export default function CGFPage() {
               </details>
               <button
                 type="button" onClick={processar} disabled={!arquivos.length || ocupado !== null}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-3 text-sm font-semibold text-white shadow-[0_4px_14px_-4px_rgba(14,165,233,0.5)] transition-colors hover:bg-sky-500 disabled:opacity-50"
+                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
               >
                 {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                 {ocupado === "processar" ? "Processando…" : "Processar planilhas"}
               </button>
+              {!arquivos.length && ocupado === null && <p className="mt-2 text-center text-xs text-zinc-400">Escolha as planilhas acima para liberar o processamento.</p>}
             </section>
           </div>
 
           <div className="flex flex-col gap-6 xl:col-span-7">
-            <section className={`${PANEL} p-5 sm:p-6`}>
-              <SeletorMes
-                mes={mes}
-                ano={ano}
-                onChange={(m, a) => {
-                  // Os volumes processados são do mês anterior: sem limpar, dava para
-                  // salvar a planilha de um mês no outro (Jun/2026 gravado com os dados de Mai).
-                  if (m !== mes || a !== ano) setResultado(null);
-                  mudarPeriodo(m, a);
-                }}
-              />
-            </section>
 
             <section className={`${PANEL} p-5 sm:p-6`}>
               <h2 className="text-base font-semibold text-sky-300">CGF em R$ <span className="text-zinc-500">—</span> Volume × PMPV</h2>
@@ -270,7 +262,7 @@ export default function CGFPage() {
                 />
                 <button
                   type="button" onClick={() => { setCarregandoPmpv(true); buscarPmpv(periodo); }} disabled={carregandoPmpv || !anoValido(ano)}
-                  className="flex items-center gap-2 rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-lg bg-marinho px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
                 >
                   {carregandoPmpv ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
                   Carregar do banco
@@ -322,7 +314,7 @@ export default function CGFPage() {
                     <button
                       type="button" onClick={salvar} disabled={cgfRs === null || comErro || ocupado !== null}
                       title={comErro ? "Corrija os problemas acima e processe de novo." : undefined}
-                      className="flex items-center gap-2 rounded-xl bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-sky-500 disabled:opacity-40"
+                      className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
                     >
                       {ocupado === "salvar" ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                       Salvar CGF de {periodo}
@@ -347,7 +339,7 @@ export default function CGFPage() {
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[52rem] text-sm">
-              <thead className="bg-white/[0.03] text-[0.7rem] uppercase tracking-[0.08em] text-zinc-400">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "Faturado (m³)", "Devoluções (m³)", "Volume final (m³)", "CGF (R$)", "Atualizado"].map((h, i) => (
                     <th key={h} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
