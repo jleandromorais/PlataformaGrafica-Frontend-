@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  arquivosDaCelula, classificar, envioDaPastaDoMes, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF,
+  arquivosDaCelula, classificar, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF,
   type ArquivoClassificado,
 } from "./pastaCiclo";
 
@@ -267,5 +267,31 @@ describe("Processar: arquivos de cada etapa-mês", () => {
   it("subpasta dentro da pasta do mês é preservada (ex.: download do OneDrive)", () => {
     const a = cls(`${RET}/RET-jan-mar-26/EAT 06 jun26/OneDrive_1_14-07-2026/x.pdf`)!;
     expect(envioDaPastaDoMes(a)).toEqual({ caminho: "EAT 06 jun26/OneDrive_1_14-07-2026/x.pdf", raiz: "RET-jan-mar-26" });
+  });
+});
+
+describe("envio da Auditoria", () => {
+  it("caminho começa na empresa e a raiz é a pasta do mês", () => {
+    const a = cls(`${CGR}/04 abr-26 NFs/TAG/sub/x.xml`)!;
+    expect(envioDaAuditoria(a)).toEqual({ caminho: "TAG/sub/x.xml", raiz: "04 abr-26 NFs" });
+  });
+
+  it("pasta do mês dentro de outra (Set/26 em '57. Setembro 2026/09 -nf')", () => {
+    const a = cls(`${CGR}/57. Setembro 2026/09 -nf/TAG/x.pdf`)!;
+    expect(a.periodo).toBe("Set/2026");
+    // O backend desce a pasta única ("09 -nf") e acha as empresas dentro dela.
+    expect(envioDaAuditoria(a)).toEqual({ caminho: "09 -nf/TAG/x.pdf", raiz: "57. Setembro 2026" });
+  });
+
+  it("zip solto vai só com o nome", () => {
+    const a = cls(`${CGR}/06 jun-26 NFs.zip`)!;
+    expect(envioDaAuditoria(a)).toEqual({ caminho: "06 jun-26 NFs.zip", raiz: "06 jun-26 NFs" });
+  });
+
+  it("empresas só com PDF, em ordem alfabética", () => {
+    const set = `${CGR}/57. Setembro 2026/09 -nf`;
+    const arquivos = [`${set}/TAG/a.pdf`, `${set}/Brava/b.xml`, `${set}/Brava/b.pdf`, `${set}/Petrobras/c.pdf`, `${set}/Petrobras/sub/d.PDF`]
+      .map((c) => cls(c)!);
+    expect(empresasSoPdf(arquivos)).toEqual(["Petrobras", "TAG"]);
   });
 });
