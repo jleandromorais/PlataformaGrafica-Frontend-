@@ -6,7 +6,7 @@ import { SeletorArquivos } from "../../components/ui/SeletorArquivos";
 import { SeletorMes } from "../../components/ui/SeletorMes";
 import { calcularCGFRs, getHistoricoCGF, getPMPVMensal, processarCGF, salvarCGF } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { arredondarTarifa, brl, num } from "../../utils/format";
+import { arredondarTarifa, brl, dataHora, num } from "../../utils/format";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
@@ -14,7 +14,7 @@ import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../
 import { PageHeader } from "../../components/layout/PageHeader";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
-const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
+const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
 
 const COLUNAS_PADRAO = COLUNAS_PADRAO_CGF;
 
@@ -357,7 +357,7 @@ export default function CGFPage() {
                     </td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-200">{num(h.volume_final, 2)}</td>
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-emerald-300">{brl(h.cgf_rs)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{h.data_atualizacao}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
                 {historico.length === 0 && (

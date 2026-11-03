@@ -239,7 +239,7 @@ export default function ConciliacaoPage() {
                               value={texto ?? (it.valor ? brlEntrada(it.valor) : "")}
                               onChange={(e) => setEditados({ ...editados, [i]: e.target.value })}
                               aria-invalid={invalido}
-                              className={`w-36 rounded-lg border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100 focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50 ${invalido ? "border-red-500/50" : "border-amber-500/30"}`}
+                              className={`w-36 rounded-lg border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100 ${invalido ? "border-red-500/50" : "border-amber-500/30"}`}
                             />
                           ) : (
                             <span className={`font-semibold tabular-nums ${it.valor < 0 ? "text-red-300" : "text-zinc-100"}`}>{brl(it.valor)}</span>

@@ -3,7 +3,7 @@ import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2 }
 import { Alert } from "../../components/ui/Alert";
 import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { brl, num } from "../../utils/format";
+import { brl, dataHora, num } from "../../utils/format";
 import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 
@@ -133,7 +133,7 @@ function Seletor<T extends string | number>({ opcoes, valor, onChange, rotulo }:
   );
 }
 
-const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
+const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
 const GRADE = "grid grid-cols-[minmax(10rem,2.2fr)_repeat(3,minmax(5.5rem,1fr))_minmax(5.5rem,1fr)_minmax(7rem,1.2fr)_minmax(7.5rem,1.2fr)_2rem] items-center gap-2";
 
 function TabelaMes({ linhas, dias, onChange }: {
@@ -657,7 +657,7 @@ export default function PMPVPage() {
                     </td>
                     <td className="px-5 py-2.5 text-right font-semibold tabular-nums text-emerald-300">{brl(h.preco_final, 4)}</td>
                     <td className="px-5 py-2.5 text-right tabular-nums text-zinc-300">{h.vp ? `${num(h.vp)} m³` : "—"}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{h.data_criacao ?? "—"}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_criacao)}</td>
                   </tr>
                 ))}
                 {historico.length === 0 && (

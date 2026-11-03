@@ -123,7 +123,7 @@ export default function ExcelFinalPage() {
                 Ciclo
                 <select value={ciclo || listaCiclos[0]?.ultimo || ""} onChange={(e) => setCiclo(e.target.value)}
                   disabled={!listaCiclos.length}
-                  className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-sky-500/50">
+                  className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-1.5 text-sm text-zinc-100">
                   {listaCiclos.map((c) => (
                     <option key={c.ultimo} value={c.ultimo} className="bg-panel">
                       Apura {c.apurado} → PR de {c.pr}

@@ -61,7 +61,7 @@ function CampoNumero({ valor, casas, onChange, rotulo, alerta }: {
         setTexto(null);
       }}
       className={`w-full rounded-md border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100
-        placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-sky-500/50
+        placeholder-zinc-600
         ${alerta ? "border-amber-400/40" : "border-white/[0.07]"}`}
     />
   );

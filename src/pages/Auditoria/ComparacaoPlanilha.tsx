@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AuditoriaComparacao } from "../../types";
+import { Conferencia } from "../../components/ui/Conferencia";
 import { brl, num } from "../../utils/format";
 
 const TOL = 1; // R$ — abaixo disso é arredondamento
@@ -28,9 +29,12 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-white">Comparação com a planilha ({c.periodo})</h2>
         {comModelo && (
-          <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${temDivergencia ? "bg-rose-500/15 text-rose-300" : "bg-emerald-500/15 text-emerald-300"}`}>
+          <Conferencia
+            confere={!temDivergencia}
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${temDivergencia ? "bg-red-400/10" : "bg-emerald-400/10"}`}
+          >
             {temDivergencia ? "Há divergências" : "Tudo confere"}
-          </span>
+          </Conferencia>
         )}
       </div>
       <p className="mt-0.5 text-sm text-zinc-400">
@@ -58,8 +62,10 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                 <tr key={rotulo}>
                   <td className="py-2 text-zinc-300">Planilha · {rotulo}</td>
                   <td className="py-2 text-right tabular-nums text-zinc-300">{v === null ? <span className="text-zinc-500">não tem este mês</span> : brl(v)}</td>
-                  <td className={`py-2 text-right font-semibold tabular-nums ${v === null ? "" : Math.abs(aud - v) > TOL ? "text-rose-300" : "text-emerald-300"}`}>
-                    {v === null ? "" : Math.abs(aud - v) > TOL ? brl(aud - v) : "confere"}
+                  <td className="py-2 text-right font-semibold num">
+                    {v !== null && (
+                      <Conferencia confere={Math.abs(aud - v) <= TOL}>{Math.abs(aud - v) > TOL ? brl(aud - v) : undefined}</Conferencia>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -72,7 +78,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
         <div className="mt-4 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
           {([
             ["Batem", c.qtd_em_ambas - (c.divergencias_valor?.length ?? 0), "text-emerald-300"],
-            ["Valor diferente", c.divergencias_valor?.length ?? 0, "text-rose-300"],
+            ["Valor diferente", c.divergencias_valor?.length ?? 0, "text-red-300"],
             ["Só na auditoria", c.notas_apenas_auditoria.length, "text-amber-300"],
             ["Só na planilha", c.notas_apenas_planilha.length, "text-amber-300"],
           ] as const).filter(([r]) => porNota || r !== "Valor diferente").map(([r, v, cor]) => (
@@ -86,7 +92,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
 
       {c.divergencias_valor?.length > 0 && (
         <details open className="mt-4 text-sm">
-          <summary className="cursor-pointer font-medium text-rose-300 hover:text-rose-200">
+          <summary className="cursor-pointer font-medium text-red-300 hover:text-red-200">
             Notas com valores diferentes ({c.divergencias_valor.length})
           </summary>
           <div className="mt-2 max-h-72 overflow-auto">
@@ -104,13 +110,13 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                 {c.divergencias_valor.map((d) => (
                   <tr key={`${d.empresa}-${d.numero}`} title={`Volume ${num(d.volume_auditoria)} × ${num(d.volume_planilha)} m³ · alíquota ${d.aliquota_auditoria} × ${d.aliquota_planilha}`}>
                     <td className="py-1.5 text-zinc-300">{d.empresa} {d.numero}<span className="ml-1 text-zinc-500">· linha {d.linha_excel}</span></td>
-                    <td className="py-1.5 text-rose-300">
+                    <td className="py-1.5 text-red-300">
                       {d.motivos.join(", ")}
                       {d.explicacao && <span className="mt-0.5 block text-zinc-400">{d.explicacao}</span>}
                     </td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(d.cgr_auditoria)}</td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(d.cgr_planilha)}</td>
-                    <td className="py-1.5 text-right font-semibold tabular-nums text-rose-300">{Math.abs(d.diferenca_cgr) > TOL ? brl(d.diferenca_cgr) : "—"}</td>
+                    <td className="py-1.5 text-right font-semibold num">{Math.abs(d.diferenca_cgr) > TOL ? <Conferencia confere={false}>{brl(d.diferenca_cgr)}</Conferencia> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -142,7 +148,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                     <td className={`py-1.5 text-right tabular-nums ${e.qtd_auditoria === e.qtd_planilha ? "text-zinc-400" : "text-amber-300"}`}>{e.qtd_auditoria} / {e.qtd_planilha}</td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_auditoria)}</td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_planilha)}</td>
-                    <td className={`py-1.5 text-right font-semibold tabular-nums ${e.confere ? "text-emerald-300" : "text-rose-300"}`}>{e.confere ? "confere" : brl(e.diferenca)}</td>
+                    <td className="py-1.5 text-right font-semibold num"><Conferencia confere={e.confere}>{e.confere ? undefined : brl(e.diferenca)}</Conferencia></td>
                   </tr>
                 ))}
               </tbody>
@@ -154,9 +160,9 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
       {comModelo && c.por_empresa.length > 0 && (
         <div className="mt-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className={`text-sm font-medium ${difEmpresas.length ? "text-rose-300" : "text-emerald-300"}`}>
+            <Conferencia confere={!difEmpresas.length} className="text-sm font-medium">
               {difEmpresas.length ? `${difEmpresas.length} supridor(es) com diferença` : "Todos os supridores conferem com a planilha"}
-            </p>
+            </Conferencia>
             {difEmpresas.length > 0 && (
               <button
                 type="button"
@@ -175,7 +181,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                 const difCgr = Math.abs(e.diferenca) > TOL;
                 const difVol = Math.abs(e.diferenca_volume ?? 0) > 1;
                 return (
-                  <li key={e.empresa} className="rounded-xl border border-rose-500/20 bg-rose-500/[0.04] p-3">
+                  <li key={e.empresa} className="rounded-xl border border-red-400/20 bg-red-400/[0.04] p-3">
                     <p className="text-sm font-semibold text-zinc-100">{e.empresa}</p>
                     <dl className="mt-1.5 grid grid-cols-[auto_1fr_1fr_1fr] gap-x-4 gap-y-0.5 text-xs tabular-nums">
                       <dt />
@@ -185,13 +191,13 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                       <dt className="text-zinc-400">CGR</dt>
                       <dd className="text-right text-zinc-300">{brl(e.cgr_auditoria)}</dd>
                       <dd className="text-right text-zinc-300">{brl(e.cgr_planilha)}</dd>
-                      <dd className={`text-right font-semibold ${difCgr ? "text-rose-300" : "text-emerald-300"}`}>{difCgr ? brl(e.diferenca) : "confere"}</dd>
+                      <dd className="text-right font-semibold"><Conferencia confere={!difCgr}>{difCgr ? brl(e.diferenca) : undefined}</Conferencia></dd>
                       {e.volume_auditoria !== undefined && (
                         <>
                           <dt className="text-zinc-400">Volume (m³)</dt>
                           <dd className="text-right text-zinc-300">{num(e.volume_auditoria)}</dd>
                           <dd className="text-right text-zinc-300">{num(e.volume_planilha ?? 0)}</dd>
-                          <dd className={`text-right font-semibold ${difVol ? "text-rose-300" : "text-emerald-300"}`}>{difVol ? num(e.diferenca_volume ?? 0) : "confere"}</dd>
+                          <dd className="text-right font-semibold"><Conferencia confere={!difVol}>{difVol ? num(e.diferenca_volume ?? 0) : undefined}</Conferencia></dd>
                         </>
                       )}
                     </dl>
@@ -225,7 +231,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
                       <td className={`py-1.5 text-right tabular-nums ${Math.abs(e.diferenca_volume ?? 0) > 1 ? "text-amber-300" : "text-zinc-400"}`}>{num(e.volume_auditoria ?? 0)} / {num(e.volume_planilha ?? 0)}</td>
                       <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_auditoria)}</td>
                       <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_planilha)}</td>
-                      <td className={`py-1.5 text-right font-semibold tabular-nums ${e.confere ? "text-emerald-300" : "text-rose-300"}`}>{e.confere ? "confere" : brl(e.diferenca)}</td>
+                      <td className="py-1.5 text-right font-semibold num"><Conferencia confere={e.confere}>{e.confere ? undefined : brl(e.diferenca)}</Conferencia></td>
                     </tr>
                   ))}
                 </tbody>
@@ -256,7 +262,13 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
         ))}
 
       {c.avisos.map((a) => (
-        <p key={a} className={`mt-2 text-xs ${a.startsWith("CGR confere") ? "text-emerald-300" : a.startsWith("CGR DIVERGENTE") ? "font-medium text-rose-300" : "text-amber-300"}`}>{a}</p>
+        a.startsWith("CGR confere") || a.startsWith("CGR DIVERGENTE") ? (
+          <p key={a} className="mt-2 text-xs">
+            <Conferencia confere={a.startsWith("CGR confere")} quebrar className="max-w-[72ch] font-medium">{a}</Conferencia>
+          </p>
+        ) : (
+          <p key={a} className="mt-2 max-w-[72ch] text-xs text-amber-300">{a}</p>
+        )
       ))}
     </section>
   );

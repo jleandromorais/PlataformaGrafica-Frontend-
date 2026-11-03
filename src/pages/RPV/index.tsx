@@ -5,14 +5,14 @@ import { SeletorMes } from "../../components/ui/SeletorMes";
 import { MESES_ABREV as MESES, anoValido } from "../../utils/periodos";
 import { getHistoricoRPV, getRPV, salvarRPV } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { brl, brlEntrada, parseBRL } from "../../utils/format";
+import { brl, brlEntrada, dataHora, parseBRL } from "../../utils/format";
 import type { RPVHistoricoLinha } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 import { PageHeader } from "../../components/layout/PageHeader";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
-const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50";
+const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
 
 function corDoValor(v: number) {
   return v > 0 ? "text-emerald-300" : v < 0 ? "text-red-300" : "text-zinc-300";
@@ -221,7 +221,7 @@ export default function RPVPage() {
                     <td className="px-5 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.cgr)}</td>
                     <td className="px-5 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.cgf)}</td>
                     <td className={`px-5 py-2.5 text-right font-semibold tabular-nums ${corDoValor(h.rpv)}`}>{brl(h.rpv)}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{h.data_atualizacao.replace("T", " ")}</td>
+                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
                 {historico.length === 0 && (

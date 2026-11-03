@@ -6,7 +6,7 @@ import { Alert } from "../../components/ui/Alert";
 import { SeletorPasta } from "../../components/ui/SeletorPasta";
 import { getHistoricoRET, processarRET, salvarRET, type ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { brl, num } from "../../utils/format";
+import { brl, dataHora, num } from "../../utils/format";
 import { lerPasta } from "../../utils/pasta";
 import type { RETHistoricoLinha, RETResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -231,7 +231,7 @@ export default function RETPage() {
                     <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{h.qtd_documentos}</td>
                     <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-zinc-100">{brl(h.ret_gravado)}</td>
-                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{h.data_atualizacao}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
                 {historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum RET gravado.</td></tr>}

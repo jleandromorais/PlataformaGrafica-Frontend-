@@ -35,7 +35,7 @@ export function SeletorMes({ mes, ano, onChange, status }: {
           id="seletor-ano" type="number" value={ano}
           onChange={(e) => onChange(mes, Number(e.target.value))}
           aria-invalid={!anoValido(ano)}
-          className={`w-24 rounded-lg border bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums transition-colors focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50 ${
+          className={`w-24 rounded-lg border bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums transition-colors ${
             anoValido(ano) ? "border-white/[0.07]" : "border-red-500/50"
           }`}
         />

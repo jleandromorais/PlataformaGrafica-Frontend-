@@ -148,7 +148,7 @@ function TooltipCaixa({ titulo, children }: { titulo: string; children: ReactNod
   return (
     <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_-8px_rgba(16,39,89,0.25)]">
       <p className="mb-1.5 font-medium text-zinc-300">{titulo}</p>
-      <div className="space-y-0.5 tabular-nums text-zinc-400">{children}</div>
+      <div className="space-y-0.5 num text-zinc-400">{children}</div>
     </div>
   );
 }
@@ -174,7 +174,7 @@ function TabelaDados({ colunas, linhas }: { colunas: string[]; linhas: string[][
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
             {linhas.map((l) => (
-              <tr key={l[0]}>{l.map((c, i) => <td key={i} className={`px-2 py-1.5 tabular-nums ${i ? "text-right text-zinc-300" : "text-zinc-200"}`}>{c}</td>)}</tr>
+              <tr key={l[0]}>{l.map((c, i) => <td key={i} className={`px-2 py-1.5 num ${i ? "text-right text-zinc-300" : "text-zinc-200"}`}>{c}</td>)}</tr>
             ))}
           </tbody>
         </table>
@@ -351,7 +351,7 @@ function PainelVolumes({ ano, trimestres }: { ano?: string; trimestres: Trimestr
             ].map(([rotulo, valor]) => (
               <div key={rotulo as string}>
                 <dt className="text-xs font-semibold text-zinc-500">{rotulo}</dt>
-                <dd className="mt-1 text-lg font-bold tabular-nums text-white">
+                <dd className="mt-1 text-lg font-bold num text-white">
                   {m3Compacto(valor as number)} <span className="text-xs font-normal text-zinc-500">m³</span>
                 </dd>
               </div>
