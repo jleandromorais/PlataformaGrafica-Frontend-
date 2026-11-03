@@ -219,7 +219,7 @@ export default function SCGPage() {
                             aria-label={`${nome} digitado`} inputMode="decimal" value={manual[chave]}
                             onChange={(e) => setManual({ ...manual, [chave]: e.target.value })}
                             aria-invalid={escolhido === null}
-                            className={`w-44 rounded-lg border bg-white/[0.03] px-3 py-1.5 text-right text-sm text-zinc-100 tabular-nums focus:border-transparent focus:outline-none focus:ring-1 focus:ring-sky-500/50 ${
+                            className={`w-44 rounded-lg border bg-white/[0.03] px-3 py-1.5 text-right text-sm text-zinc-100 tabular-nums ${
                               escolhido === null ? "border-red-500/50" : "border-white/[0.07]"
                             }`}
                           />

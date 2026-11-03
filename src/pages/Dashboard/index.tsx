@@ -23,6 +23,7 @@ import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { DashboardResponse, KpiMensal } from "../../types";
 import { PaineisExtras } from "./PaineisExtras";
+import { Valor } from "../../components/ui/Valor";
 import { GLOSSARIO, tituloDe, type Sigla } from "../../utils/glossario";
 
 const TODOS_OS_ANOS = "Todos os anos";
@@ -89,7 +90,7 @@ const TooltipBRL = ({ active, payload, label, casas = 2 }: TooltipProps) => {
     <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_-8px_rgba(16,39,89,0.25)]">
       <p className="mb-1 font-medium text-zinc-400">{label}</p>
       {payload.map((p) => (
-        <p key={p.dataKey} className="font-semibold tabular-nums" style={{ color: p.color ?? p.fill }}>
+        <p key={p.dataKey} className="font-semibold num" style={{ color: p.color ?? p.fill }}>
           {p.name}: {brl(p.value, casas)}
         </p>
       ))}
@@ -111,14 +112,12 @@ function SectionHeading({ title, subtitle, right }: { title: string; subtitle?: 
 
 function KpiTile({
   label,
-  value,
   rawValue,
   delta,
   varLabel,
 }: {
   label: string;
   Icon: typeof Search;
-  value: string;
   rawValue: number;
   /** Diferença em R$ para o mês completo anterior (% engana quando o valor troca de sinal). */
   delta: number | null;
@@ -131,15 +130,16 @@ function KpiTile({
     <div className={`${PANEL} p-5 transition-colors hover:border-white/[0.14] sm:p-6`}>
       <span className="text-sm font-medium text-zinc-400">{label}</span>
       <p
-        className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none tabular-nums xl:text-[1.625rem] ${
+        className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none xl:text-[1.625rem] ${
           isZero ? "text-zinc-600" : isNegative ? "text-red-400" : "text-white"
         }`}
       >
-        {value}
+        {/* Zerado: tudo no mesmo cinza apagado do card */}
+        <Valor valor={rawValue} secundaria={isZero ? "" : undefined} />
       </p>
       {delta !== null ? (
         <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-          <span className="flex items-center gap-0.5 tabular-nums">
+          <span className="flex items-center gap-0.5 num">
             {delta >= 0 ? <ArrowUpRight size={14} aria-hidden /> : <ArrowDownRight size={14} aria-hidden />}
             {delta >= 0 ? "+" : ""}{brlCompact(delta)}
           </span>
@@ -204,7 +204,7 @@ function CompositionRow({
           )}
         </div>
       </div>
-      <span className={`w-36 shrink-0 text-right text-[0.8125rem] font-semibold tabular-nums ${isNeg ? "text-red-400" : "text-zinc-200"}`}>
+      <span className={`w-36 shrink-0 text-right text-[0.8125rem] font-semibold num ${isNeg ? "text-red-400" : "text-zinc-200"}`}>
         {brl(value)}
       </span>
     </div>
@@ -336,7 +336,6 @@ export default function DashboardPage() {
                   key={chave}
                   label={label}
                   Icon={Icon}
-                  value={brl(valor)}
                   rawValue={valor}
                   delta={delta}
                   varLabel={mesAnterior?.periodo}
@@ -423,7 +422,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.03] px-4 py-4">
                   <span className="text-sm font-medium text-zinc-400">Total SCG</span>
-                  <span className={`text-xl font-bold tabular-nums sm:text-2xl ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
+                  <span className={`text-xl font-bold num sm:text-2xl ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
                     {brl(ultimoTrimestre.total)}
                   </span>
                 </div>

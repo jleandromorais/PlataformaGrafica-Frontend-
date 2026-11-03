@@ -20,7 +20,6 @@ export function Input({ label, error, icon, className = "", ...rest }: InputProp
             w-full bg-white/[0.03] border border-white/[0.07] rounded-lg
             text-zinc-100 placeholder-zinc-600 text-sm
             px-3 py-2 ${icon ? "pl-9" : ""}
-            focus:outline-none focus:ring-1 focus:ring-sky-500/50 focus:border-transparent
             transition-colors
             ${error ? "border-red-500/50" : ""}
             ${className}
@@ -46,7 +45,6 @@ export function Select({ label, options, className = "", ...rest }: SelectProps)
         className={`
           w-full bg-white/[0.03] border border-white/[0.07] rounded-lg
           text-zinc-100 text-sm px-3 py-2
-          focus:outline-none focus:ring-1 focus:ring-sky-500/50
           ${className}
         `}
       >

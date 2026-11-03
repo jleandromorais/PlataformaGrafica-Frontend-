@@ -268,3 +268,14 @@
     }
   }
 }
+
+/* Números tabulares: dígitos de largura fixa, para valores alinharem e não
+   "pularem" ao mudar. Use em todo valor monetário e percentual. */
+@utility num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eixos dos gráficos Recharts (o <text> do SVG não recebe classe por tick). */
+.recharts-cartesian-axis-tick-value {
+  font-variant-numeric: tabular-nums;
+}
