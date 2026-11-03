@@ -1,18 +1,24 @@
 /** S3 — "Processar" do Painel do Ciclo: envia a pasta do trimestre para cada etapa-mês
  * com os mesmos /processar e /salvar das telas, mostra o resultado e só grava o que o
- * usuário confirmar. Parte 1: CGF e RET. Spec: _bmad-output/specs/spec-puxar-tudo-processar. */
+ * usuário confirmar. Auditoria, CGF e RET; RP ainda pela tela. Specs: _bmad-output/specs/
+ * spec-puxar-tudo-processar e spec-processar-parte2-cgr. */
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
-import { calcularCGFRs, getPMPVMensal, processarCGF, processarRET, salvarCGF, salvarRET } from "../../api";
+import {
+  calcularCGFRs, getPMPVMensal, processarAuditoria, processarCGF, processarRET, salvarAuditoria, salvarCGF, salvarRET,
+} from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import { linkDoCiclo } from "../../utils/periodoNaUrl";
 import {
-  NOMES_ETAPA, arquivosDaCelula, classificar, envioDaPastaDoMes, type ArquivoClassificado, type Etapa,
+  NOMES_ETAPA, arquivosDaCelula, classificar, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes,
+  type ArquivoClassificado, type Etapa,
 } from "../../utils/pastaCiclo";
-import type { CGFHistoricoLinha, CGFProcessarResponse, RETHistoricoLinha, RETResultado } from "../../types";
+import type {
+  AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse, RETHistoricoLinha, RETResultado,
+} from "../../types";
 
 type Estado = "pronta" | "bloqueada" | "vazia" | "parte2" | "processando" | "processada" | "erro" | "gravando" | "gravada";
 
@@ -29,10 +35,12 @@ interface Celula {
   detalhe?: string;
   cgf?: { r: CGFProcessarResponse; pmpv: number };
   ret?: RETResultado;
+  auditoria?: AuditoriaResultado;
+  soPdf?: string[];           // Auditoria: empresas só com PDF (lidas por OCR)
 }
 
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
-const PARTE1: Etapa[] = ["cgf", "ret"];
+const ATIVAS: Etapa[] = ["auditoria", "cgf", "ret"];
 const ROTA: Record<Etapa, string> = { auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
 
 const ICONE: Partial<Record<Estado, ReactNode>> = {
@@ -44,10 +52,11 @@ const ICONE: Partial<Record<Estado, ReactNode>> = {
   bloqueada: <AlertTriangle size={15} className="text-amber-300" aria-label="Bloqueada" />,
 };
 
-export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGravado, onFechar }: {
+export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, ret, onGravado, onFechar }: {
   meses: string[];
   caminhos: string[];
   arquivos: Map<string, File>;
+  auditoria: AuditoriaHistoricoLinha[];
   cgf: CGFHistoricoLinha[];
   ret: RETHistoricoLinha[];
   onGravado: () => void;
@@ -62,11 +71,13 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGrav
     ORDEM.flatMap((etapa) => meses.map((periodo): Celula => {
       const { pastas, zipsSoltos } = arquivosDaCelula(reconhecidos, etapa, periodo);
       const lista = [...pastas, ...zipsSoltos];
-      const salvo = etapa === "cgf" ? cgf.find((h) => h.periodo === periodo)?.cgf_rs
+      const salvo = etapa === "auditoria" ? auditoria.find((h) => h.periodo === periodo)?.cgr_gravado
+        : etapa === "cgf" ? cgf.find((h) => h.periodo === periodo)?.cgf_rs
         : etapa === "ret" ? ret.find((h) => h.periodo === periodo)?.ret_gravado : undefined;
       const gravado = salvo ?? null;
-      const base = { etapa, periodo, arquivos: lista, gravado, avisos: [], escolhida: false };
-      if (!PARTE1.includes(etapa)) return { ...base, estado: "parte2" };
+      const soPdf = etapa === "auditoria" ? empresasSoPdf(lista) : undefined;
+      const base = { etapa, periodo, arquivos: lista, gravado, avisos: [], escolhida: false, soPdf };
+      if (!ATIVAS.includes(etapa)) return { ...base, estado: "parte2" };
       if (!lista.length) return { ...base, estado: "vazia" };
       if (etapa === "cgf" && !pastas.length) {
         return { ...base, estado: "bloqueada", motivo: "Só há .zip: extraia as planilhas na pasta do mês." };
@@ -86,6 +97,35 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGrav
   });
 
   async function processarUma(c: Celula): Promise<Partial<Celula>> {
+    if (c.etapa === "auditoria") {
+      // Como a tela da Auditoria: modo XML (lê também os PDFs), todas as empresas, sem planilha.
+      const envio = c.arquivos.flatMap((a) => {
+        const f = arquivos.get(a.caminho);
+        return f ? [{ arquivo: f, caminho: envioDaAuditoria(a).caminho }] : [];
+      });
+      const pastaRaiz = c.arquivos[0] ? envioDaAuditoria(c.arquivos[0]).raiz : "";
+      const r = await processarAuditoria({ arquivos: envio, pastaRaiz, empresas: [], modo: "XML", periodo: c.periodo, planilha: null });
+      const problemas = r.problemas ?? [];
+      const erros = problemas.filter((p) => p.gravidade === "erro");
+      if (erros.length) return { estado: "erro", motivo: erros.map((p) => p.mensagem).join(" ") };
+      if (r.periodo_detectado && r.periodo_detectado !== c.periodo) {
+        return { estado: "erro", motivo: `As notas parecem ser de ${r.periodo_detectado}. Use a tela da Auditoria.` };
+      }
+      const naoLidos = problemas.filter((p) => p.codigo === "pdf_ocr_falhou").length;
+      const porCodigo = new Map<string, { n: number; mensagem: string }>();
+      for (const p of problemas.filter((x) => x.gravidade === "aviso" && x.codigo !== "pdf_ocr_falhou")) {
+        const atual = porCodigo.get(p.codigo);
+        porCodigo.set(p.codigo, { n: (atual?.n ?? 0) + 1, mensagem: atual?.mensagem ?? p.mensagem });
+      }
+      const avisos = [
+        ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): a nota não entrou no CGR. Marque só se puder gravar assim.`] : []),
+        ...[...porCodigo.values()].map((a) => (a.n > 1 ? `${a.n}× ${a.mensagem}` : a.mensagem)),
+      ].slice(0, 3);
+      return {
+        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, escolhida: c.escolhida && !naoLidos,
+        detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
+      };
+    }
     if (c.etapa === "cgf") {
       const pmpv = (await getPMPVMensal(c.periodo).catch(() => ({ pmpv: 0 }))).pmpv || 0;
       if (!pmpv) return { estado: "bloqueada", motivo: `Falta o PMPV de ${c.periodo}: salve o PMPV do trimestre antes.` };
@@ -141,7 +181,10 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGrav
       if (parar.current) break;
       atualizar(c, { estado: "gravando" });
       try {
-        if (c.cgf) {
+        if (c.auditoria) {
+          const s = await salvarAuditoria(c.periodo, c.auditoria.itens);
+          atualizar(c, { estado: "gravada", valor: s.cgr_liquido });
+        } else if (c.cgf) {
           const { r, pmpv } = c.cgf;
           const s = await salvarCGF({
             periodo: c.periodo, pmpv, volume_faturado: r.volume_faturado, volume_canceladas: r.volume_canceladas,
@@ -160,7 +203,7 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGrav
     onGravado();
   }
 
-  const ativas = celulas.filter((c) => PARTE1.includes(c.etapa));
+  const ativas = celulas.filter((c) => ATIVAS.includes(c.etapa));
   const aProcessar = ativas.filter((c) => c.escolhida && c.estado === "pronta").length;
   const aGravar = ativas.filter((c) => c.escolhida && c.estado === "processada").length;
   const ocupado = fase === "processando" || fase === "gravando";
@@ -224,6 +267,9 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, cgf, ret, onGrav
                         {c.estado === "gravada" && "Gravada."}
                         {(c.estado === "erro" || c.estado === "bloqueada") && <span className="text-amber-200">{c.motivo}</span>}
                         {c.detalhe && <span className="block text-xs text-zinc-500">{c.detalhe}</span>}
+                        {!!c.soPdf?.length && c.estado !== "parte2" && (
+                          <span className="block text-xs text-zinc-500">Só PDF: {c.soPdf.join(", ")}</span>
+                        )}
                         {c.avisos.map((a) => <span key={a} className="block text-xs text-amber-200">⚠ {a}</span>)}
                         {c.estado === "bloqueada" && c.etapa === "cgf" && (
                           <Link className="block text-xs text-sky-300 underline"

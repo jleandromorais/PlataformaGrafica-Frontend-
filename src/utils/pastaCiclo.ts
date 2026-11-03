@@ -188,6 +188,29 @@ export function envioDaPastaDoMes(a: ArquivoClassificado): { caminho: string; ra
   return { caminho: a.caminho.split("/").slice(acima.length).join("/"), raiz: acima[acima.length - 1] ?? "" };
 }
 
+/** Envio da Auditoria: caminho a partir de dentro da pasta do mês ("TAG/x.xml") e o
+ * nome dela como raiz, para o backend achar as empresas (subpastas) e o mês. Um .zip
+ * solto vai só com o nome. */
+export function envioDaAuditoria(a: ArquivoClassificado): { caminho: string; raiz: string } {
+  const base = a.conjunto.split("/").filter(Boolean);
+  const partes = a.caminho.split("/").filter(Boolean);
+  return { caminho: a.zip ? partes[partes.length - 1] : partes.slice(base.length).join("/"), raiz: base[base.length - 1] ?? "" };
+}
+
+/** Empresas da Auditoria que só têm PDF (lidos por OCR, mais sujeitos a erro). Desce as
+ * pastas únicas como o backend (`descer_pasta_unica`) antes de tomar a empresa. */
+export function empresasSoPdf(arquivos: ArquivoClassificado[]): string[] {
+  let caminhos = arquivos.filter((a) => !a.zip).map((a) => envioDaAuditoria(a).caminho.split("/"));
+  while (caminhos.length && caminhos.every((c) => c.length > 2 && c[0] === caminhos[0][0])) caminhos = caminhos.map((c) => c.slice(1));
+  const ext = new Map<string, Set<string>>();
+  for (const c of caminhos.filter((c) => c.length > 1)) {
+    const tipos = ext.get(c[0]) ?? new Set<string>();
+    tipos.add(c[c.length - 1].toLowerCase().split(".").pop() ?? "");
+    ext.set(c[0], tipos);
+  }
+  return [...ext].filter(([, t]) => t.has("pdf") && !t.has("xml")).map(([e]) => e).sort((x, y) => x.localeCompare(y, "pt-BR"));
+}
+
 /** Mapa do trimestre: para cada etapa × mês, o que foi encontrado. Arquivos de
  * outros meses entram só na contagem de `ignorados`. */
 export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
