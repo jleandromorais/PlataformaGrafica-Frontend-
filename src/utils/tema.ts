@@ -9,7 +9,7 @@ function temaAtual(): Tema {
   return document.documentElement.dataset.theme === "dark" ? "escuro" : "claro";
 }
 
-/** Tema claro/escuro: vale para a pessoa neste navegador. Sem escolha salva, segue o sistema. */
+/** Tema claro/escuro: vale para a pessoa neste navegador. Sem escolha salva, escuro. */
 export function useTema() {
   const [tema, setTema] = useState<Tema>(temaAtual);
 
