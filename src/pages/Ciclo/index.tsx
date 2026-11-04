@@ -282,7 +282,7 @@ export default function CicloPage() {
           )}
           {mapa && processando && dados && (
             <ProcessarTrimestre key={`${raiz}-${meses[0]}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
-              auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} onGravado={() => setVersao((v) => v + 1)} onFechar={() => setProcessando(false)} />
+              auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={() => setProcessando(false)} />
           )}
         </section>
 
@@ -409,7 +409,7 @@ function MapaPasta({ mapa, meses, raiz, total, processar }: {
           Processar {meses[0]} a {meses[2]}
         </button>
         <span className="text-xs text-zinc-500">
-          Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Por enquanto: Auditoria, CGF e RET (RP pela tela).
+          Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Auditoria, CGF, RET e RP.
         </span>
       </div>
     </div>

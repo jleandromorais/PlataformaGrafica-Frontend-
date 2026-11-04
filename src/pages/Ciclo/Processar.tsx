@@ -1,12 +1,13 @@
 /** S3 — "Processar" do Painel do Ciclo: envia a pasta do trimestre para cada etapa-mês
  * com os mesmos /processar e /salvar das telas, mostra o resultado e só grava o que o
- * usuário confirmar. Auditoria, CGF e RET; RP ainda pela tela. Specs: _bmad-output/specs/
+ * usuário confirmar. Auditoria, CGF, RET e RP. Specs: _bmad-output/specs/
  * spec-puxar-tudo-processar e spec-processar-parte2-cgr. */
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
-  calcularCGFRs, getPMPVMensal, processarAuditoria, processarCGF, processarRET, salvarAuditoria, salvarCGF, salvarRET,
+  calcularCGFRs, getPMPVMensal, processarAuditoria, processarCGF, processarConcilia, processarRET, salvarAuditoria,
+  salvarCGF, salvarConcilia, salvarRET,
 } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -17,10 +18,19 @@ import {
   type ArquivoClassificado, type Etapa,
 } from "../../utils/pastaCiclo";
 import type {
-  AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse, RETHistoricoLinha, RETResultado,
+  AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse, ConciliaHistoricoLinha,
+  ConciliaResultado, RETHistoricoLinha, RETResultado,
 } from "../../types";
 
-type Estado = "pronta" | "bloqueada" | "vazia" | "parte2" | "processando" | "processada" | "erro" | "gravando" | "gravada";
+type Estado = "pronta" | "bloqueada" | "vazia" | "processando" | "processada" | "erro" | "gravando" | "gravada";
+
+/** Status do backend para a despesa que já está no RET (vale 0 no RP de propósito). */
+const JA_NO_RET = "JA_NO_RET";
+
+/** RP: um .zip só pode ir se o caminho disser se é receita ou despesa; senão o
+ * backend contaria tudo como despesa (só o TOP vira receita pelo nome). */
+const zipSemCategoria = (caminho: string) =>
+  !/receita|despesa|(^|[^a-z])top([^a-z]|$)/.test(caminho.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase());
 
 interface Celula {
   etapa: Etapa;
@@ -36,11 +46,11 @@ interface Celula {
   cgf?: { r: CGFProcessarResponse; pmpv: number };
   ret?: RETResultado;
   auditoria?: AuditoriaResultado;
+  concilia?: ConciliaResultado;
   soPdf?: string[];           // Auditoria: empresas só com PDF (lidas por OCR)
 }
 
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
-const ATIVAS: Etapa[] = ["auditoria", "cgf", "ret"];
 const ROTA: Record<Etapa, string> = { auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
 
 const ICONE: Partial<Record<Estado, ReactNode>> = {
@@ -52,13 +62,14 @@ const ICONE: Partial<Record<Estado, ReactNode>> = {
   bloqueada: <AlertTriangle size={15} className="text-amber-300" aria-label="Bloqueada" />,
 };
 
-export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, ret, onGravado, onFechar }: {
+export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, ret, concilia, onGravado, onFechar }: {
   meses: string[];
   caminhos: string[];
   arquivos: Map<string, File>;
   auditoria: AuditoriaHistoricoLinha[];
   cgf: CGFHistoricoLinha[];
   ret: RETHistoricoLinha[];
+  concilia: ConciliaHistoricoLinha[];
   onGravado: () => void;
   onFechar: () => void;
 }) {
@@ -73,14 +84,17 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
       const lista = [...pastas, ...zipsSoltos];
       const salvo = etapa === "auditoria" ? auditoria.find((h) => h.periodo === periodo)?.cgr_gravado
         : etapa === "cgf" ? cgf.find((h) => h.periodo === periodo)?.cgf_rs
-        : etapa === "ret" ? ret.find((h) => h.periodo === periodo)?.ret_gravado : undefined;
+        : etapa === "ret" ? ret.find((h) => h.periodo === periodo)?.ret_gravado
+        : concilia.find((h) => h.periodo === periodo)?.rp_gravado;
       const gravado = salvo ?? null;
       const soPdf = etapa === "auditoria" ? empresasSoPdf(lista) : undefined;
       const base = { etapa, periodo, arquivos: lista, gravado, avisos: [], escolhida: false, soPdf };
-      if (!ATIVAS.includes(etapa)) return { ...base, estado: "parte2" };
       if (!lista.length) return { ...base, estado: "vazia" };
       if (etapa === "cgf" && !pastas.length) {
         return { ...base, estado: "bloqueada", motivo: "Só há .zip: extraia as planilhas na pasta do mês." };
+      }
+      if (etapa === "conciliacao" && zipsSoltos.some((z) => zipSemCategoria(z.caminho))) {
+        return { ...base, estado: "bloqueada", motivo: "Há .zip sem “receita” ou “despesa” no nome: extraia na pasta do mês ou use a tela do RP." };
       }
       return { ...base, estado: "pronta", escolhida: gravado === null };
     })),
@@ -143,6 +157,30 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
         detalhe: `VF ${num(r.volume_final, 0)} m³ = faturado ${num(r.volume_faturado, 0)} − devoluções ${num(r.volume_devolucoes, 0)} · PMPV ${num(pmpv, 4)}`,
       };
     }
+    if (c.etapa === "conciliacao") {
+      // Como a tela do RP: receitas e despesas em campos separados, a partir da pasta do mês.
+      // TOP vai como receita (o reconhecedor e o backend usam a mesma regra pelo caminho).
+      const envio = (cat: "receita" | "despesa") => c.arquivos.flatMap((a) => {
+        const f = arquivos.get(a.caminho);
+        return f && a.categoria === cat ? [{ arquivo: f, caminho: envioDaPastaDoMes(a).caminho }] : [];
+      });
+      const receitas = envio("receita");
+      const despesas = envio("despesa");
+      const r = await processarConcilia(receitas, despesas);
+      const naoLidos = r.itens.filter((i) => i.status !== "OK" && i.status !== JA_NO_RET).length;
+      const noRet = r.itens.filter((i) => i.status === JA_NO_RET).length;
+      const avisos = [
+        ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): contam R$ 0,00. Digite o valor na tela do RP ou marque só se puder gravar assim.`] : []),
+        ...(r.ocr_disponivel ? [] : ["PDF de imagem não é lido neste servidor (sem OCR): confira o total."]),
+        ...(receitas.length ? [] : ["Sem pasta de receitas neste mês."]),
+        ...(despesas.length ? [] : ["Sem pasta de despesas neste mês."]),
+        ...(noRet ? [`${noRet} despesa(s) já contada(s) no RET: ficam fora do RP.`] : []),
+      ];
+      return {
+        estado: "processada", concilia: r, valor: r.totais.rp, avisos, escolhida: c.escolhida && !naoLidos,
+        detalhe: `${r.itens.length} PDF(s) · receitas ${brl(r.totais.total_receitas)} · despesas ${brl(r.totais.total_despesas)}`,
+      };
+    }
     // RET: envia a partir da pasta do mês, como se ela tivesse sido escolhida na tela RET.
     const envio = files(c, true);
     const raiz = c.arquivos[0] ? envioDaPastaDoMes(c.arquivos[0]).raiz : "";
@@ -194,6 +232,9 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
         } else if (c.ret) {
           const s = await salvarRET(c.ret.documentos, c.periodo);
           atualizar(c, { estado: "gravada", valor: s.find((x) => x.periodo === c.periodo)?.ret ?? c.valor });
+        } else if (c.concilia) {
+          const s = await salvarConcilia(c.periodo, c.concilia.itens);
+          atualizar(c, { estado: "gravada", valor: s.rp });
         }
       } catch (e) {
         atualizar(c, { estado: "erro", motivo: mensagemDeErro(e, `Não foi possível gravar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`) });
@@ -203,12 +244,11 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
     onGravado();
   }
 
-  const ativas = celulas.filter((c) => ATIVAS.includes(c.etapa));
-  const aProcessar = ativas.filter((c) => c.escolhida && c.estado === "pronta").length;
-  const aGravar = ativas.filter((c) => c.escolhida && c.estado === "processada").length;
+  const aProcessar = celulas.filter((c) => c.escolhida && c.estado === "pronta").length;
+  const aGravar = celulas.filter((c) => c.escolhida && c.estado === "processada").length;
   const ocupado = fase === "processando" || fase === "gravando";
-  const gravadas = ativas.filter((c) => c.estado === "gravada").length;
-  const comErro = ativas.filter((c) => c.estado === "erro" || c.estado === "bloqueada").length;
+  const gravadas = celulas.filter((c) => c.estado === "gravada").length;
+  const comErro = celulas.filter((c) => c.estado === "erro" || c.estado === "bloqueada").length;
 
   return (
     <div className="mt-5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 sm:p-5">
@@ -240,12 +280,12 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
                 ((fase === "previa" && c.estado === "pronta") || (fase === "revisao" && c.estado === "processada"));
               const regrava = c.escolhida && c.gravado !== null && c.estado !== "gravada";
               return (
-                <tr key={`${c.etapa}-${c.periodo}`} className={c.estado === "parte2" ? "text-zinc-500" : ""}>
+                <tr key={`${c.etapa}-${c.periodo}`}>
                   <td className="px-3 py-2">
                     <label className={`flex items-center gap-2 ${podeMarcar ? "cursor-pointer" : ""}`}>
                       <input type="checkbox" checked={c.escolhida} disabled={!podeMarcar} onChange={() => alternar(c)}
                         className="h-4 w-4 accent-marinho disabled:opacity-40" aria-label={`${NOMES_ETAPA[c.etapa]} ${c.periodo}`} />
-                      <span className={c.estado === "parte2" ? "" : "text-zinc-100"}>{NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}</span>
+                      <span className="text-zinc-100">{NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}</span>
                     </label>
                   </td>
                   <td className="px-3 py-2 text-right tabular-nums">{c.arquivos.length || "—"}</td>
@@ -255,10 +295,6 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
                     <span className="flex items-start gap-1.5">
                       {ICONE[c.estado] ?? <CircleDashed size={15} className="text-zinc-500" aria-hidden />}
                       <span>
-                        {c.estado === "parte2" && (
-                          <>Parte 2 do Processar. Por enquanto, <Link className="text-sky-300 underline"
-                            to={linkDoCiclo(ROTA[c.etapa], meses[0], { chave: "periodo", valor: c.periodo })}>pela tela</Link>.</>
-                        )}
                         {c.estado === "vazia" && "Nenhum arquivo deste mês na pasta."}
                         {c.estado === "pronta" && (regrava ? "Vai substituir o valor já gravado." : c.gravado !== null ? "Já gravado: marque para refazer." : "Pronta para enviar.")}
                         {c.estado === "processando" && "Processando…"}
@@ -267,13 +303,13 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
                         {c.estado === "gravada" && "Gravada."}
                         {(c.estado === "erro" || c.estado === "bloqueada") && <span className="text-amber-200">{c.motivo}</span>}
                         {c.detalhe && <span className="block text-xs text-zinc-500">{c.detalhe}</span>}
-                        {!!c.soPdf?.length && c.estado !== "parte2" && (
+                        {!!c.soPdf?.length && (
                           <span className="block text-xs text-zinc-500">Só PDF: {c.soPdf.join(", ")}</span>
                         )}
                         {c.avisos.map((a) => <span key={a} className="block text-xs text-amber-200">⚠ {a}</span>)}
-                        {c.estado === "bloqueada" && c.etapa === "cgf" && (
+                        {(c.estado === "bloqueada" || (c.estado === "processada" && c.etapa === "conciliacao" && !c.escolhida)) && (
                           <Link className="block text-xs text-sky-300 underline"
-                            to={linkDoCiclo(ROTA.cgf, meses[0], { chave: "periodo", valor: c.periodo })}>Fazer agora</Link>
+                            to={linkDoCiclo(ROTA[c.etapa], meses[0], { chave: "periodo", valor: c.periodo })}>Abrir a tela</Link>
                         )}
                       </span>
                     </span>
