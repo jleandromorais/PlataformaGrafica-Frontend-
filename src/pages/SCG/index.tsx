@@ -5,6 +5,7 @@ import { SeletorMes } from "../../components/ui/SeletorMes";
 import { getHistoricoSCG, getSCGComparacao, salvarSCG } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
+import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
@@ -64,6 +65,7 @@ export default function SCGPage() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [avisoPR, setAvisoPR] = useState<string | null>(null); // PR/PV não regravados ao salvar
   const ultimaBusca = useRef(0);
 
   const buscar = useCallback((p: string) => {
@@ -89,6 +91,7 @@ export default function SCGPage() {
     setAno(a);
     setErro(null);
     setSucesso(null);
+    setAvisoPR(null);
     if (!anoValido(a)) return;
     setCarregando(true);
     buscar(`${m}/${a}`);
@@ -126,10 +129,14 @@ export default function SCGPage() {
     if (!validos) return setErro("Corrija os valores digitados antes de salvar.");
     setErro(null);
     setSucesso(null);
+    setAvisoPR(null);
     setSalvando(true);
     try {
       const r = await salvarSCG({ periodo, ...v });
-      setSucesso(`SCG de ${periodo} salvo: ${brl(r.scg)}.`);
+      // O backend regrava o PR e o PV do trimestre que usa este mês.
+      const pr = textoPRAutomatico(r.pr_automatico);
+      setSucesso(`SCG de ${periodo} salvo: ${brl(r.scg)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
+      if (pr && !pr.ok) setAvisoPR(pr.texto);
       buscar(periodo);
       carregarHistorico();
     } catch (e) {
@@ -149,6 +156,7 @@ export default function SCGPage() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
 
         <section className={`${PANEL} p-5 sm:p-6`}>
           <SeletorMes

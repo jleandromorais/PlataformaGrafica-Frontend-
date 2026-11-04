@@ -313,6 +313,17 @@ export interface SCGPeriodo extends SCGValores {
   periodo: string;
 }
 
+/** PR e PV do trimestre regravados pelo backend ao salvar o SCG ou o SR. */
+export interface PRAutomatico {
+  meses_pr: string[];
+  atualizado: boolean;      // false = nada gravado; ver `pendencias`
+  pr_antes: number | null;
+  pr: number | null;
+  pv_antes: number | null;
+  pv: number | null;
+  pendencias: string[];
+}
+
 /** Os dois lados que podem divergir num mês: recalculado dos itens dos
  * módulos × gravado na consolidação (o que o Excel Final usa). */
 export interface SCGComparacao {

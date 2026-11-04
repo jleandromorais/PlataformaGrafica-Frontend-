@@ -8,7 +8,7 @@ import type {
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
-  PVResultado, PVPeriodo, PVTrimestre,
+  PVResultado, PVPeriodo, PVTrimestre, PRAutomatico,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -225,7 +225,7 @@ export const getSCGComparacao = (periodo: string) =>
 
 /** Grava CGR/CGF/RET/RP escolhidos e recalcula RPV e SCG. */
 export const salvarSCG = (payload: { periodo: string; cgr: number; cgf: number; ret: number; rp: number }) =>
-  api.post<SCGPeriodo>("/scg/salvar", payload).then((r) => r.data);
+  api.post<SCGPeriodo & { pr_automatico: PRAutomatico }>("/scg/salvar", payload).then((r) => r.data);
 
 export const getHistoricoSCG = () =>
   api.get<SCGHistoricoLinha[]>("/scg/historico").then((r) => r.data);
@@ -327,7 +327,7 @@ export const salvarTrimestreSR = (
   linhas: SRLinhaCalculada[]
 ) =>
   api
-    .post<{ total: number }>("/sr/trimestre/salvar", {
+    .post<{ total: number; pr_automatico: PRAutomatico | null }>("/sr/trimestre/salvar", {
       labels_meses: labelsMeses,
       periodo_referencia: periodoReferencia,
       linhas,
