@@ -8,6 +8,7 @@ import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SRLinhaCalculada, SROrigemPR } from "../../types";
 import { dicaDe } from "../../utils/glossario";
+import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { PageHeader } from "../../components/layout/PageHeader";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
@@ -127,6 +128,7 @@ export default function SRPage() {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [avisoPR, setAvisoPR] = useState<string | null>(null); // PR/PV não regravados ao salvar
   const [selic, setSelic] = useState<EstadoSelic>({ estado: "buscando" });
   // Respostas de um trimestre que o usuário já deixou para trás são descartadas.
   const pedido = useRef(0);
@@ -180,6 +182,7 @@ export default function SRPage() {
     setSelic({ estado: "buscando" });
     setErro(null);
     setSucesso(null);
+    setAvisoPR(null);
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -202,15 +205,19 @@ export default function SRPage() {
   const salvar = async () => {
     setErro(null);
     setSucesso(null);
+    setAvisoPR(null);
     setSalvando(true);
     try {
       const calc = await calcularTrimestreSR(
         linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior }) => ({ mes, vp, vf, pr, selic_mensal, sr_anterior }))
       );
       setLinhas(calc.linhas);
-      await salvarTrimestreSR(labels, labels[2], calc.linhas);
+      const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
       setFonte("salvo");
-      setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.`);
+      // O backend regrava o PR e o PV do trimestre que usa este SR.
+      const pr = textoPRAutomatico(salvo.pr_automatico);
+      setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
+      if (pr && !pr.ok) setAvisoPR(pr.texto);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar o SR do trimestre."));
     } finally {
@@ -251,6 +258,7 @@ export default function SRPage() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
