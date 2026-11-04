@@ -6,8 +6,8 @@ import { useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
-  calcularCGFRs, getPMPVMensal, processarAuditoria, processarCGF, processarConcilia, processarRET, salvarAuditoria,
-  salvarCGF, salvarConcilia, salvarRET,
+  calcularCGFRs, diferencasAuditoria, getPMPVMensal, processarAuditoria, processarCGF, processarConcilia, processarRET,
+  salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
 } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -18,8 +18,8 @@ import {
   type ArquivoClassificado, type Etapa,
 } from "../../utils/pastaCiclo";
 import type {
-  AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse, ConciliaHistoricoLinha,
-  ConciliaResultado, RETHistoricoLinha, RETResultado,
+  AuditoriaDiferencas, AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse,
+  ConciliaHistoricoLinha, ConciliaResultado, RETHistoricoLinha, RETResultado,
 } from "../../types";
 
 type Estado = "pronta" | "bloqueada" | "vazia" | "processando" | "processada" | "erro" | "gravando" | "gravada";
@@ -48,6 +48,7 @@ interface Celula {
   auditoria?: AuditoriaResultado;
   concilia?: ConciliaResultado;
   soPdf?: string[];           // Auditoria: empresas só com PDF (lidas por OCR)
+  diferencas?: AuditoriaDiferencas; // Auditoria: onde difere das notas gravadas
 }
 
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
@@ -135,8 +136,11 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
         ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): a nota não entrou no CGR. Marque só se puder gravar assim.`] : []),
         ...[...porCodigo.values()].map((a) => (a.n > 1 ? `${a.n}× ${a.mensagem}` : a.mensagem)),
       ].slice(0, 3);
+      // Diferente do gravado: o backend aponta empresa e nota. Sem isso, só some o detalhe.
+      const diferencas = c.gravado !== null && Math.abs(r.totais.cgr_liquido - c.gravado) > 1
+        ? await diferencasAuditoria(c.periodo, r.itens).catch(() => undefined) : undefined;
       return {
-        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, escolhida: c.escolhida && !naoLidos,
+        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, diferencas, escolhida: c.escolhida && !naoLidos,
         detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
       };
     }
@@ -307,6 +311,7 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
                           <span className="block text-xs text-zinc-500">Só PDF: {c.soPdf.join(", ")}</span>
                         )}
                         {c.avisos.map((a) => <span key={a} className="block text-xs text-amber-200">⚠ {a}</span>)}
+                        {c.diferencas && <OndeDifere d={c.diferencas} total={(c.valor ?? 0) - (c.gravado ?? 0)} />}
                         {(c.estado === "bloqueada" || (c.estado === "processada" && c.etapa === "conciliacao" && !c.escolhida)) && (
                           <Link className="block text-xs text-sky-300 underline"
                             to={linkDoCiclo(ROTA[c.etapa], meses[0], { chave: "periodo", valor: c.periodo })}>Abrir a tela</Link>
@@ -347,5 +352,53 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
         )}
       </div>
     </div>
+  );
+}
+
+const SITUACAO: Record<AuditoriaDiferencas["notas"][number]["situacao"], string> = {
+  so_no_gravado: "só no gravado",
+  so_no_processado: "só no processado",
+  valor_diferente: "valor diferente",
+};
+
+/** Onde o processado difere do gravado: resumo por empresa e, aberto, as notas. Mês gravado
+ * só com o total (sem notas): a lista vira as notas lidas por OCR, para conferir primeiro. */
+function OndeDifere({ d, total }: { d: AuditoriaDiferencas; total: number }) {
+  const comNotas = d.tem_notas_gravadas;
+  return (
+    <span className="mt-1 block text-xs">
+      <span className="block font-semibold text-amber-200">Diferença de {brl(total)} para o gravado. Onde está:</span>
+      {d.resumo.map((l) => <span key={l} className="block max-w-[72ch] text-amber-200">{l}</span>)}
+      {d.notas.length > 0 && (
+        <details className="mt-1">
+          <summary className="cursor-pointer text-sky-300">
+            {comNotas ? "Ver as" : "Ver as lidas por OCR:"} {d.notas.length}
+            {d.qtd_notas_diferentes > d.notas.length ? ` de ${d.qtd_notas_diferentes}` : ""} nota(s)
+          </summary>
+          <table className="mt-1 w-full text-zinc-300">
+            <thead className="text-zinc-500">
+              <tr>
+                <th className="pr-2 text-left font-medium">Nota</th>
+                {comNotas && <th className="pr-2 text-left font-medium">Situação</th>}
+                {comNotas && <th className="pr-2 text-right font-medium">Gravado</th>}
+                <th className="pr-2 text-right font-medium">Agora</th>
+                {comNotas && <th className="text-right font-medium">Diferença</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {d.notas.map((n, i) => (
+                <tr key={`${n.empresa}-${n.tipo}-${n.numero}-${i}`}>
+                  <td className="pr-2">{n.empresa} · {n.tipo === "NF-e" ? "NF" : "CT-e"} {n.numero}{n.ocr ? " (OCR)" : ""}</td>
+                  {comNotas && <td className="pr-2">{SITUACAO[n.situacao]}</td>}
+                  {comNotas && <td className="num whitespace-nowrap pr-2 text-right">{brl(n.gravado)}</td>}
+                  <td className="num whitespace-nowrap pr-2 text-right">{brl(n.processado)}</td>
+                  {comNotas && <td className="num whitespace-nowrap text-right text-amber-200">{brl(n.diferenca)}</td>}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
+    </span>
   );
 }
