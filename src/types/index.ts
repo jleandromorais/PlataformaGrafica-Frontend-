@@ -220,6 +220,22 @@ export interface AuditoriaResultado {
   problemas: ProblemaArquivo[];
 }
 
+/** Onde o processado difere das notas gravadas no mês (POST /auditoria/diferencas). */
+export interface AuditoriaDiferencas {
+  tem_notas_gravadas: boolean;
+  cgr_gravado_notas: number;
+  cgr_processado: number;
+  diferenca: number;
+  por_empresa: { empresa: string; gravado: number; processado: number; diferenca: number }[];
+  notas: {
+    empresa: string; tipo: string; numero: string;
+    situacao: "so_no_gravado" | "so_no_processado" | "valor_diferente";
+    gravado: number; processado: number; diferenca: number; ocr: boolean;
+  }[];
+  qtd_notas_diferentes: number;
+  resumo: string[];
+}
+
 export interface AuditoriaHistoricoLinha {
   periodo: string;
   qtd_notas: number;

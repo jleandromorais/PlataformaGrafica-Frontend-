@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -139,6 +139,10 @@ export const processarAuditoria = (opts: {
 /** Grava o CGR (recalculado no servidor) e os itens do período. */
 export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
   api.post<{ cgr_liquido: number; rpv: number; qtd_itens: number }>("/auditoria/salvar", { periodo, itens }).then((r) => r.data);
+
+/** Onde as notas processadas diferem das gravadas no mês, por empresa e nota. Não grava. */
+export const diferencasAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
+  api.post<AuditoriaDiferencas>("/auditoria/diferencas", { periodo, itens }).then((r) => r.data);
 
 /** Relatório Excel da auditoria (com as abas de comparação se houver planilha). */
 export const baixarRelatorioAuditoria = (periodo: string, itens: AuditoriaItem[], planilha: File | null) => {
