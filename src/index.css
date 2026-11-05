@@ -17,11 +17,17 @@
   --color-rail: #ffffff;
   --color-panel: #ffffff;
   --color-raised: #f7f6f2;
-  --color-accent: #1f4fa8;
 
-  /* Marca ARPE (do logo) */
-  --color-marinho: #102759;
-  --color-marinho-claro: #1d3a7a;
+  /* Cor principal do sistema: botões, destaques e o hover do menu (os dois temas). */
+  --color-primaria: oklch(0.6204 0.195 253.83);
+  --color-primaria-claro: oklch(0.68 0.17 253.83);
+  --color-primaria-hover: oklch(0.6204 0.195 253.8254 / 0.2);
+
+  --color-accent: var(--color-primaria);
+
+  /* Marca ARPE (do logo). Botões (bg-marinho) passaram a usar a cor principal. */
+  --color-marinho: var(--color-primaria);
+  --color-marinho-claro: var(--color-primaria-claro);
   --color-paper: #ffffff;
   --color-arpe-verde: #41e000;
   --color-arpe-amarelo: #fdca00;
@@ -43,8 +49,8 @@
 
   --color-sky-200: #102759;
   --color-sky-300: #183a82;
-  --color-sky-400: #1f4fa8;
-  --color-sky-500: #2a5cb8;
+  --color-sky-400: #1f4fa8; /* texto no claro: mais escuro que a principal, para ler bem */
+  --color-sky-500: var(--color-primaria);
 
   --color-emerald-200: #0a5a3a;
   --color-emerald-300: #0a6643;
@@ -78,6 +84,13 @@
   --color-green-400: #15803d;
 
   --font-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
+
+  /* Brilho que atravessa o "esqueleto" enquanto a tela carrega (components/ui/Skeleton). */
+  --animate-shine: shine 1.6s ease-in-out infinite;
+  @keyframes shine {
+    from { background-position: 150% 0; }
+    to { background-position: -50% 0; }
+  }
 }
 
 /* dark:… vale quando o <html> tem data-theme="dark" (botão no menu). */
@@ -114,9 +127,9 @@
   --color-rail: #0f131b;
   --color-panel: #131823;
   --color-raised: #1a2030;
-  --color-accent: #7aa7ff;
-  --color-marinho: #2a5cb8;
-  --color-marinho-claro: #3a6fd0;
+  --color-accent: var(--color-primaria);
+  --color-marinho: var(--color-primaria);
+  --color-marinho-claro: var(--color-primaria-claro);
 
   --color-white: #f4f6fa;
 
@@ -134,8 +147,8 @@
 
   --color-sky-200: #c7dbff;
   --color-sky-300: #9dbfff;
-  --color-sky-400: #7aa7ff;
-  --color-sky-500: #4f86f0;
+  --color-sky-400: var(--color-primaria);
+  --color-sky-500: var(--color-primaria);
 
   --color-emerald-200: #a7f3d0;
   --color-emerald-300: #6ee7b7;
@@ -265,6 +278,9 @@
     *::after {
       animation-duration: 0.01ms !important;
       transition-duration: 0.01ms !important;
+    }
+    .animate-shine {
+      animation: none !important;
     }
   }
 }

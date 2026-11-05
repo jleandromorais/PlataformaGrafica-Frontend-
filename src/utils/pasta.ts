@@ -15,6 +15,62 @@ export function lerPasta(lista: FileList, extensoes: string[]): { raiz: string; 
   return { raiz, arquivos };
 }
 
+// ── Pasta que o navegador lembra (Chrome/Edge) ───────────────────────────────
+// Com o input comum, recarregar a página perde o acesso aos arquivos. Com o
+// showDirectoryPicker, o navegador entrega uma "chave" da pasta que pode ser guardada
+// (utils/lembrar) e reaberta depois, com a permissão da pessoa. Os tipos não estão no TS.
+
+type Permissao = "granted" | "denied" | "prompt";
+export interface ChavePasta {
+  kind: "directory";
+  name: string;
+  values(): AsyncIterable<ChavePasta | { kind: "file"; name: string; getFile(): Promise<File> }>;
+  queryPermission(o: { mode: "read" }): Promise<Permissao>;
+  requestPermission(o: { mode: "read" }): Promise<Permissao>;
+}
+
+/** Arquivos da pasta: caminho sem a pasta raiz → File (como o input com webkitdirectory). */
+export interface PastaLida { raiz: string; arquivos: Map<string, File> }
+
+export const navegadorLembraPasta = typeof window !== "undefined" && "showDirectoryPicker" in window;
+
+async function lerChave(chave: ChavePasta, prefixo = "", saida = new Map<string, File>()) {
+  const filhos: Promise<unknown>[] = [];
+  for await (const item of chave.values()) {
+    const caminho = prefixo + item.name;
+    filhos.push(item.kind === "file"
+      ? item.getFile().then((f) => { saida.set(caminho, f); })
+      : lerChave(item, `${caminho}/`, saida));
+  }
+  await Promise.all(filhos);
+  return saida;
+}
+
+/** Lê todos os arquivos da pasta (é a parte demorada: pastas grandes têm milhares). */
+export async function lerPastaDaChave(chave: ChavePasta): Promise<PastaLida> {
+  return { raiz: chave.name, arquivos: await lerChave(chave) };
+}
+
+/** Abre o seletor de pasta e devolve só a chave (rápido); null se a pessoa cancelar. */
+export async function escolherChavePasta(): Promise<ChavePasta | null> {
+  try {
+    const picker = (window as unknown as { showDirectoryPicker(o: { mode: "read" }): Promise<ChavePasta> }).showDirectoryPicker;
+    return await picker({ mode: "read" });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return null;
+    throw e;
+  }
+}
+
+/** Relê uma pasta guardada. `pedir`: pode mostrar o aviso de permissão do navegador
+ * (só funciona logo após um clique). Sem permissão → null. */
+export async function reabrirPasta(chave: ChavePasta, pedir: boolean): Promise<PastaLida | null> {
+  let permissao = await chave.queryPermission({ mode: "read" });
+  if (permissao === "prompt" && pedir) permissao = await chave.requestPermission({ mode: "read" });
+  if (permissao !== "granted") return null;
+  return lerPastaDaChave(chave);
+}
+
 /** Copia cada arquivo para a memória antes do envio. Pasta em rede/OneDrive pode falhar
  * na leitura (o Chrome só avisa na hora do upload, como "Network Error"); aqui o erro
  * aponta o arquivo e há novas tentativas para oscilações. */

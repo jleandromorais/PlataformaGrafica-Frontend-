@@ -28,3 +28,5 @@ dist-ssr
 .claude/
 _bmad/
 _bmad-output/
+# heroui-agents-md
+.heroui-docs/
