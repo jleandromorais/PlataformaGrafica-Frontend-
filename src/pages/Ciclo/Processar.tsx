@@ -2,7 +2,7 @@
  * com os mesmos /processar e /salvar das telas, mostra o resultado e só grava o que o
  * usuário confirmar. Auditoria, CGF, RET e RP. Specs: _bmad-output/specs/
  * spec-puxar-tudo-processar e spec-processar-parte2-cgr. */
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
@@ -13,6 +13,7 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import { linkDoCiclo } from "../../utils/periodoNaUrl";
+import { esquecer, guardar } from "../../utils/lembrar";
 import {
   NOMES_ETAPA, arquivosDaCelula, classificar, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes,
   type ArquivoClassificado, type Etapa,
@@ -51,6 +52,20 @@ interface Celula {
   diferencas?: AuditoriaDiferencas; // Auditoria: onde difere das notas gravadas
 }
 
+type Fase = "previa" | "processando" | "revisao" | "gravando" | "fim";
+
+/** Prévia guardada no navegador (o Painel a traz de volta depois de recarregar). */
+export interface Retomada { celulas: Celula[]; fase: Fase }
+
+/** O que estava no meio do caminho ao recarregar volta um passo: "processando" não
+ * terminou (processa de novo) e "gravando" não se sabe se gravou (confira e grave de novo). */
+function retomada(r: Retomada): Retomada {
+  const celulas = r.celulas.map((c): Celula =>
+    c.estado === "processando" ? { ...c, estado: "pronta" } : c.estado === "gravando" ? { ...c, estado: "processada" } : c);
+  if (r.fase !== "processando" && r.fase !== "gravando") return { celulas, fase: r.fase };
+  return { celulas, fase: celulas.some((c) => c.estado === "processada") ? "revisao" : "previa" };
+}
+
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
 const ROTA: Record<Etapa, string> = { auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
 
@@ -63,10 +78,15 @@ const ICONE: Partial<Record<Estado, ReactNode>> = {
   bloqueada: <AlertTriangle size={15} className="text-amber-300" aria-label="Bloqueada" />,
 };
 
-export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, ret, concilia, onGravado, onFechar }: {
+export function ProcessarTrimestre({
+  meses, caminhos, arquivos, memoria, retomar, semArquivos, auditoria, cgf, ret, concilia, onGravado, onFechar,
+}: {
   meses: string[];
   caminhos: string[];
   arquivos: Map<string, File>;
+  memoria: string;            // chave da prévia no navegador (utils/lembrar)
+  retomar: Retomada | null;   // prévia guardada de antes de recarregar
+  semArquivos: boolean;       // pasta lembrada sem permissão: não há o que enviar
   auditoria: AuditoriaHistoricoLinha[];
   cgf: CGFHistoricoLinha[];
   ret: RETHistoricoLinha[];
@@ -79,7 +99,8 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
     () => caminhos.map((c) => classificar(c, ano)).filter((x): x is ArquivoClassificado => !!x),
     [caminhos, ano],
   );
-  const [celulas, setCelulas] = useState<Celula[]>(() =>
+  const [inicio] = useState(() => (retomar ? retomada(retomar) : null));
+  const [celulas, setCelulas] = useState<Celula[]>(() => inicio?.celulas ??
     ORDEM.flatMap((etapa) => meses.map((periodo): Celula => {
       const { pastas, zipsSoltos } = arquivosDaCelula(reconhecidos, etapa, periodo);
       const lista = [...pastas, ...zipsSoltos];
@@ -100,8 +121,15 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
       return { ...base, estado: "pronta", escolhida: gravado === null };
     })),
   );
-  const [fase, setFase] = useState<"previa" | "processando" | "revisao" | "gravando" | "fim">("previa");
+  const [fase, setFase] = useState<Fase>(inicio?.fase ?? "previa");
   const parar = useRef(false);
+
+  // Guarda a prévia a cada mudança: recarregar a página não perde o que já foi processado.
+  // Depois de gravar ("fim") não há mais nada a retomar.
+  useEffect(() => {
+    if (fase === "fim") esquecer(memoria);
+    else guardar(memoria, { celulas, fase } satisfies Retomada);
+  }, [celulas, fase, memoria]);
 
   const atualizar = (alvo: Celula, mudanca: Partial<Celula>) =>
     setCelulas((cs) => cs.map((c) => (c.etapa === alvo.etapa && c.periodo === alvo.periodo ? { ...c, ...mudanca } : c)));
@@ -328,7 +356,8 @@ export function ProcessarTrimestre({ meses, caminhos, arquivos, auditoria, cgf, 
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {fase === "previa" && (
-          <button type="button" onClick={processar} disabled={!aProcessar}
+          <button type="button" onClick={processar} disabled={!aProcessar || semArquivos}
+            title={semArquivos ? "Reabra a pasta acima para enviar os arquivos" : undefined}
             className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
             Processar {aProcessar} etapa(s)-mês
           </button>

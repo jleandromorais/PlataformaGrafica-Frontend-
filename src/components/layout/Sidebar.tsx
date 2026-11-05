@@ -88,7 +88,7 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
                         `group relative flex items-start gap-3 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors duration-150 ${
                           isActive
                             ? "bg-white/[0.07] text-white"
-                            : "text-zinc-400 hover:bg-white/[0.03] hover:text-zinc-200"
+                            : "text-zinc-400 hover:bg-primaria-hover hover:text-zinc-200"
                         }`
                       }
                     >
@@ -129,7 +129,7 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
             type="button"
             onClick={alternar}
             aria-pressed={tema === "escuro"}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-white/[0.04] hover:text-white"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 transition-colors hover:bg-primaria-hover hover:text-white"
           >
             {tema === "escuro" ? <Sun size={16} aria-hidden /> : <Moon size={16} aria-hidden />}
             {tema === "escuro" ? "Usar tema claro" : "Usar tema escuro"}

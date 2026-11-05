@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, Loader2,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, ShieldCheck,
 } from "lucide-react";
+import { Modal } from "../../components/ui/Modal";
 import { Alert } from "../../components/ui/Alert";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
@@ -13,8 +14,13 @@ import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
 import { mesesDoPRDoCivil } from "../../utils/periodos";
-import { ProcessarTrimestre } from "./Processar";
+import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
+import { esquecer, guardar, lembrar } from "../../utils/lembrar";
+import {
+  escolherChavePasta, lerPastaDaChave, navegadorLembraPasta, reabrirPasta, type ChavePasta, type PastaLida,
+} from "../../utils/pasta";
+import { Skeleton } from "../../components/ui/Skeleton";
 import type {
   AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
   SCGHistoricoLinha,
@@ -22,6 +28,12 @@ import type {
 import { PageHeader } from "../../components/layout/PageHeader";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+
+// O que o Painel guarda no navegador (utils/lembrar) para sobreviver a recarregar a página.
+const MEMORIA_PASTA = "ciclo:pasta";
+const memoriaProcessar = (raiz: string, inicio: string) => `ciclo:processar:${raiz}:${inicio}`;
+/** Nomes dos arquivos (o mapa só usa os nomes) e, no Chrome/Edge, a chave para reler a pasta. */
+interface PastaGuardada { raiz: string; caminhos: string[]; chave?: ChavePasta }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
@@ -181,7 +193,40 @@ export default function CicloPage() {
   const [processando, setProcessando] = useState(false);
   const [versao, setVersao] = useState(0); // muda depois de gravar: recarrega as etapas
   const [raiz, setRaiz] = useState("");
+  const [chavePasta, setChavePasta] = useState<ChavePasta | undefined>();
+  const [retomar, setRetomar] = useState<Retomada | null>(null); // prévia do Processar guardada
+  const [lendoPasta, setLendoPasta] = useState(false); // lendo os arquivos: mostra o esqueleto
+  const [avisoPasta, setAvisoPasta] = useState(false); // nossa explicação antes do aviso do Chrome
+  const inputPasta = useRef<HTMLInputElement>(null);    // seletor antigo (navegador sem showDirectoryPicker)
   const [gerandoNT, setGerandoNT] = useState(false);
+
+  // Ao abrir a tela: traz de volta a última pasta. Se o navegador já deu permissão
+  // permanente, relê os arquivos sem perguntar; senão, mostra "Reabrir pasta".
+  useEffect(() => {
+    lembrar<PastaGuardada>(MEMORIA_PASTA).then(async (g) => {
+      if (!g) return;
+      setRaiz(g.raiz);
+      setCaminhos(g.caminhos);
+      setChavePasta(g.chave);
+      if (!g.chave) return;
+      setLendoPasta(true);
+      const lida = await reabrirPasta(g.chave, false).catch(() => null);
+      if (lida) setArquivos(lida.arquivos);
+      setLendoPasta(false);
+    });
+  }, []);
+
+  // A cada pasta ou trimestre: reabre o Processar onde parou, se houver prévia guardada.
+  useEffect(() => {
+    if (!raiz) return;
+    let vigente = true;
+    lembrar<Retomada>(memoriaProcessar(raiz, meses[0])).then((r) => {
+      if (!vigente) return;
+      setRetomar(r ?? null);
+      setProcessando(!!r);
+    });
+    return () => { vigente = false; };
+  }, [raiz, meses]);
 
   useEffect(() => {
     // Só a carga mais recente vale: uma anterior que falhe depois não pinta erro sobre dados bons.
@@ -203,14 +248,72 @@ export default function CicloPage() {
   const prontas = lista.filter((e) => e.situacao === "ok").length;
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
+  /** Pasta nova escolhida: descarta a prévia antiga dela e guarda os nomes (e a chave). */
+  const aplicarPasta = async (pasta: PastaLida, chave?: ChavePasta) => {
+    await esquecer(memoriaProcessar(pasta.raiz, meses[0]));
+    const nomes = [...pasta.arquivos.keys()];
+    setRetomar(null);
+    setProcessando(false);
+    setRaiz(pasta.raiz);
+    setCaminhos(nomes);
+    setArquivos(pasta.arquivos);
+    setChavePasta(chave);
+    guardar(MEMORIA_PASTA, { raiz: pasta.raiz, caminhos: nomes, chave } satisfies PastaGuardada);
+  };
+
   const escolherPasta = (files: FileList | null) => {
     if (!files?.length) return;
     const lista = Array.from(files).map((f) => ({ f, rel: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") }));
-    setRaiz((files[0].webkitRelativePath || files[0].name).split("/")[0]);
-    setCaminhos(lista.map((x) => x.rel));
-    setArquivos(new Map(lista.map((x) => [x.rel, x.f])));
+    aplicarPasta({
+      raiz: (files[0].webkitRelativePath || files[0].name).split("/")[0],
+      arquivos: new Map(lista.map((x) => [x.rel, x.f])),
+    });
+  };
+
+  // Chrome/Edge: escolhe com chave, para a pasta poder ser reaberta depois de recarregar.
+  const escolherPastaLembrada = async () => {
+    try {
+      const chave = await escolherChavePasta();
+      if (!chave) return;
+      setLendoPasta(true); // só depois de escolher: a janela do seletor já fechou
+      await aplicarPasta(await lerPastaDaChave(chave), chave);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível ler a pasta."));
+    } finally {
+      setLendoPasta(false);
+    }
+  };
+
+  // Mesma pasta de antes: só pede a permissão de leitura de volta (precisa do clique).
+  const reabrir = async () => {
+    if (!chavePasta) return;
+    setLendoPasta(true);
+    try {
+      const lida = await reabrirPasta(chavePasta, true);
+      if (lida) setArquivos(lida.arquivos);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível reabrir a pasta."));
+    } finally {
+      setLendoPasta(false);
+    }
+  };
+
+  // "Continuar" da nossa janela: abre o seletor de pasta. Precisa ser dentro do clique,
+  // senão o navegador bloqueia o seletor.
+  const continuarPasta = () => {
+    setAvisoPasta(false);
+    if (navegadorLembraPasta) escolherPastaLembrada();
+    else inputPasta.current?.click();
+  };
+
+  const fecharProcessar = () => {
+    esquecer(memoriaProcessar(raiz, meses[0]));
+    setRetomar(null);
     setProcessando(false);
   };
+
+  // Lembrou os nomes, mas ainda sem acesso aos arquivos: dá para ver o mapa, não enviar.
+  const semArquivos = !!caminhos && arquivos.size === 0;
 
   const gerarNT = async () => {
     setGerandoNT(true);
@@ -268,21 +371,47 @@ export default function CicloPage() {
                 sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
               </p>
             </div>
-            <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/10">
+            <button type="button" onClick={() => setAvisoPasta(true)} disabled={lendoPasta}
+              className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
               <FolderOpen size={16} /> {caminhos ? "Escolher outra pasta" : "Escolher pasta"}
-              <input type="file" className="hidden" multiple
+            </button>
+            {!navegadorLembraPasta && (
+              <input ref={inputPasta} type="file" className="hidden" multiple
                 // @ts-expect-error webkitdirectory não está nos tipos do React
                 webkitdirectory="" directory=""
-                onChange={(e) => escolherPasta(e.target.files)} />
-            </label>
+                onChange={(e) => { escolherPasta(e.target.files); e.target.value = ""; }} />
+            )}
           </div>
-          {mapa && (
+          <Modal aberto={avisoPasta} onFechar={() => setAvisoPasta(false)}
+            icone={<ShieldCheck size={20} />} titulo="Ler a pasta do ciclo"
+            rodape={<>
+              <button type="button" onClick={continuarPasta}
+                className="w-full rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">Continuar</button>
+              <button type="button" onClick={() => setAvisoPasta(false)}
+                className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white">Cancelar</button>
+            </>}>
+            <p>Escolha a pasta das notas do ano (ex.: <b className="text-zinc-200">SCG-26</b>). O sistema olha <b className="text-zinc-200">só os nomes</b> dos
+              arquivos para montar o mapa. Nada é enviado nem gravado agora.</p>
+            <p>Depois de escolher, o Chrome mostra um aviso de segurança dele, pedindo licença para o site ver os arquivos.
+              É normal: clique em <b className="text-zinc-200">Ver arquivos</b> ou <b className="text-zinc-200">Carregar</b>.</p>
+          </Modal>
+          {lendoPasta && <EsqueletoMapa />}
+          {semArquivos && !lendoPasta && (
+            <p className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
+              <span>Lembrei a pasta <b>{raiz}</b> da última vez. Para enviar arquivos de novo, o navegador precisa da sua permissão.</span>
+              {chavePasta
+                ? <button type="button" onClick={reabrir} className="rounded-lg bg-amber-300/15 px-3 py-1.5 font-semibold hover:bg-amber-300/25">Reabrir {raiz}</button>
+                : <span className="text-amber-200/70">Escolha a pasta de novo.</span>}
+            </p>
+          )}
+          {mapa && !lendoPasta && (
             <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length}
               processar={dados && !processando ? () => setProcessando(true) : undefined} />
           )}
-          {mapa && processando && dados && (
+          {mapa && !lendoPasta && processando && dados && (
             <ProcessarTrimestre key={`${raiz}-${meses[0]}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
-              auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={() => setProcessando(false)} />
+              memoria={memoriaProcessar(raiz, meses[0])} retomar={retomar} semArquivos={semArquivos}
+              auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
           )}
         </section>
 
@@ -290,7 +419,7 @@ export default function CicloPage() {
         <section className={`${PANEL} overflow-hidden`}>
           <h2 className="border-b border-white/[0.07] px-5 py-4 text-base font-semibold text-white">Etapas do ciclo</h2>
           {carregando ? (
-            <p className="flex items-center gap-2 p-5 text-sm text-zinc-400"><Loader2 size={16} className="animate-spin" /> Consultando…</p>
+            <EsqueletoEtapas />
           ) : (
             <ol className="divide-y divide-white/[0.05]">
               {lista.map((e, i) => (
@@ -329,6 +458,54 @@ export default function CicloPage() {
             </ol>
           )}
         </section>
+      </div>
+    </div>
+  );
+}
+
+// ── Esqueletos (enquanto carrega) ─────────────────────────────────────────────
+// Imitam a forma do que vai aparecer, para a tela não "pular" quando os dados chegam.
+
+/** Lugar das etapas: número, ícone, título, descrição e os valores de cada mês. */
+function EsqueletoEtapas() {
+  return (
+    <div role="status" className="divide-y divide-white/[0.05]">
+      <span className="sr-only">Consultando as etapas do ciclo…</span>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <div key={i} className="flex items-start gap-4 px-5 py-4">
+          <Skeleton className="mt-0.5 ml-8 h-[18px] w-[18px] rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-3 w-3/5" />
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Skeleton className="h-7 w-44" />
+              <Skeleton className="h-7 w-44" />
+              <Skeleton className="h-7 w-44" />
+            </div>
+          </div>
+          <Skeleton className="h-7 w-12" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Lugar do mapa da pasta: a linha de resumo e a tabela etapa × mês. */
+function EsqueletoMapa() {
+  return (
+    <div role="status" className="mt-5 space-y-3">
+      <span className="sr-only">Lendo os arquivos da pasta…</span>
+      <Skeleton className="h-4 w-3/5" />
+      <div className="space-y-2 pt-2">
+        <Skeleton className="h-9 w-full" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="grid grid-cols-4 gap-4 px-4 py-2">
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-4 w-3/5" />
+            <Skeleton className="h-4 w-3/5" />
+            <Skeleton className="h-4 w-3/5" />
+          </div>
+        ))}
       </div>
     </div>
   );
