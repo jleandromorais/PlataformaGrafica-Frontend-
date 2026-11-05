@@ -14,6 +14,7 @@ import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import { linkDoCiclo } from "../../utils/periodoNaUrl";
 import { esquecer, guardar } from "../../utils/lembrar";
+import { abrirArquivo, type ArquivoDaPastaCiclo } from "../../utils/pasta";
 import {
   NOMES_ETAPA, arquivosDaCelula, classificar, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes,
   type ArquivoClassificado, type Etapa,
@@ -83,7 +84,7 @@ export function ProcessarTrimestre({
 }: {
   meses: string[];
   caminhos: string[];
-  arquivos: Map<string, File>;
+  arquivos: Map<string, ArquivoDaPastaCiclo>;
   memoria: string;            // chave da prévia no navegador (utils/lembrar)
   retomar: Retomada | null;   // prévia guardada de antes de recarregar
   semArquivos: boolean;       // pasta lembrada sem permissão: não há o que enviar
@@ -134,18 +135,22 @@ export function ProcessarTrimestre({
   const atualizar = (alvo: Celula, mudanca: Partial<Celula>) =>
     setCelulas((cs) => cs.map((c) => (c.etapa === alvo.etapa && c.periodo === alvo.periodo ? { ...c, ...mudanca } : c)));
   const alternar = (c: Celula) => atualizar(c, { escolhida: !c.escolhida });
-  const files = (c: Celula, relativo: boolean) => c.arquivos.flatMap((a) => {
-    const f = arquivos.get(a.caminho);
-    return f ? [{ arquivo: f, caminho: relativo ? envioDaPastaDoMes(a).caminho : f.name }] : [];
-  });
+  /** Abre do disco só os arquivos desta etapa-mês, na hora de enviar (a pasta só listou os nomes).
+   * `caminho`: como o arquivo vai para o backend; `so`: filtra (ex.: só receitas). */
+  async function abrir(c: Celula, caminho: (a: ArquivoClassificado, f: File) => string, so?: (a: ArquivoClassificado) => boolean) {
+    const lista = await Promise.all(c.arquivos.filter((a) => !so || so(a)).map(async (a) => {
+      const item = arquivos.get(a.caminho);
+      if (!item) return null;
+      const f = await abrirArquivo(item);
+      return { arquivo: f, caminho: caminho(a, f) };
+    }));
+    return lista.filter((x): x is { arquivo: File; caminho: string } => !!x);
+  }
 
   async function processarUma(c: Celula): Promise<Partial<Celula>> {
     if (c.etapa === "auditoria") {
       // Como a tela da Auditoria: modo XML (lê também os PDFs), todas as empresas, sem planilha.
-      const envio = c.arquivos.flatMap((a) => {
-        const f = arquivos.get(a.caminho);
-        return f ? [{ arquivo: f, caminho: envioDaAuditoria(a).caminho }] : [];
-      });
+      const envio = await abrir(c, (a) => envioDaAuditoria(a).caminho);
       const pastaRaiz = c.arquivos[0] ? envioDaAuditoria(c.arquivos[0]).raiz : "";
       const r = await processarAuditoria({ arquivos: envio, pastaRaiz, empresas: [], modo: "XML", periodo: c.periodo, planilha: null });
       const problemas = r.problemas ?? [];
@@ -175,7 +180,7 @@ export function ProcessarTrimestre({
     if (c.etapa === "cgf") {
       const pmpv = (await getPMPVMensal(c.periodo).catch(() => ({ pmpv: 0 }))).pmpv || 0;
       if (!pmpv) return { estado: "bloqueada", motivo: `Falta o PMPV de ${c.periodo}: salve o PMPV do trimestre antes.` };
-      const r = await processarCGF(files(c, false).map((x) => x.arquivo), COLUNAS_PADRAO_CGF);
+      const r = await processarCGF((await abrir(c, (_, f) => f.name)).map((x) => x.arquivo), COLUNAS_PADRAO_CGF);
       const erros = (r.problemas ?? []).filter((p) => p.gravidade === "erro");
       const avisos = [
         ...(r.problemas ?? []).filter((p) => p.gravidade === "aviso").map((p) => p.mensagem),
@@ -192,12 +197,9 @@ export function ProcessarTrimestre({
     if (c.etapa === "conciliacao") {
       // Como a tela do RP: receitas e despesas em campos separados, a partir da pasta do mês.
       // TOP vai como receita (o reconhecedor e o backend usam a mesma regra pelo caminho).
-      const envio = (cat: "receita" | "despesa") => c.arquivos.flatMap((a) => {
-        const f = arquivos.get(a.caminho);
-        return f && a.categoria === cat ? [{ arquivo: f, caminho: envioDaPastaDoMes(a).caminho }] : [];
-      });
-      const receitas = envio("receita");
-      const despesas = envio("despesa");
+      const envio = (cat: "receita" | "despesa") => abrir(c, (a) => envioDaPastaDoMes(a).caminho, (a) => a.categoria === cat);
+      const receitas = await envio("receita");
+      const despesas = await envio("despesa");
       const r = await processarConcilia(receitas, despesas);
       const naoLidos = r.itens.filter((i) => i.status !== "OK" && i.status !== JA_NO_RET).length;
       const noRet = r.itens.filter((i) => i.status === JA_NO_RET).length;
@@ -214,7 +216,7 @@ export function ProcessarTrimestre({
       };
     }
     // RET: envia a partir da pasta do mês, como se ela tivesse sido escolhida na tela RET.
-    const envio = files(c, true);
+    const envio = await abrir(c, (a) => envioDaPastaDoMes(a).caminho);
     const raiz = c.arquivos[0] ? envioDaPastaDoMes(c.arquivos[0]).raiz : "";
     const r = await processarRET(envio, raiz);
     const outros = r.meses.filter((m) => m.periodo !== c.periodo).map((m) => m.periodo);
@@ -282,6 +284,18 @@ export function ProcessarTrimestre({
   const gravadas = celulas.filter((c) => c.estado === "gravada").length;
   const comErro = celulas.filter((c) => c.estado === "erro" || c.estado === "bloqueada").length;
 
+  // Na prévia marca o que está pronto para enviar; na revisão, o que foi processado.
+  const podeMarcar = (c: Celula) => !ocupado && fase !== "fim" &&
+    ((fase === "previa" && c.estado === "pronta") || (fase === "revisao" && c.estado === "processada"));
+  const marcaveis = celulas.filter(podeMarcar);
+  const todasMarcadas = marcaveis.length > 0 && marcaveis.every((c) => c.escolhida);
+  const algumasMarcadas = !todasMarcadas && marcaveis.some((c) => c.escolhida);
+  // "Selecionar tudo": se já está tudo marcado, desmarca tudo.
+  const marcarTodas = () => {
+    const valor = !todasMarcadas;
+    setCelulas((cs) => cs.map((c) => (podeMarcar(c) ? { ...c, escolhida: valor } : c)));
+  };
+
   return (
     <div className="mt-5 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 sm:p-5">
       <h3 className="text-base font-semibold text-white">
@@ -299,7 +313,15 @@ export function ProcessarTrimestre({
         <table className="w-full min-w-[40rem] text-sm">
           <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
             <tr>
-              <th className="px-3 py-2 text-left font-semibold">Etapa · mês</th>
+              <th className="px-3 py-2 text-left font-semibold">
+                <label className={`flex items-center gap-2 ${marcaveis.length ? "cursor-pointer" : ""}`} title={todasMarcadas ? "Desmarcar tudo" : "Selecionar tudo"}>
+                  <input type="checkbox" checked={todasMarcadas} disabled={!marcaveis.length} onChange={marcarTodas}
+                    // Meio-marcado (–) quando só algumas estão marcadas.
+                    ref={(el) => { if (el) el.indeterminate = algumasMarcadas; }}
+                    className="h-4 w-4 accent-marinho disabled:opacity-40" aria-label={todasMarcadas ? "Desmarcar tudo" : "Selecionar tudo"} />
+                  Etapa · mês
+                </label>
+              </th>
               <th className="px-3 py-2 text-right font-semibold">Arquivos</th>
               <th className="px-3 py-2 text-right font-semibold">Já gravado</th>
               <th className="px-3 py-2 text-right font-semibold">Resultado</th>
@@ -308,14 +330,13 @@ export function ProcessarTrimestre({
           </thead>
           <tbody className="divide-y divide-white/[0.05]">
             {celulas.map((c) => {
-              const podeMarcar = !ocupado && fase !== "fim" &&
-                ((fase === "previa" && c.estado === "pronta") || (fase === "revisao" && c.estado === "processada"));
+              const marcavel = podeMarcar(c);
               const regrava = c.escolhida && c.gravado !== null && c.estado !== "gravada";
               return (
                 <tr key={`${c.etapa}-${c.periodo}`}>
                   <td className="px-3 py-2">
-                    <label className={`flex items-center gap-2 ${podeMarcar ? "cursor-pointer" : ""}`}>
-                      <input type="checkbox" checked={c.escolhida} disabled={!podeMarcar} onChange={() => alternar(c)}
+                    <label className={`flex items-center gap-2 ${marcavel ? "cursor-pointer" : ""}`}>
+                      <input type="checkbox" checked={c.escolhida} disabled={!marcavel} onChange={() => alternar(c)}
                         className="h-4 w-4 accent-marinho disabled:opacity-40" aria-label={`${NOMES_ETAPA[c.etapa]} ${c.periodo}`} />
                       <span className="text-zinc-100">{NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}</span>
                     </label>
