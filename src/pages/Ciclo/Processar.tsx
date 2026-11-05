@@ -4,7 +4,7 @@
  * spec-puxar-tudo-processar e spec-processar-parte2-cgr. */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
   calcularCGFRs, diferencasAuditoria, getPMPVMensal, processarAuditoria, processarCGF, processarConcilia, processarRET,
   salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
@@ -65,6 +65,15 @@ function retomada(r: Retomada): Retomada {
     c.estado === "processando" ? { ...c, estado: "pronta" } : c.estado === "gravando" ? { ...c, estado: "processada" } : c);
   if (r.fase !== "processando" && r.fase !== "gravando") return { celulas, fase: r.fase };
   return { celulas, fase: celulas.some((c) => c.estado === "processada") ? "revisao" : "previa" };
+}
+
+/** Linha que pede o olho do analista antes de gravar: erro, bloqueio, aviso, ou valor
+ * processado diferente do gravado (mais de R$ 1). O aviso leva à tela da etapa no mesmo mês. */
+function precisaAtencao(c: Celula) {
+  if (c.estado === "erro" || c.estado === "bloqueada") return true;
+  if (c.estado !== "processada" && c.estado !== "gravada") return false;
+  const difere = c.gravado !== null && c.valor !== undefined && Math.abs(c.valor - c.gravado) > 1;
+  return difere || c.avisos.length > 0 || !!c.diferencas || (c.etapa === "conciliacao" && !c.escolhida);
 }
 
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
@@ -361,9 +370,13 @@ export function ProcessarTrimestre({
                         )}
                         {c.avisos.map((a) => <span key={a} className="block text-xs text-amber-200">⚠ {a}</span>)}
                         {c.diferencas && <OndeDifere d={c.diferencas} total={(c.valor ?? 0) - (c.gravado ?? 0)} />}
-                        {(c.estado === "bloqueada" || (c.estado === "processada" && c.etapa === "conciliacao" && !c.escolhida)) && (
-                          <Link className="block text-xs text-sky-300 underline"
-                            to={linkDoCiclo(ROTA[c.etapa], meses[0], { chave: "periodo", valor: c.periodo })}>Abrir a tela</Link>
+                        {precisaAtencao(c) && (
+                          <Link
+                            to={linkDoCiclo(ROTA[c.etapa], meses[0], { chave: "periodo", valor: c.periodo })}
+                            className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-amber-400/10 px-2 py-1 text-xs font-semibold text-amber-200 transition-colors hover:bg-amber-400/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                            Conferir em {NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}
+                            <ArrowUpRight size={13} aria-hidden />
+                          </Link>
                         )}
                       </span>
                     </span>
