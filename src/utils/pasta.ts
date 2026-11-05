@@ -29,18 +29,24 @@ export interface ChavePasta {
   requestPermission(o: { mode: "read" }): Promise<Permissao>;
 }
 
-/** Arquivos da pasta: caminho sem a pasta raiz → File (como o input com webkitdirectory). */
-export interface PastaLida { raiz: string; arquivos: Map<string, File> }
+/** Um arquivo da pasta: já aberto (input comum) ou só a "alça", aberta na hora de enviar. */
+export type ArquivoDaPastaCiclo = File | { getFile(): Promise<File> };
+
+/** Arquivos da pasta: caminho sem a pasta raiz → arquivo (como o input com webkitdirectory). */
+export interface PastaLida { raiz: string; arquivos: Map<string, ArquivoDaPastaCiclo> }
+
+export const abrirArquivo = (a: ArquivoDaPastaCiclo): Promise<File> => (a instanceof File ? Promise.resolve(a) : a.getFile());
 
 export const navegadorLembraPasta = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
-async function lerChave(chave: ChavePasta, prefixo = "", saida = new Map<string, File>()) {
+// Só lista os nomes: abrir cada arquivo (getFile) com milhares deles, em OneDrive ou
+// rede, levava minutos. O mapa só precisa dos nomes; o Processar abre na hora de enviar.
+async function lerChave(chave: ChavePasta, prefixo = "", saida = new Map<string, ArquivoDaPastaCiclo>()) {
   const filhos: Promise<unknown>[] = [];
   for await (const item of chave.values()) {
     const caminho = prefixo + item.name;
-    filhos.push(item.kind === "file"
-      ? item.getFile().then((f) => { saida.set(caminho, f); })
-      : lerChave(item, `${caminho}/`, saida));
+    if (item.kind === "file") saida.set(caminho, item);
+    else filhos.push(lerChave(item, `${caminho}/`, saida));
   }
   await Promise.all(filhos);
   return saida;

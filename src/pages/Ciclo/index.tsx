@@ -18,7 +18,8 @@ import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import {
-  escolherChavePasta, lerPastaDaChave, navegadorLembraPasta, reabrirPasta, type ChavePasta, type PastaLida,
+  escolherChavePasta, lerPastaDaChave, navegadorLembraPasta, reabrirPasta,
+  type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida,
 } from "../../utils/pasta";
 import { Skeleton } from "../../components/ui/Skeleton";
 import type {
@@ -189,7 +190,7 @@ export default function CicloPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [caminhos, setCaminhos] = useState<string[] | null>(null);
   // Os arquivos da pasta escolhida (caminho sem a pasta raiz → File), para o "Processar" enviar.
-  const [arquivos, setArquivos] = useState<Map<string, File>>(new Map());
+  const [arquivos, setArquivos] = useState<Map<string, ArquivoDaPastaCiclo>>(new Map());
   const [processando, setProcessando] = useState(false);
   const [versao, setVersao] = useState(0); // muda depois de gravar: recarrega as etapas
   const [raiz, setRaiz] = useState("");
