@@ -1,5 +1,5 @@
 /**
- * Paleta semântica única do front-end. Ver SPEC_DESIGN_SYSTEM.md §3.1/§5.
+ * Paleta semântica única do front-end. Ver docs/specs/SPEC_DESIGN_SYSTEM.md §3.1/§5.
  *
  * Regra: cor comunica o PAPEL do dado, não o "gosto" da página. Um mesmo
  * tom (ex. emerald) deve sempre significar a mesma coisa em qualquer tela —

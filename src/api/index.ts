@@ -262,7 +262,7 @@ export const gerarMinutaNotaTecnica = (periodo: string) =>
     .then((r) => r.data);
 
 // ─── PR ──────────────────────────────────────────────────────────────────────
-// PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.
+// PR = (SCG + ΣSR) / VP. Ver docs/specs/SPEC_PR.md.
 export const getPR = (periodo: string) =>
   api.get<PRResultado>("/pr", { params: { periodo } }).then((r) => r.data);
 
@@ -283,7 +283,7 @@ export const salvarPR = (periodo: string, scg: number, sr: number, vp: number) =
   api.post<{ pr: number; pv_automatico?: PVAutomatico | null }>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
 
 // ─── PV ──────────────────────────────────────────────────────────────────────
-// PV = PMPV + PR. Ver Front_end/SPEC_PV.md.
+// PV = PMPV + PR. Ver docs/specs/SPEC_PV.md.
 export const listarPeriodosPV = () =>
   api.get<PVPeriodo[]>("/pv/periodos").then((r) => r.data);
 
@@ -308,7 +308,7 @@ export const salvarPVTrimestre = (trimestre: string, ano: number, pmpv: number, 
 
 // ─── SR ──────────────────────────────────────────────────────────────────────
 // SR = (VP − VF) × PR × (1 + SELIC%) + SR anterior — calculado por mês
-// dentro de um trimestre. Ver Front_end/SPEC_SR.md.
+// dentro de um trimestre. Ver docs/specs/SPEC_SR.md.
 export const listarSessoesSR = () =>
   api.get<SRSessaoPMPV[]>("/sr/sessoes").then((r) => r.data);
 

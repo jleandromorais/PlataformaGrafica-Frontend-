@@ -86,7 +86,7 @@ export interface CGFCalcularRsResponse {
   cgf_rs: number | null;      // null sem PMPV
 }
 
-/** Problema num arquivo enviado (CGF, Auditoria). Ver SPEC_ERROS.md §3. */
+/** Problema num arquivo enviado (CGF, Auditoria). Ver docs/specs/SPEC_ERROS.md §3. */
 export interface ProblemaArquivo {
   arquivo: string;                       // nome ou caminho relativo; "" quando é do envio como um todo
   empresa?: string | null;               // Auditoria
@@ -362,7 +362,7 @@ export interface SCGHistoricoLinha extends SCGPeriodo {
 }
 
 // ─── PV ──────────────────────────────────────────────────────────────────────
-// PV = PMPV + PR. Ver Front_end/SPEC_PV.md.
+// PV = PMPV + PR. Ver docs/specs/SPEC_PV.md.
 export interface PVResultado {
   pmpv: number;
   pr: number;
@@ -384,7 +384,7 @@ export interface PVTrimestre {
 }
 
 // ─── PR ──────────────────────────────────────────────────────────────────────
-// PR = (SCG + ΣSR) / VP. Ver Front_end/SPEC_PR.md.
+// PR = (SCG + ΣSR) / VP. Ver docs/specs/SPEC_PR.md.
 export interface PRResultado {
   periodo?: string;
   scg: number;

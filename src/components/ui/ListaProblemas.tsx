@@ -10,7 +10,7 @@ const ESTILO = {
   info: { ...semantic.info, Icon: Info, titulo: "Para saber" },
 } as const;
 
-/** Problemas por arquivo, agrupados por gravidade (erro → aviso → info). Ver SPEC_ERROS.md §3. */
+/** Problemas por arquivo, agrupados por gravidade (erro → aviso → info). Ver docs/specs/SPEC_ERROS.md §3. */
 export function ListaProblemas({ problemas, className = "" }: { problemas: ProblemaArquivo[]; className?: string }) {
   if (!problemas.length) return null;
   return (
