@@ -10,6 +10,8 @@ import type { SRLinhaCalculada, SROrigemPR } from "../../types";
 import { dicaDe } from "../../utils/glossario";
 import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -363,10 +365,12 @@ export default function SRPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
-                {linhas.map((l, idx) => {
+                {/* Carregando: uma linha de esqueleto por mês; os campos voltam quando os dados chegam. */}
+                {carregando && <LinhasEsqueleto colunas={8} linhas={linhas.length} altura="h-8" texto="Carregando o trimestre…" />}
+                {!carregando && linhas.map((l, idx) => {
                   const estimado = origemPR[l.mes] === "estimado";
                   return (
-                    <tr key={l.mes} className={carregando ? "opacity-50" : ""}>
+                    <tr key={l.mes}>
                       <td className="px-4 py-2.5 font-semibold text-zinc-100">
                         <span className="flex items-center gap-1.5">
                           {l.mes}
@@ -407,7 +411,9 @@ export default function SRPage() {
                   <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold text-zinc-400">
                     SR do trimestre
                   </td>
-                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>{brl(total)}</td>
+                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>
+                    {carregando ? <Skeleton className="ml-auto h-6 w-32" /> : brl(total)}
+                  </td>
                 </tr>
               </tfoot>
             </table>

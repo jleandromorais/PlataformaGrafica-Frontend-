@@ -11,6 +11,7 @@ import { MESES_ABREV } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -205,7 +206,15 @@ export default function PVPage() {
       <Card className="border border-teal-500/20">
         <div className="flex flex-wrap items-center gap-4">
           <span className="text-sm text-zinc-400">PV = PMPV + PR =</span>
-          <span className={`text-3xl font-extrabold ${colorForValue(pv)}`}>R$ {pv.toFixed(4)}</span>
+          {/* Carregando: esqueleto no lugar do número, em vez de mostrar "R$ 0.0000" provisório. */}
+          {carregando ? (
+            <span role="status">
+              <span className="sr-only">Carregando o PV do trimestre…</span>
+              <Skeleton className="h-9 w-44" />
+            </span>
+          ) : (
+            <span className={`text-3xl font-extrabold ${colorForValue(pv)}`}>R$ {pv.toFixed(4)}</span>
+          )}
         </div>
       </Card>
 

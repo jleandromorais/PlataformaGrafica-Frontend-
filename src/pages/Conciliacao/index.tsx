@@ -15,6 +15,7 @@ import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
@@ -46,12 +47,13 @@ export default function ConciliacaoPage() {
   const [ocrDisponivel, setOcrDisponivel] = useState(true);
   const [editados, setEditados] = useState<Record<number, string>>({});
   const [historico, setHistorico] = useState<ConciliaHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
 
   useEffect(() => {
-    getHistoricoConcilia().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Conciliação (RP).")));
+    getHistoricoConcilia().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Conciliação (RP)."))).finally(() => setHistoricoCarregado(true));
   }, []);
 
   /** Itens com os valores digitados à mão nos PDFs que não foram lidos. */
@@ -270,6 +272,7 @@ export default function ConciliacaoPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
                 {historico.map((h) => {
                   const diverge = Math.abs(h.rp_dos_itens - h.rp_gravado) > 0.01;
                   return (
@@ -283,7 +286,7 @@ export default function ConciliacaoPage() {
                     </tr>
                   );
                 })}
-                {historico.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum RP gravado.</td></tr>}
+                {historicoCarregado && historico.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum RP gravado.</td></tr>}
               </tbody>
             </table>
           </div>

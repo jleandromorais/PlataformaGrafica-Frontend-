@@ -2,10 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
+import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
 import { brl, dataHora, num } from "../../utils/format";
 import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -206,6 +209,7 @@ function TabelaMes({ linhas, dias, onChange }: {
 export default function PMPVPage() {
   const [trimestres, setTrimestres] = useState<Trimestre[]>([]);
   const [trimestre, setTrimestre] = useState("");
+  const [falhouTrimestres, setFalhouTrimestres] = useState(false); // após erro, troca o esqueleto por um aviso
   const [ano, setAno] = useState(new Date().getFullYear());
   const [contaGrafica, setContaGrafica] = useState("");
   /** De onde veio o valor do campo: PR salvo na tela PR, digitado à mão, ou ainda sem PR salvo. */
@@ -228,11 +232,12 @@ export default function PMPVPage() {
   const [aviso, setAviso] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [historico, setHistorico] = useState<PMPVHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ultimaSalva, setUltimaSalva] = useState<number | null>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
 
   const carregarHistorico = useCallback(() => {
-    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PMPV.")));
+    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PMPV."))).finally(() => setHistoricoCarregado(true));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);
@@ -243,7 +248,10 @@ export default function PMPVPage() {
         setTrimestres(t);
         setTrimestre(trimestreDoMesAtual(t));
       })
-      .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais.")));
+      .catch((e) => {
+        setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais."));
+        setFalhouTrimestres(true);
+      });
   }, []);
 
   const origemCG = carregadoPara === `${trimestre}/${ano}` ? origemSalva : "carregando";
@@ -367,8 +375,13 @@ export default function PMPVPage() {
 
     setOcupado("salvar");
     try {
-      const { sessao_id } = await salvarPMPV({ nome, dados_por_mes, resultado, periodos });
-      setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.`);
+      const { sessao_id, pv_automatico } = await salvarPMPV({ nome, dados_por_mes, resultado, periodos });
+      // O backend regrava o PV do trimestre com o PMPV novo e o PR salvo.
+      const pv = (pv_automatico ?? []).map(textoPVAutomatico).filter((t) => t !== null);
+      const pvOk = pv.filter((t) => t.ok).map((t) => ` ${t.texto}`).join("");
+      setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
+      const pendente = pv.filter((t) => !t.ok).map((t) => t.texto).join("\n");
+      if (pendente) setAviso(pendente);
       setUltimaSalva(sessao_id);
       carregarHistorico();
     } catch (e) {
@@ -449,8 +462,14 @@ export default function PMPVPage() {
                   {trimestres.length ? (
                     <Seletor opcoes={trimestres.map((t) => t.label)} valor={trimestre}
                       onChange={(v) => { setTrimestre(v); invalidar(); }} rotulo={(v) => v} />
+                  ) : falhouTrimestres ? (
+                    <p className="text-sm text-zinc-500">Não foi possível carregar os trimestres.</p>
                   ) : (
-                    <p className="text-sm text-zinc-500">Carregando…</p>
+                    // Esqueleto dos 4 botões de trimestre, no mesmo tamanho dos reais.
+                    <div role="status" className="flex flex-wrap gap-2">
+                      <span className="sr-only">Carregando os trimestres…</span>
+                      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-8 w-28" />)}
+                    </div>
                   )}
                 </div>
                 <div>
@@ -648,6 +667,7 @@ export default function PMPVPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
                 {historico.map((h) => (
                   <tr key={h.id} className={h.id === ultimaSalva ? "bg-sky-500/[0.06]" : ""}>
                     <td className="px-5 py-2.5 font-medium text-zinc-200">{h.nome}</td>
@@ -660,7 +680,7 @@ export default function PMPVPage() {
                     <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_criacao)}</td>
                   </tr>
                 ))}
-                {historico.length === 0 && (
+                {historicoCarregado && historico.length === 0 && (
                   <tr><td colSpan={6} className="px-5 py-8 text-center text-zinc-500">Nenhuma sessão salva ainda.</td></tr>
                 )}
               </tbody>

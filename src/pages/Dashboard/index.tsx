@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Area,
   AreaChart,
@@ -18,6 +18,8 @@ import { Select } from "../../components/ui/Input";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Alert } from "../../components/ui/Alert";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -152,12 +154,18 @@ function KpiTile({
   );
 }
 
+/** Na 1ª carga o gráfico vira um bloco de esqueleto do mesmo tamanho (antes ficavam só os eixos vazios). */
+function GraficoOuEsqueleto({ carregando, children }: { carregando: boolean; children: ReactNode }) {
+  return carregando ? <Skeleton className="h-full w-full rounded-xl" /> : <>{children}</>;
+}
+
+/** Cartão de KPI carregando: rótulo, número grande e variação, no tamanho do cartão real. */
 function KpiSkeleton() {
   return (
     <div className={`${PANEL} p-5 sm:p-6`} aria-hidden>
-      <div className="h-3 w-24 animate-pulse rounded bg-white/[0.06]" />
-      <div className="mt-4 h-7 w-44 animate-pulse rounded bg-white/[0.06]" />
-      <div className="mt-3 h-3 w-24 animate-pulse rounded bg-white/[0.04]" />
+      <Skeleton className="h-3 w-24 rounded" />
+      <Skeleton className="mt-4 h-7 w-44" />
+      <Skeleton className="mt-3 h-3 w-24 rounded" />
     </div>
   );
 }
@@ -315,7 +323,8 @@ export default function DashboardPage() {
         {/* ── KPIs do último mês ────────────────────────────────────────── */}
         {!ultimoMes ? (
           loading ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+            <div role="status" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
+              <span className="sr-only">Carregando os indicadores…</span>
               {KPI_CAMPOS.map(({ chave }) => <KpiSkeleton key={chave} />)}
             </div>
           ) : erro ? null : (
@@ -359,6 +368,7 @@ export default function DashboardPage() {
               }
             />
             <div className="mt-6 h-64 sm:h-80">
+              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={serieScg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                   <defs>
@@ -391,6 +401,7 @@ export default function DashboardPage() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              </GraficoOuEsqueleto>
             </div>
           </div>
 
@@ -398,11 +409,7 @@ export default function DashboardPage() {
             <SectionHeading title="Composição do SCG" subtitle={`SCG = RPV + RET + RP — ${ultimoTrimestre?.trimestre ?? "último trimestre"}`} />
             {!ultimoTrimestre ? (
               loading ? (
-                <div className="mt-7 space-y-5" aria-hidden>
-                  {[0, 1, 2, 3].map((i) => (
-                    <div key={i} className="h-6 animate-pulse rounded bg-white/[0.04]" />
-                  ))}
-                </div>
+                <EsqueletoLista linhas={4} icone={false} texto="Carregando a composição do SCG…" className="mt-7 space-y-6" />
               ) : (
                 <EmptyState label="Sem dados trimestrais ainda." className="py-12" />
               )
@@ -436,6 +443,7 @@ export default function DashboardPage() {
           <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading title="PMPV mensal" subtitle="Preço médio ponderado por volume (R$/m³)" />
             <div className="mt-6 h-64">
+              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={seriePmpv} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -452,6 +460,7 @@ export default function DashboardPage() {
                   <Line type="monotone" dataKey="valor" name={GLOSSARIO.PMPV.nome} stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
                 </LineChart>
               </ResponsiveContainer>
+              </GraficoOuEsqueleto>
             </div>
           </div>
 
@@ -471,6 +480,7 @@ export default function DashboardPage() {
               }
             />
             <div className="mt-6 h-64">
+              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={historicoCompleto} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
@@ -487,6 +497,7 @@ export default function DashboardPage() {
                   <Bar dataKey="cgf" name={GLOSSARIO.CGF.nome} fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
                 </BarChart>
               </ResponsiveContainer>
+              </GraficoOuEsqueleto>
             </div>
           </div>
         </div>

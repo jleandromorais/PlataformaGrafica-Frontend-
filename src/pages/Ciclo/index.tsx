@@ -22,6 +22,7 @@ import {
   type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida,
 } from "../../utils/pasta";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import type {
   AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
   SCGHistoricoLinha,
@@ -196,7 +197,13 @@ export default function CicloPage() {
   const [raiz, setRaiz] = useState("");
   const [chavePasta, setChavePasta] = useState<ChavePasta | undefined>();
   const [retomar, setRetomar] = useState<Retomada | null>(null); // prévia do Processar guardada
-  const [lendoPasta, setLendoPasta] = useState(false); // lendo os arquivos: mostra o esqueleto
+  // "escolhendo": seletor/aviso do Chrome abertos; "lendo": listando os nomes. Nos dois, esqueleto.
+  const [estadoPasta, setEstadoPasta] = useState<"parada" | "escolhendo" | "lendo">("parada");
+  const ocupadoPasta = estadoPasta !== "parada";
+  // Por que a pasta não abriu (cancelou, Chrome sem permissão, erro): fica junto da pasta,
+  // não no topo, para ser vista sem rolar a página.
+  const [avisoLeitura, setAvisoLeitura] = useState<string | null>(null);
+  const [rodada, setRodada] = useState(0); // "Recomeçar o Processar": muda a key e zera o painel
   const [avisoPasta, setAvisoPasta] = useState(false); // nossa explicação antes do aviso do Chrome
   const inputPasta = useRef<HTMLInputElement>(null);    // seletor antigo (navegador sem showDirectoryPicker)
   const [gerandoNT, setGerandoNT] = useState(false);
@@ -210,10 +217,10 @@ export default function CicloPage() {
       setCaminhos(g.caminhos);
       setChavePasta(g.chave);
       if (!g.chave) return;
-      setLendoPasta(true);
+      setEstadoPasta("lendo");
       const lida = await reabrirPasta(g.chave, false).catch(() => null);
       if (lida) setArquivos(lida.arquivos);
-      setLendoPasta(false);
+      setEstadoPasta("parada");
     });
   }, []);
 
@@ -273,29 +280,38 @@ export default function CicloPage() {
 
   // Chrome/Edge: escolhe com chave, para a pasta poder ser reaberta depois de recarregar.
   const escolherPastaLembrada = async () => {
+    setAvisoLeitura(null);
+    setEstadoPasta("escolhendo");
     try {
       const chave = await escolherChavePasta();
-      if (!chave) return;
-      setLendoPasta(true); // só depois de escolher: a janela do seletor já fechou
+      // Cancelar o seletor ou clicar "Não permitir" no aviso do Chrome dão o mesmo resultado.
+      if (!chave) {
+        setAvisoLeitura("Nenhuma pasta foi aberta: a escolha foi cancelada ou o Chrome não recebeu permissão. "
+          + "Clique em “Escolher outra pasta” de novo e, no aviso do Chrome, em “Permitir”.");
+        return;
+      }
+      setEstadoPasta("lendo");
       await aplicarPasta(await lerPastaDaChave(chave), chave);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível ler a pasta."));
+      setAvisoLeitura(mensagemDeErro(e, "Não foi possível ler a pasta."));
     } finally {
-      setLendoPasta(false);
+      setEstadoPasta("parada");
     }
   };
 
   // Mesma pasta de antes: só pede a permissão de leitura de volta (precisa do clique).
   const reabrir = async () => {
     if (!chavePasta) return;
-    setLendoPasta(true);
+    setAvisoLeitura(null);
+    setEstadoPasta("lendo");
     try {
       const lida = await reabrirPasta(chavePasta, true);
       if (lida) setArquivos(lida.arquivos);
+      else setAvisoLeitura("O Chrome não deu permissão para ler a pasta. Clique em “Reabrir” e, no aviso, em “Permitir”.");
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível reabrir a pasta."));
+      setAvisoLeitura(mensagemDeErro(e, "Não foi possível reabrir a pasta."));
     } finally {
-      setLendoPasta(false);
+      setEstadoPasta("parada");
     }
   };
 
@@ -311,6 +327,14 @@ export default function CicloPage() {
     esquecer(memoriaProcessar(raiz, meses[0]));
     setRetomar(null);
     setProcessando(false);
+  };
+
+  // Prévia antiga aberta (ex.: voltou depois de recarregar): descarta e começa do zero.
+  const recomecarProcessar = () => {
+    esquecer(memoriaProcessar(raiz, meses[0]));
+    setRetomar(null);
+    setRodada((r) => r + 1);
+    setProcessando(true);
   };
 
   // Lembrou os nomes, mas ainda sem acesso aos arquivos: dá para ver o mapa, não enviar.
@@ -372,7 +396,7 @@ export default function CicloPage() {
                 sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
               </p>
             </div>
-            <button type="button" onClick={() => setAvisoPasta(true)} disabled={lendoPasta}
+            <button type="button" onClick={() => setAvisoPasta(true)} disabled={ocupadoPasta}
               className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
               <FolderOpen size={16} /> {caminhos ? "Escolher outra pasta" : "Escolher pasta"}
             </button>
@@ -394,10 +418,24 @@ export default function CicloPage() {
             <p>Escolha a pasta das notas do ano (ex.: <b className="text-zinc-200">SCG-26</b>). O sistema olha <b className="text-zinc-200">só os nomes</b> dos
               arquivos para montar o mapa. Nada é enviado nem gravado agora.</p>
             <p>Depois de escolher, o Chrome mostra um aviso de segurança dele, pedindo licença para o site ver os arquivos.
-              É normal: clique em <b className="text-zinc-200">Ver arquivos</b> ou <b className="text-zinc-200">Carregar</b>.</p>
+              É normal: clique em <b className="text-zinc-200">Permitir</b>. Atenção: o botão que já vem marcado é o
+              “Não permitir”, e apertar Enter nele cancela a escolha.</p>
           </Modal>
-          {lendoPasta && <EsqueletoMapa />}
-          {semArquivos && !lendoPasta && (
+          {ocupadoPasta && (
+            <div className="mt-5">
+              <p className="text-sm text-zinc-400">
+                {estadoPasta === "escolhendo"
+                  ? "Esperando você escolher a pasta e clicar em “Permitir” no aviso do Chrome…"
+                  : `Lendo os nomes dos arquivos${raiz ? ` de ${raiz}` : ""}…`}
+              </p>
+              <EsqueletoLista linhas={4} className="mt-4"
+                texto={estadoPasta === "escolhendo" ? "Esperando a escolha da pasta" : "Lendo os arquivos da pasta"} />
+            </div>
+          )}
+          {avisoLeitura && !ocupadoPasta && (
+            <div className="mt-4"><Alert variant="warning">{avisoLeitura}</Alert></div>
+          )}
+          {semArquivos && !ocupadoPasta && (
             <p className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
               <span>Lembrei a pasta <b>{raiz}</b> da última vez. Para enviar arquivos de novo, o navegador precisa da sua permissão.</span>
               {chavePasta
@@ -405,12 +443,12 @@ export default function CicloPage() {
                 : <span className="text-amber-200/70">Escolha a pasta de novo.</span>}
             </p>
           )}
-          {mapa && !lendoPasta && (
-            <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length}
-              processar={dados && !processando ? () => setProcessando(true) : undefined} />
+          {mapa && !ocupadoPasta && (
+            <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} aberto={processando}
+              processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
           )}
-          {mapa && !lendoPasta && processando && dados && (
-            <ProcessarTrimestre key={`${raiz}-${meses[0]}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
+          {mapa && !ocupadoPasta && processando && dados && (
+            <ProcessarTrimestre key={`${raiz}-${meses[0]}-${rodada}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
               memoria={memoriaProcessar(raiz, meses[0])} retomar={retomar} semArquivos={semArquivos}
               auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
           )}
@@ -491,32 +529,12 @@ function EsqueletoEtapas() {
   );
 }
 
-/** Lugar do mapa da pasta: a linha de resumo e a tabela etapa × mês. */
-function EsqueletoMapa() {
-  return (
-    <div role="status" className="mt-5 space-y-3">
-      <span className="sr-only">Lendo os arquivos da pasta…</span>
-      <Skeleton className="h-4 w-3/5" />
-      <div className="space-y-2 pt-2">
-        <Skeleton className="h-9 w-full" />
-        {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="grid grid-cols-4 gap-4 px-4 py-2">
-            <Skeleton className="h-4 w-4/5" />
-            <Skeleton className="h-4 w-3/5" />
-            <Skeleton className="h-4 w-3/5" />
-            <Skeleton className="h-4 w-3/5" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // ── Mapa da pasta ─────────────────────────────────────────────────────────────
 
-function MapaPasta({ mapa, meses, raiz, total, processar }: {
+function MapaPasta({ mapa, meses, raiz, total, processar, aberto }: {
   mapa: ReturnType<typeof mapaDoTrimestre>; meses: string[]; raiz: string; total: number;
-  processar?: () => void; // ausente: Painel ainda carregando ou Processar já aberto
+  processar?: () => void; // ausente: Painel ainda carregando
+  aberto: boolean;        // Processar já aberto abaixo: o botão vira "Recomeçar"
 }) {
   const [aberta, setAberta] = useState<CelulaMapa | null>(null);
   const etapasMapa: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
@@ -584,7 +602,7 @@ function MapaPasta({ mapa, meses, raiz, total, processar }: {
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" disabled={!processar} onClick={processar}
           className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
-          Processar {meses[0]} a {meses[2]}
+          {aberto ? "Recomeçar o Processar" : `Processar ${meses[0]} a ${meses[2]}`}
         </button>
         <span className="text-xs text-zinc-500">
           Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Auditoria, CGF, RET e RP.

@@ -12,6 +12,7 @@ import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
@@ -58,6 +59,7 @@ export default function CGFPage() {
   const [pmpvTexto, setPmpvTexto] = useState("");
   const [carregandoPmpv, setCarregandoPmpv] = useState(true); // a busca inicial roda ao abrir
   const [historico, setHistorico] = useState<CGFHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar">(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -88,7 +90,7 @@ export default function CGFPage() {
   };
 
   useEffect(() => {
-    getHistoricoCGF().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do CGF.")));
+    getHistoricoCGF().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do CGF."))).finally(() => setHistoricoCarregado(true));
     buscarPmpv(periodo);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 
@@ -347,6 +349,7 @@ export default function CGFPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
                 {historico.map((h) => (
                   <tr key={h.periodo} className={h.periodo === periodo ? "bg-sky-500/[0.06]" : ""}>
                     <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
@@ -360,7 +363,7 @@ export default function CGFPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
-                {historico.length === 0 && (
+                {historicoCarregado && historico.length === 0 && (
                   <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum CGF gravado.</td></tr>
                 )}
               </tbody>

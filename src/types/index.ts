@@ -340,6 +340,15 @@ export interface PRAutomatico {
   pendencias: string[];
 }
 
+/** PV de um trimestre do ciclo regravado pelo backend ao salvar o PMPV ou o PR. */
+export interface PVAutomatico {
+  trimestre: string;        // "Nov - Jan/2026" (ano do 1º mês); "" se deu erro inesperado
+  atualizado: boolean;      // false = nada gravado; ver `pendencias`
+  pv_antes: number | null;
+  pv: number | null;
+  pendencias: string[];
+}
+
 /** Os dois lados que podem divergir num mês: recalculado dos itens dos
  * módulos × gravado na consolidação (o que o Excel Final usa). */
 export interface SCGComparacao {

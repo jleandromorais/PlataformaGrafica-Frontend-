@@ -5,10 +5,13 @@ import { Alert } from "../../components/ui/Alert";
 import { brl, num } from "../../utils/format";
 import { apurarPR, gerarMinutaNotaTecnica, getPR, salvarPR } from "../../api";
 import { salvarArquivo } from "../../utils/download";
+import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { PRApuracao } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
@@ -66,6 +69,7 @@ export default function PRPage() {
   const [gerandoNT, setGerandoNT] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
+  const [avisoPV, setAvisoPV] = useState<string | null>(null); // PV não regravado junto com o PR
 
   const buscar = (mesesPR: string[], chavePR: string) =>
     Promise.all([apurarPR(mesesPR), getPR(chavePR).then((r) => r.pr).catch(() => null)]);
@@ -108,10 +112,14 @@ export default function PRPage() {
     setSalvando(true);
     setErro(null);
     setSucesso(null);
+    setAvisoPV(null);
     try {
       const r = await salvarPR(chave, dados.scg_selic, dados.sr, dados.vp);
       setPrSalvo(r.pr);
-      setSucesso(`PR de ${meses[0]} a ${meses[2]} salvo: ${tarifa(r.pr)} R$/m³.`);
+      // O backend regrava o PV do mesmo trimestre com este PR.
+      const pv = textoPVAutomatico(r.pv_automatico);
+      setSucesso(`PR de ${meses[0]} a ${meses[2]} salvo: ${tarifa(r.pr)} R$/m³.${pv?.ok ? ` ${pv.texto}` : ""}`);
+      if (pv && !pv.ok) setAvisoPV(pv.texto);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar o PR."));
     } finally {
@@ -144,6 +152,7 @@ export default function PRPage() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {avisoPV && <Alert variant="warning">{avisoPV}</Alert>}
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
@@ -262,7 +271,58 @@ export default function PRPage() {
             </section>
           </div>
         )}
+
+        {/* 1ª carga (ou depois de um erro): ainda não há nada para mostrar esmaecido. */}
+        {!dados && carregando && <EsqueletoPR />}
       </div>
+    </div>
+  );
+}
+
+/** Lugar da apuração enquanto calcula: a tabela dos 3 meses e o cartão do PR. */
+function EsqueletoPR() {
+  return (
+    <div role="status" className="grid gap-6 2xl:grid-cols-[minmax(0,1fr)_22rem]">
+      <span className="sr-only">Calculando o PR do trimestre…</span>
+      <section className={`${PANEL} overflow-hidden`}>
+        <div className="space-y-2 border-b border-white/[0.07] px-5 py-4">
+          <Skeleton className="h-4 w-64 rounded" />
+          <Skeleton className="h-3 w-80 rounded" />
+        </div>
+        <table className="w-full min-w-[36rem] text-sm">
+          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Mês</th>
+              <th className="px-3 py-3 text-right font-semibold">SCG</th>
+              <th className="px-3 py-3 text-right font-semibold">SELIC acum. (%)</th>
+              <th className="px-3 py-3 text-right font-semibold">SCG com SELIC</th>
+              <th className="px-4 py-3 text-right font-semibold">SR com SELIC</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-white/[0.05]">
+            <LinhasEsqueleto colunas={5} linhas={4} texto="" />
+          </tbody>
+        </table>
+      </section>
+      <section className={`${PANEL} space-y-3 p-5`}>
+        <Skeleton className="h-4 w-40 rounded" />
+        {[0, 1, 2, 3].map((i) => (
+          <div key={i} className="flex justify-between">
+            <Skeleton className="h-3 w-32 rounded" />
+            <Skeleton className="h-3 w-24 rounded" />
+          </div>
+        ))}
+        {/* O PR é o número grande do cartão. */}
+        <div className="space-y-3 rounded-xl bg-white/[0.03] p-4">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-3 w-20 rounded" />
+            <Skeleton className="h-7 w-28" />
+          </div>
+          <Skeleton className="ml-auto h-3 w-24 rounded" />
+          <Skeleton className="ml-auto h-3 w-24 rounded" />
+        </div>
+        <Skeleton className="h-10 w-full" />
+      </section>
     </div>
   );
 }
