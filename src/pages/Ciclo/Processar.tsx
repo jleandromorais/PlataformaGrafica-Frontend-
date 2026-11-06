@@ -6,9 +6,10 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
-  calcularCGFRs, diferencasAuditoria, getPMPVMensal, processarAuditoria, processarCGF, processarConcilia, processarRET,
+  calcularCGFRs, getPMPVMensal, processarCGF, processarConcilia, processarRET,
   salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
 } from "../../api";
+import { auditarMes } from "./auditoriaDoMes";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
@@ -161,26 +162,13 @@ export function ProcessarTrimestre({
       // Como a tela da Auditoria: modo XML (lê também os PDFs), todas as empresas, sem planilha.
       const envio = await abrir(c, (a) => envioDaAuditoria(a).caminho);
       const pastaRaiz = c.arquivos[0] ? envioDaAuditoria(c.arquivos[0]).raiz : "";
-      const r = await processarAuditoria({ arquivos: envio, pastaRaiz, empresas: [], modo: "XML", periodo: c.periodo, planilha: null });
-      const problemas = r.problemas ?? [];
-      const erros = problemas.filter((p) => p.gravidade === "erro");
-      if (erros.length) return { estado: "erro", motivo: erros.map((p) => p.mensagem).join(" ") };
-      if (r.periodo_detectado && r.periodo_detectado !== c.periodo) {
-        return { estado: "erro", motivo: `As notas parecem ser de ${r.periodo_detectado}. Use a tela da Auditoria.` };
-      }
-      const naoLidos = problemas.filter((p) => p.codigo === "pdf_ocr_falhou").length;
-      const porCodigo = new Map<string, { n: number; mensagem: string }>();
-      for (const p of problemas.filter((x) => x.gravidade === "aviso" && x.codigo !== "pdf_ocr_falhou")) {
-        const atual = porCodigo.get(p.codigo);
-        porCodigo.set(p.codigo, { n: (atual?.n ?? 0) + 1, mensagem: atual?.mensagem ?? p.mensagem });
-      }
+      const { r, erros, outroMes, naoLidos, avisos: outros, diferencas } = await auditarMes(envio, pastaRaiz, c.periodo, c.gravado);
+      if (erros.length) return { estado: "erro", motivo: erros.join(" ") };
+      if (outroMes) return { estado: "erro", motivo: `As notas parecem ser de ${outroMes}. Use a tela da Auditoria.` };
       const avisos = [
         ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): a nota não entrou no CGR. Marque só se puder gravar assim.`] : []),
-        ...[...porCodigo.values()].map((a) => (a.n > 1 ? `${a.n}× ${a.mensagem}` : a.mensagem)),
+        ...outros,
       ].slice(0, 3);
-      // Diferente do gravado: o backend aponta empresa e nota. Sem isso, só some o detalhe.
-      const diferencas = c.gravado !== null && Math.abs(r.totais.cgr_liquido - c.gravado) > 1
-        ? await diferencasAuditoria(c.periodo, r.itens).catch(() => undefined) : undefined;
       return {
         estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, diferencas, escolhida: c.escolhida && !naoLidos,
         detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
@@ -426,7 +414,7 @@ const SITUACAO: Record<AuditoriaDiferencas["notas"][number]["situacao"], string>
 
 /** Onde o processado difere do gravado: resumo por empresa e, aberto, as notas. Mês gravado
  * só com o total (sem notas): a lista vira as notas lidas por OCR, para conferir primeiro. */
-function OndeDifere({ d, total }: { d: AuditoriaDiferencas; total: number }) {
+export function OndeDifere({ d, total }: { d: AuditoriaDiferencas; total: number }) {
   const comNotas = d.tem_notas_gravadas;
   return (
     <span className="mt-1 block text-xs">

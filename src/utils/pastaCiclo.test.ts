@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  arquivosDaCelula, classificar, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF,
+  arquivosDaCelula, classificar, empresasDosCaminhos, empresasSoPdf, envioDaAuditoria, envioDaPastaDoMes, mapaDoTrimestre, mesDoTexto, tipoPlanilhaCGF,
   type ArquivoClassificado,
 } from "./pastaCiclo";
 
@@ -293,5 +293,12 @@ describe("envio da Auditoria", () => {
     const arquivos = [`${set}/TAG/a.pdf`, `${set}/Brava/b.xml`, `${set}/Brava/b.pdf`, `${set}/Petrobras/c.pdf`, `${set}/Petrobras/sub/d.PDF`]
       .map((c) => cls(c)!);
     expect(empresasSoPdf(arquivos)).toEqual(["Petrobras", "TAG"]);
+  });
+
+  it("empresas da pasta do mês: desce a pasta única e ignora arquivo solto", () => {
+    expect(empresasDosCaminhos(["07 jul-26 - NF/TAG/a.xml", "07 jul-26 - NF/TAG/a.pdf", "07 jul-26 - NF/Brava/b.pdf"]))
+      .toEqual([{ nome: "Brava", xml: 0, pdf: 1 }, { nome: "TAG", xml: 1, pdf: 1 }]);
+    // Arquivos direto na pasta escolhida: não há empresa (o backend recusaria).
+    expect(empresasDosCaminhos(["a.xml", "b.pdf"])).toEqual([]);
   });
 });

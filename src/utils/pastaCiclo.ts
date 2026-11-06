@@ -200,15 +200,26 @@ export function envioDaAuditoria(a: ArquivoClassificado): { caminho: string; rai
 /** Empresas da Auditoria que só têm PDF (lidos por OCR, mais sujeitos a erro). Desce as
  * pastas únicas como o backend (`descer_pasta_unica`) antes de tomar a empresa. */
 export function empresasSoPdf(arquivos: ArquivoClassificado[]): string[] {
-  let caminhos = arquivos.filter((a) => !a.zip).map((a) => envioDaAuditoria(a).caminho.split("/"));
+  return empresasDosCaminhos(arquivos.filter((a) => !a.zip).map((a) => envioDaAuditoria(a).caminho))
+    .filter((e) => e.pdf && !e.xml).map((e) => e.nome);
+}
+
+/** Empresas (subpastas) a partir dos caminhos relativos à pasta do mês ("TAG/x.xml"), com
+ * quantos XML e PDF cada uma tem, em ordem alfabética. Desce as pastas únicas como o
+ * backend; arquivo solto acima das empresas não conta (o backend o ignora). Lista vazia:
+ * a pasta não tem subpastas de empresa e o backend recusaria o envio. */
+export function empresasDosCaminhos(relativos: string[]): { nome: string; xml: number; pdf: number }[] {
+  let caminhos = relativos.map((c) => c.split("/"));
   while (caminhos.length && caminhos.every((c) => c.length > 2 && c[0] === caminhos[0][0])) caminhos = caminhos.map((c) => c.slice(1));
-  const ext = new Map<string, Set<string>>();
+  const empresas = new Map<string, { nome: string; xml: number; pdf: number }>();
   for (const c of caminhos.filter((c) => c.length > 1)) {
-    const tipos = ext.get(c[0]) ?? new Set<string>();
-    tipos.add(c[c.length - 1].toLowerCase().split(".").pop() ?? "");
-    ext.set(c[0], tipos);
+    const e = empresas.get(c[0]) ?? { nome: c[0], xml: 0, pdf: 0 };
+    const ext = c[c.length - 1].toLowerCase().split(".").pop();
+    if (ext === "xml") e.xml += 1;
+    else if (ext === "pdf") e.pdf += 1;
+    empresas.set(c[0], e);
   }
-  return [...ext].filter(([, t]) => t.has("pdf") && !t.has("xml")).map(([e]) => e).sort((x, y) => x.localeCompare(y, "pt-BR"));
+  return [...empresas.values()].sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
 }
 
 /** Mapa do trimestre: para cada etapa × mês, o que foi encontrado. Arquivos de

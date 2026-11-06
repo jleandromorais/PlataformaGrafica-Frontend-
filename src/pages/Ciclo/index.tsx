@@ -15,6 +15,7 @@ import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
 import { mesesDoPRDoCivil } from "../../utils/periodos";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
+import { AuditarMes } from "./AuditarMes";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import {
@@ -73,6 +74,7 @@ interface Etapa_ {
   situacao: Situacao;
   detalhe: ReactNode;
   link: string; // tela da etapa já no período certo (S2)
+  extra?: ReactNode; // ação dentro do cartão (ex.: "Auditar <mês>" na Auditoria CGR)
 }
 
 function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valor: (l: T) => string,
@@ -121,15 +123,15 @@ function etapaMensal<T extends { periodo: string }>(titulo: string, descricao: s
   return { titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
 }
 
-function etapas(d: Dados, meses: string[], mesesPR: string[]): Etapa_[] {
+function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactNode): Etapa_[] {
   const faixaPR = `${mesesPR[0]} a ${mesesPR[2]}`;
   const srTotal = d.srSalvo.reduce((s, l) => s + Number(l.sr_selic ?? 0), 0);
   const prDifere = d.pr && d.prSalvo !== null && Math.abs(d.prSalvo - d.pr.pr) > 1e-9;
   const pvDifere = d.pv?.salvo && Math.abs(d.pv.salvo.pv - d.pv.pv) > 1e-9;
   const trimestrePR = { chave: "trimestre" as const, valor: mesesPR[0] };
   return [
-    etapaMensal("Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
-      (l) => brl(l.cgr_gravado)),
+    { ...etapaMensal("Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
+      (l) => brl(l.cgr_gravado)), extra: auditarMes },
     etapaMensal("CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
       (l) => brl(l.cgf_rs), (l) => (l.volume_devolucoes ? null : "Devoluções = 0: confira se a planilha de devoluções entrou.")),
     // RET não tem seletor de mês: o período vem dos próprios arquivos.
@@ -253,7 +255,8 @@ export default function CicloPage() {
     setTri(novoTri);
   };
 
-  const lista = dados ? etapas(dados, meses, mesesPR) : [];
+  const lista = dados ? etapas(dados, meses, mesesPR,
+    <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} onGravado={() => setVersao((v) => v + 1)} />) : [];
   const prontas = lista.filter((e) => e.situacao === "ok").length;
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
@@ -487,6 +490,7 @@ export default function CicloPage() {
                     <p className="font-semibold text-zinc-100">{e.titulo}</p>
                     <p className="text-xs text-zinc-500">{e.descricao}</p>
                     <div className="mt-2 text-sm text-zinc-300">{e.detalhe}</div>
+                    {e.extra}
                   </div>
                   <Link to={e.link}
                     className={`rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok"
