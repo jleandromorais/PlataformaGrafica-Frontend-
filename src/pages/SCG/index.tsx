@@ -12,6 +12,8 @@ import type { SCGComparacao, SCGHistoricoLinha, SCGValores } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 import { dicaDe, type Sigla } from "../../utils/glossario";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
@@ -61,6 +63,7 @@ export default function SCGPage() {
   const [fonte, setFonte] = useState<Record<Campo, Fonte>>({ cgr: "gravado", cgf: "gravado", ret: "gravado", rp: "gravado" });
   const [manual, setManual] = useState<Record<Campo, string>>({ cgr: "", cgf: "", ret: "", rp: "" });
   const [historico, setHistorico] = useState<SCGHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -108,7 +111,8 @@ export default function SCGPage() {
       .catch((e) => {
         setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do SCG."));
         setCarregando(false);
-      });
+      })
+      .finally(() => setHistoricoCarregado(true));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 
   const valor = (c: Campo): number | null => {
@@ -146,8 +150,9 @@ export default function SCGPage() {
     }
   };
 
+  // Enquanto o mês carrega, os valores viram esqueleto: a tabela mantém a forma e não mostra números do mês anterior.
   const celula = (vals: SCGValores | null | undefined, c: keyof SCGValores) =>
-    vals ? <span className={`tabular-nums ${cor(vals[c])}`}>{brl(vals[c])}</span> : <span className="text-zinc-600">—</span>;
+    carregando ? <Skeleton className="ml-auto h-4 w-28 rounded" /> : vals ? <span className={`tabular-nums ${cor(vals[c])}`}>{brl(vals[c])}</span> : <span className="text-zinc-600">—</span>;
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -162,7 +167,10 @@ export default function SCGPage() {
           <SeletorMes
             mes={mes} ano={ano} onChange={mudarPeriodo}
             status={carregando ? (
-              <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carregando {periodo}…</span>
+              <span role="status" className="block py-0.5">
+                <span className="sr-only">Carregando {periodo}…</span>
+                <Skeleton className="h-4 w-56 rounded" />
+              </span>
             ) : comp?.gravado ? (
               <><span className="font-medium text-zinc-200">{periodo}</span> tem SCG gravado.</>
             ) : (
@@ -231,6 +239,8 @@ export default function SCGPage() {
                               escolhido === null ? "border-red-500/50" : "border-white/[0.07]"
                             }`}
                           />
+                        ) : carregando ? (
+                          <Skeleton className="ml-auto h-4 w-28 rounded" />
                         ) : (
                           <span className={`font-semibold tabular-nums ${escolhido !== null ? cor(escolhido) : ""}`}>
                             {escolhido !== null ? brl(escolhido) : "—"}
@@ -250,7 +260,7 @@ export default function SCGPage() {
                     <td className="px-5 py-3 text-right">{celula(comp?.gravado, k)}</td>
                     <td className="px-5 py-3 text-xs text-zinc-500">calculado</td>
                     <td className={`px-5 py-3 text-right font-bold tabular-nums ${validos ? cor(k === "rpv" ? rpv : scg) : "text-zinc-600"} ${k === "scg" ? "text-lg" : ""}`}>
-                      {validos ? brl(k === "rpv" ? rpv : scg) : "—"}
+                      {carregando ? <Skeleton className="ml-auto h-5 w-32 rounded" /> : validos ? brl(k === "rpv" ? rpv : scg) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -294,6 +304,7 @@ export default function SCGPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={7} texto="Carregando o histórico…" />}
                 {historico.map((h) => {
                   const [m, a] = h.periodo.split("/");
                   return (
@@ -312,7 +323,7 @@ export default function SCGPage() {
                     </tr>
                   );
                 })}
-                {historico.length === 0 && (
+                {historicoCarregado && historico.length === 0 && (
                   <tr><td colSpan={7} className="px-4 py-8 text-center text-zinc-500">Nenhum período gravado.</td></tr>
                 )}
               </tbody>

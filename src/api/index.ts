@@ -8,7 +8,7 @@ import type {
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
-  PVResultado, PVPeriodo, PVTrimestre, PRAutomatico,
+  PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ export const calcularPMPV = (payload: PMPVCalculoRequest) =>
 
 /** Salva sessão + PMPV mensal de cada período + trimestre ativo (igual ao desktop). */
 export const salvarPMPV = (payload: PMPVSalvarRequest) =>
-  api.post<{ sessao_id: number }>("/pmpv/salvar", payload).then((r) => r.data);
+  api.post<{ sessao_id: number; pv_automatico?: PVAutomatico[] }>("/pmpv/salvar", payload).then((r) => r.data);
 
 export const getPMPVMensal = (periodo: string) =>
   api.get<{ pmpv: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
@@ -280,7 +280,7 @@ export const apurarPR = (periodos: string[]) =>
   api.post<PRApuracao>("/pr/apurar", { periodos }).then((r) => r.data);
 
 export const salvarPR = (periodo: string, scg: number, sr: number, vp: number) =>
-  api.post<{ pr: number }>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
+  api.post<{ pr: number; pv_automatico?: PVAutomatico | null }>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
 
 // ─── PV ──────────────────────────────────────────────────────────────────────
 // PV = PMPV + PR. Ver Front_end/SPEC_PV.md.

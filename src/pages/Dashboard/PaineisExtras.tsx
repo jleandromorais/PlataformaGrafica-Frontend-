@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { brl, brlCompact, num } from "../../utils/format";
 import { getDashEmpresas, getDashRet, getDashVolumes } from "../../api";
 import type { DashEmpresasResponse, DashRetResponse, DashVolumesResponse } from "../../types";
@@ -135,7 +136,13 @@ function Painel({ titulo, subtitulo, legenda, acao, children }: {
 }
 
 function Vazio({ carregando, falhou }: { carregando: boolean; falhou: boolean }) {
-  if (carregando && !falhou) return <div className="mt-6 h-64 animate-pulse rounded-xl bg-white/[0.03]" aria-hidden />;
+  // Carregando: bloco com brilho no tamanho do gráfico, para o painel não mudar de altura.
+  if (carregando && !falhou) return (
+    <div role="status" className="mt-6">
+      <span className="sr-only">Carregando o painel…</span>
+      <Skeleton className="h-64 w-full rounded-xl" />
+    </div>
+  );
   return (
     <EmptyState
       label={falhou ? "Não foi possível carregar este painel." : "Sem dados gravados para este período."}

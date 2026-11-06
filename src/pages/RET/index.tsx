@@ -10,6 +10,7 @@ import { brl, dataHora, num } from "../../utils/format";
 import { lerPasta } from "../../utils/pasta";
 import type { RETHistoricoLinha, RETResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -28,12 +29,13 @@ export default function RETPage() {
   const [pasta, setPasta] = useState<{ raiz: string; arquivos: ArquivoDaPasta[] } | null>(null);
   const [resultado, setResultado] = useState<RETResultado | null>(null);
   const [historico, setHistorico] = useState<RETHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar">(null);
   const [erro, setErro] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
 
   useEffect(() => {
-    getHistoricoRET().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do RET.")));
+    getHistoricoRET().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do RET."))).finally(() => setHistoricoCarregado(true));
   }, []);
 
   const processar = async () => {
@@ -226,6 +228,7 @@ export default function RETPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={4} texto="Carregando o histórico…" />}
                 {historico.map((h) => (
                   <tr key={h.periodo}>
                     <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
@@ -234,7 +237,7 @@ export default function RETPage() {
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
-                {historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum RET gravado.</td></tr>}
+                {historicoCarregado && historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum RET gravado.</td></tr>}
               </tbody>
             </table>
           </div>

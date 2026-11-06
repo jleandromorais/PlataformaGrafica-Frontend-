@@ -9,6 +9,8 @@ import { brl, brlEntrada, dataHora, parseBRL } from "../../utils/format";
 import type { RPVHistoricoLinha } from "../../types";
 import { tituloDe } from "../../utils/glossario";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
@@ -58,6 +60,7 @@ export default function RPVPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [historico, setHistorico] = useState<RPVHistoricoLinha[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [erro, setErro] = useState<string | null>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [sucesso, setSucesso] = useState<string | null>(null);
@@ -67,7 +70,8 @@ export default function RPVPage() {
   const carregarHistorico = useCallback(() => {
     getHistoricoRPV()
       .then((h) => { setHistorico(h); setErroHistorico(null); })
-      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico do RPV.")));
+      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico do RPV.")))
+      .finally(() => setHistoricoCarregado(true));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);
@@ -149,7 +153,10 @@ export default function RPVPage() {
           <SeletorMes
             mes={mes} ano={ano} onChange={mudarPeriodo}
             status={carregando ? (
-              <span className="flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Carregando {periodo}…</span>
+              <span role="status" className="block py-0.5">
+                <span className="sr-only">Carregando {periodo}…</span>
+                <Skeleton className="h-4 w-64 rounded" />
+              </span>
             ) : existe ? (
               <>Valores de <span className="font-medium text-zinc-200">{periodo}</span> carregados do banco.</>
             ) : (
@@ -170,9 +177,14 @@ export default function RPVPage() {
             <Equal size={20} className="text-zinc-500" aria-hidden />
             <div>
               <p className={LABEL}>RPV de {periodo}</p>
-              <p className={`mt-1 text-3xl font-bold tracking-tight tabular-nums ${validos ? corDoValor(rpv) : "text-zinc-600"}`}>
-                {validos ? brl(rpv) : "—"}
-              </p>
+              {/* Enquanto o mês carrega, o número grande vira esqueleto (os campos ainda são do mês anterior). */}
+              {carregando ? (
+                <Skeleton className="mt-1 h-9 w-52" />
+              ) : (
+                <p className={`mt-1 text-3xl font-bold tracking-tight tabular-nums ${validos ? corDoValor(rpv) : "text-zinc-600"}`}>
+                  {validos ? brl(rpv) : "—"}
+                </p>
+              )}
               <p className="mt-1 text-xs text-zinc-500">
                 {rpv > 0 ? "CGR maior que CGF" : rpv < 0 ? "CGR menor que CGF" : "CGR igual a CGF"}
                 {alterado && <span className="ml-2 text-amber-300">· alterações não salvas</span>}
@@ -207,6 +219,7 @@ export default function RPVPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={5} texto="Carregando o histórico…" />}
                 {historico.map((h) => (
                   <tr
                     key={h.periodo}
@@ -224,7 +237,7 @@ export default function RPVPage() {
                     <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
                   </tr>
                 ))}
-                {historico.length === 0 && (
+                {historicoCarregado && historico.length === 0 && (
                   <tr><td colSpan={5} className="px-5 py-8 text-center text-zinc-500">Nenhum período salvo ainda.</td></tr>
                 )}
               </tbody>

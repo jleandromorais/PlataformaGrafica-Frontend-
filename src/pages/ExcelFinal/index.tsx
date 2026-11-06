@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Loader2 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { gerarExcelFinalGeral, gerarMinutaNotaTecnica, getCoberturaExcelFinal } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { salvarArquivo } from "../../utils/download";
@@ -29,6 +30,29 @@ function ciclos(periodos: string[]): { ultimo: string; apurado: string; pr: stri
     .map((fim) => ({ ultimo: fim, apurado: `${desloca(fim, -2)} a ${fim}`, pr: `${desloca(fim, 2)} a ${desloca(fim, 4)}` }));
 }
 
+/** Lugar do "O que entra no arquivo" enquanto consulta: os 3 números (anos, meses,
+ * intervalo) e a fileira de meses, no mesmo tamanho do conteúdo real. */
+function EsqueletoCobertura() {
+  return (
+    <div role="status">
+      <span className="sr-only">Consultando os dados gravados…</span>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-3 w-20 rounded" />
+            <Skeleton className="h-6 w-32" />
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 flex flex-wrap gap-1.5">
+        {Array.from({ length: 12 }).map((_, i) => (
+          <Skeleton key={i} className="h-6 w-16 rounded-md" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ExcelFinalPage() {
   const [cobertura, setCobertura] = useState<Cobertura | null>(null);
   const [gerando, setGerando] = useState(false);
@@ -36,11 +60,15 @@ export default function ExcelFinalPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [ciclo, setCiclo] = useState("");
   const [gerandoNT, setGerandoNT] = useState(false);
+  const [falhouCobertura, setFalhouCobertura] = useState(false); // sem isso o esqueleto brilharia para sempre após um erro
 
   useEffect(() => {
     getCoberturaExcelFinal()
       .then(setCobertura)
-      .catch((e) => setErro(mensagemDeErro(e, "Não foi possível consultar os períodos gravados.")));
+      .catch((e) => {
+        setErro(mensagemDeErro(e, "Não foi possível consultar os períodos gravados."));
+        setFalhouCobertura(true);
+      });
   }, []);
 
   const gerar = async () => {
@@ -142,8 +170,10 @@ export default function ExcelFinalPage() {
 
         <section className={`${PANEL} p-5 sm:p-6`}>
           <h2 className="text-base font-semibold text-white">O que entra no arquivo</h2>
-          {cobertura === null ? (
-            <p className="mt-3 text-sm text-zinc-500">Consultando os dados gravados…</p>
+          {cobertura === null && falhouCobertura ? (
+            <p className="mt-3 text-sm text-zinc-500">Não foi possível consultar os dados gravados.</p>
+          ) : cobertura === null ? (
+            <EsqueletoCobertura />
           ) : vazio ? (
             <p className="mt-3 text-sm text-zinc-500">Ainda não há nenhum período gravado. Calcule e salve algum módulo primeiro.</p>
           ) : (

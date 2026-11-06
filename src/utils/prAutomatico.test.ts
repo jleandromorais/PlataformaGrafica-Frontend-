@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { textoPRAutomatico } from "./prAutomatico";
+import { textoPRAutomatico, textoPVAutomatico } from "./prAutomatico";
 
 const MESES = ["Nov/2026", "Dez/2026", "Jan/2027"];
 
@@ -27,5 +27,23 @@ describe("textoPRAutomatico", () => {
 
   it("sem resposta do backend não mostra nada", () => {
     expect(textoPRAutomatico(null)).toBeNull();
+  });
+});
+
+describe("textoPVAutomatico", () => {
+  it("mostra o antes e o depois do PV", () => {
+    const r = textoPVAutomatico({ trimestre: "Nov - Jan/2026", atualizado: true, pv_antes: null, pv: 2.4384, pendencias: [] });
+    expect(r).toEqual({ ok: true, texto: "PV de Nov - Jan/2026 atualizado: — → 2,4384 R$/m³." });
+  });
+
+  it("com pendência, mostra o motivo do backend", () => {
+    const r = textoPVAutomatico({ trimestre: "Mai - Jul/2026", atualizado: false, pv_antes: null, pv: null,
+      pendencias: ["PV não atualizado: falta o PR salvo de Mai - Jul/2026 (Mai/2026 a Jul/2026)."] });
+    expect(r?.ok).toBe(false);
+    expect(r?.texto).toContain("falta o PR salvo");
+  });
+
+  it("sem resposta do backend não mostra nada", () => {
+    expect(textoPVAutomatico(undefined)).toBeNull();
   });
 });
