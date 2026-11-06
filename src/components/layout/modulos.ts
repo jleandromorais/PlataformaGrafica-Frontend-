@@ -56,7 +56,7 @@ export const ORDEM_DO_CICLO: ChaveModulo[] = [
 ];
 
 export const GRUPOS_DO_MENU: { titulo?: string; itens: ChaveModulo[] }[] = [
-  { itens: ["ciclo", "dashboard", "pmpv"] },
+  { itens: ["dashboard", "pmpv", "ciclo"] },
   { titulo: "Conta Gráfica", itens: ["auditoria", "cgf", "rpv", "ret", "conciliacao", "scg", "sr"] },
   { titulo: "Módulo 3 · Consolidação", itens: ["pr", "pv"] },
   { titulo: "Exportação", itens: ["excel"] },
