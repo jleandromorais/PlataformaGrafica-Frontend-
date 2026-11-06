@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileText, FolderOpen, ShieldCheck,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileArchive, FileText, FolderOpen,
 } from "lucide-react";
-import { Modal } from "../../components/ui/Modal";
+import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
+import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Alert } from "../../components/ui/Alert";
+import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
   getHistoricoRET, getHistoricoSCG, getPR, getPVTrimestre,
@@ -18,10 +20,8 @@ import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
-import {
-  escolherChavePasta, lerPastaDaChave, navegadorLembraPasta, reabrirPasta,
-  type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida,
-} from "../../utils/pasta";
+import { reabrirPasta, type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida } from "../../utils/pasta";
+import { ehZip, lerZipDaPasta } from "../../utils/zipCiclo";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import type {
@@ -40,6 +40,14 @@ interface PastaGuardada { raiz: string; caminhos: string[]; chave?: ChavePasta }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
+
+/** Por que a pasta não abriu, em janela: o que fazer vira o botão principal. */
+interface AvisoPasta {
+  variante: VarianteAviso;
+  titulo: string;
+  texto: string;
+  acao?: "zip"; // botão principal "Escolher o .zip da pasta"
+}
 
 interface Dados {
   auditoria: AuditoriaHistoricoLinha[];
@@ -197,31 +205,31 @@ export default function CicloPage() {
   const [processando, setProcessando] = useState(false);
   const [versao, setVersao] = useState(0); // muda depois de gravar: recarrega as etapas
   const [raiz, setRaiz] = useState("");
-  const [chavePasta, setChavePasta] = useState<ChavePasta | undefined>();
   const [retomar, setRetomar] = useState<Retomada | null>(null); // prévia do Processar guardada
-  // "escolhendo": seletor/aviso do Chrome abertos; "lendo": listando os nomes. Nos dois, esqueleto.
-  const [estadoPasta, setEstadoPasta] = useState<"parada" | "escolhendo" | "lendo">("parada");
+  // "lendo": listando os nomes da pasta ou do .zip (esqueleto).
+  const [estadoPasta, setEstadoPasta] = useState<"parada" | "lendo">("parada");
   const ocupadoPasta = estadoPasta !== "parada";
-  // Por que a pasta não abriu (cancelou, Chrome sem permissão, erro): fica junto da pasta,
-  // não no topo, para ser vista sem rolar a página.
-  const [avisoLeitura, setAvisoLeitura] = useState<string | null>(null);
+  // Por que a pasta não entrou (soltou arquivos, .zip inválido ou vazio, erro): em janela,
+  // com o próximo passo como botão.
+  const [avisoLeitura, setAvisoLeitura] = useState<AvisoPasta | null>(null);
   const [rodada, setRodada] = useState(0); // "Recomeçar o Processar": muda a key e zera o painel
-  const [seletorBloqueado, setSeletorBloqueado] = useState(false); // showDirectoryPicker bloqueado: usa o input comum
-  const [avisoPasta, setAvisoPasta] = useState(false); // nossa explicação antes do aviso do Chrome
-  const inputPasta = useRef<HTMLInputElement>(null);    // seletor antigo (navegador sem showDirectoryPicker)
+  // Um arquivo só (.zip): o Chrome não mostra aviso nenhum. Nada de seletor de pasta
+  // (showDirectoryPicker e <input webkitdirectory> mostram aviso de permissão/upload).
+  const inputZip = useRef<HTMLInputElement>(null);
+  const botaoZip = useRef<HTMLButtonElement>(null);   // o foco volta para ele ao fechar o aviso
   const [gerandoNT, setGerandoNT] = useState(false);
 
-  // Ao abrir a tela: traz de volta a última pasta. Se o navegador já deu permissão
-  // permanente, relê os arquivos sem perguntar; senão, mostra "Reabrir pasta".
+  // Ao abrir a tela: traz de volta a última pasta (os nomes, para o mapa). Se ela foi
+  // arrastada e o navegador ainda dá a permissão SEM perguntar, relê os arquivos; senão,
+  // pede para arrastar de novo. Nunca pede permissão (seria o aviso do Chrome).
   useEffect(() => {
     lembrar<PastaGuardada>(MEMORIA_PASTA).then(async (g) => {
       if (!g) return;
       setRaiz(g.raiz);
       setCaminhos(g.caminhos);
-      setChavePasta(g.chave);
       if (!g.chave) return;
       setEstadoPasta("lendo");
-      const lida = await reabrirPasta(g.chave, false).catch(() => null);
+      const lida = await reabrirPasta(g.chave).catch(() => null);
       if (lida) setArquivos(lida.arquivos);
       setEstadoPasta("parada");
     });
@@ -260,7 +268,7 @@ export default function CicloPage() {
   const prontas = lista.filter((e) => e.situacao === "ok").length;
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
-  /** Pasta nova escolhida: descarta a prévia antiga dela e guarda os nomes (e a chave). */
+  /** Pasta nova (arrastada ou .zip): descarta a prévia antiga dela e guarda os nomes (e a chave). */
   const aplicarPasta = async (pasta: PastaLida, chave?: ChavePasta) => {
     await esquecer(memoriaProcessar(pasta.raiz, meses[0]));
     const nomes = [...pasta.arquivos.keys()];
@@ -269,70 +277,50 @@ export default function CicloPage() {
     setRaiz(pasta.raiz);
     setCaminhos(nomes);
     setArquivos(pasta.arquivos);
-    setChavePasta(chave);
     guardar(MEMORIA_PASTA, { raiz: pasta.raiz, caminhos: nomes, chave } satisfies PastaGuardada);
   };
 
-  const escolherPasta = (files: FileList | null) => {
-    if (!files?.length) return;
-    const lista = Array.from(files).map((f) => ({ f, rel: (f.webkitRelativePath || f.name).split("/").slice(1).join("/") }));
-    aplicarPasta({
-      raiz: (files[0].webkitRelativePath || files[0].name).split("/")[0],
-      arquivos: new Map(lista.map((x) => [x.rel, x.f])),
-    });
-  };
+  // Nome que os textos usam para a pasta do ano (ex.: SCG-26).
+  const nomePasta = raiz || `SCG-${String(ano).slice(-2)}`;
 
-  // Chrome/Edge: escolhe com chave, para a pasta poder ser reaberta depois de recarregar.
-  const escolherPastaLembrada = async () => {
-    setAvisoLeitura(null);
-    setEstadoPasta("escolhendo");
-    try {
-      const inicio = Date.now();
-      const chave = await escolherChavePasta();
-      // Cancelar o seletor ou clicar "Não permitir" no aviso do Chrome dão o mesmo resultado.
-      if (!chave) {
-        // Voltou em menos de 1,5 s: nenhuma janela chegou a abrir (política do Chrome/TI bloqueando).
-        if (Date.now() - inicio < 1500) {
-          setSeletorBloqueado(true);
-          setAvisoLeitura("O Chrome fechou o seletor de pastas na hora, sem mostrar nada. Provavelmente o navegador deste computador "
-            + "bloqueia esse recurso (política da TI). Use o seletor alternativo abaixo.");
-          return;
-        }
-        setAvisoLeitura("Nenhuma pasta foi aberta: a escolha foi cancelada ou o Chrome não recebeu permissão. "
-          + "Clique em “Escolher outra pasta” de novo e, no aviso do Chrome, em “Permitir”.");
-        return;
-      }
-      setEstadoPasta("lendo");
-      await aplicarPasta(await lerPastaDaChave(chave), chave);
-    } catch (e) {
-      setAvisoLeitura(mensagemDeErro(e, "Não foi possível ler a pasta."));
-    } finally {
-      setEstadoPasta("parada");
-    }
-  };
-
-  // Mesma pasta de antes: só pede a permissão de leitura de volta (precisa do clique).
-  const reabrir = async () => {
-    if (!chavePasta) return;
+  /** Lê a pasta (ou o .zip) e mostra o mapa; erro ou nada dentro → aviso em janela. */
+  const lerEntrada = async (ler: () => Promise<PastaLida>, chave?: Promise<ChavePasta | null>, oQue = "a pasta") => {
     setAvisoLeitura(null);
     setEstadoPasta("lendo");
     try {
-      const lida = await reabrirPasta(chavePasta, true);
-      if (lida) setArquivos(lida.arquivos);
-      else setAvisoLeitura("O Chrome não deu permissão para ler a pasta. Clique em “Reabrir” e, no aviso, em “Permitir”.");
+      const [pasta, k] = await Promise.all([ler(), chave ?? Promise.resolve(null)]);
+      if (!pasta.arquivos.size) {
+        setAvisoLeitura({ variante: "atencao", titulo: oQue === "o .zip" ? "O .zip está vazio" : "A pasta está vazia",
+          texto: `Não encontrei nenhum arquivo em “${pasta.raiz}”. Confira se é a pasta das notas do ano (ex.: ${nomePasta}) e tente de novo.`,
+          acao: "zip" });
+        return;
+      }
+      await aplicarPasta(pasta, k ?? undefined);
     } catch (e) {
-      setAvisoLeitura(mensagemDeErro(e, "Não foi possível reabrir a pasta."));
+      setAvisoLeitura({ variante: "erro", titulo: `Não foi possível ler ${oQue}`, acao: "zip",
+        texto: e instanceof Error && !("isAxiosError" in e) ? e.message : mensagemDeErro(e, `Não foi possível ler ${oQue}.`) });
     } finally {
       setEstadoPasta("parada");
     }
   };
 
-  // "Continuar" da nossa janela: abre o seletor de pasta. Precisa ser dentro do clique,
-  // senão o navegador bloqueia o seletor.
-  const continuarPasta = () => {
-    setAvisoPasta(false);
-    if (navegadorLembraPasta && !seletorBloqueado) escolherPastaLembrada();
-    else inputPasta.current?.click();
+  // Pasta (ou .zip) arrastada para a área: o Chrome não pergunta nada.
+  const soltar = (s: Soltura) => {
+    if (s.tipo === "pasta" && s.pasta) { const p = s.pasta; lerEntrada(() => lerPastaSolta(p), s.chave); return; }
+    if (s.tipo === "zip" && s.zip) { escolherZip(s.zip); return; }
+    const a = avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, nomePasta);
+    setAvisoLeitura({ variante: "atencao", ...a, acao: "zip" });
+  };
+
+  const escolherZip = (f: File | undefined) => {
+    if (!f) return;
+    if (!ehZip(f)) {
+      setAvisoLeitura({ variante: "atencao", titulo: "Escolha um arquivo .zip", acao: "zip",
+        texto: `“${f.name}” não é um .zip. Compacte a pasta ${nomePasta} (botão direito › Enviar para › Pasta compactada) `
+          + "e escolha o .zip, ou arraste a pasta para a área tracejada." });
+      return;
+    }
+    lerEntrada(() => lerZipDaPasta(f), undefined, "o .zip");
   };
 
   const fecharProcessar = () => {
@@ -400,66 +388,39 @@ export default function CicloPage() {
 
         {/* Importar da pasta */}
         <section className={`${PANEL} p-5 sm:p-6`}>
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Importar da pasta do ciclo</h2>
-              <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-                Escolha a pasta onde ficam as notas do ano (ex.: <b>SCG-26</b>). O sistema lê <b>só os nomes</b> dos arquivos,
-                sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
-              </p>
-            </div>
-            <button type="button" onClick={() => setAvisoPasta(true)} disabled={ocupadoPasta}
-              className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-              <FolderOpen size={16} /> {caminhos ? "Escolher outra pasta" : "Escolher pasta"}
-            </button>
-            {(!navegadorLembraPasta || seletorBloqueado) && (
-              <input ref={inputPasta} type="file" className="hidden" multiple
-                // @ts-expect-error webkitdirectory não está nos tipos do React
-                webkitdirectory="" directory=""
-                onChange={(e) => { escolherPasta(e.target.files); e.target.value = ""; }} />
-            )}
+          <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Importar da pasta do ciclo</h2>
+          <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+            Traga a pasta onde ficam as notas do ano (ex.: <b>{nomePasta}</b>). O sistema lê <b>só os nomes</b> dos arquivos,
+            sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
+          </p>
+          <div className="mt-4">
+            <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
+              <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
+                className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
+              </button>
+              <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
+                onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
+              <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+            </AreaSoltarPasta>
           </div>
-          <Modal aberto={avisoPasta} onFechar={() => setAvisoPasta(false)}
-            icone={<ShieldCheck size={20} />} titulo="Ler a pasta do ciclo"
-            rodape={<>
-              <button type="button" onClick={continuarPasta}
-                className="w-full rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">Continuar</button>
-              <button type="button" onClick={() => setAvisoPasta(false)}
-                className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white">Cancelar</button>
-            </>}>
-            <p>Escolha a pasta das notas do ano (ex.: <b className="text-zinc-200">SCG-26</b>). O sistema olha <b className="text-zinc-200">só os nomes</b> dos
-              arquivos para montar o mapa. Nada é enviado nem gravado agora.</p>
-            <p>Depois de escolher, o Chrome mostra um aviso de segurança dele, pedindo licença para o site ver os arquivos.
-              É normal: clique em <b className="text-zinc-200">Permitir</b>. Atenção: o botão que já vem marcado é o
-              “Não permitir”, e apertar Enter nele cancela a escolha.</p>
-          </Modal>
+          <ModalAviso aberto={!!avisoLeitura} onFechar={() => setAvisoLeitura(null)} voltarFoco={botaoZip}
+            variante={avisoLeitura?.variante} titulo={avisoLeitura?.titulo ?? ""}
+            acao={avisoLeitura?.acao === "zip"
+              ? { rotulo: "Escolher o .zip da pasta", onClick: () => { setAvisoLeitura(null); inputZip.current?.click(); } }
+              : undefined}>
+            {avisoLeitura?.texto ?? ""}
+          </ModalAviso>
           {ocupadoPasta && (
             <div className="mt-5">
-              <p className="text-sm text-zinc-400">
-                {estadoPasta === "escolhendo"
-                  ? "Esperando você escolher a pasta e clicar em “Permitir” no aviso do Chrome…"
-                  : `Lendo os nomes dos arquivos${raiz ? ` de ${raiz}` : ""}…`}
-              </p>
-              {estadoPasta === "lendo" && <EsqueletoLista linhas={4} className="mt-4" texto="Lendo os arquivos da pasta" />}
-            </div>
-          )}
-          {avisoLeitura && !ocupadoPasta && (
-            <div className="mt-4">
-              <Alert variant="warning">{avisoLeitura}</Alert>
-              {seletorBloqueado && (
-                <button type="button" onClick={() => inputPasta.current?.click()}
-                  className="mt-3 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">
-                  Usar seletor alternativo
-                </button>
-              )}
+              <p className="text-sm text-zinc-400">Lendo os nomes dos arquivos…</p>
+              <EsqueletoLista linhas={4} className="mt-4" texto="Lendo os arquivos da pasta" />
             </div>
           )}
           {semArquivos && !ocupadoPasta && (
-            <p className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
-              <span>Lembrei a pasta <b>{raiz}</b> da última vez. Para enviar arquivos de novo, o navegador precisa da sua permissão.</span>
-              {chavePasta
-                ? <button type="button" onClick={reabrir} className="rounded-lg bg-amber-300/15 px-3 py-1.5 font-semibold hover:bg-amber-300/25">Reabrir {raiz}</button>
-                : <span className="text-amber-200/70">Escolha a pasta de novo.</span>}
+            <p className="mt-4 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200">
+              Lembrei a pasta <b>{raiz}</b> da última vez e o mapa abaixo é dela. Para processar, arraste a pasta de novo
+              (ou escolha o .zip): o navegador não guarda os arquivos depois de recarregar a página.
             </p>
           )}
           {mapa && !ocupadoPasta && (

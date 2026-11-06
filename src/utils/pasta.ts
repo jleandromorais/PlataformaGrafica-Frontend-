@@ -16,9 +16,11 @@ export function lerPasta(lista: FileList, extensoes: string[]): { raiz: string; 
 }
 
 // ── Pasta que o navegador lembra (Chrome/Edge) ───────────────────────────────
-// Com o input comum, recarregar a página perde o acesso aos arquivos. Com o
-// showDirectoryPicker, o navegador entrega uma "chave" da pasta que pode ser guardada
-// (utils/lembrar) e reaberta depois, com a permissão da pessoa. Os tipos não estão no TS.
+// Ao ARRASTAR a pasta (utils/soltarPasta), o Chrome/Edge entrega também uma "chave"
+// (getAsFileSystemHandle) que pode ser guardada (utils/lembrar) e relida depois de
+// recarregar, SE o navegador ainda der a permissão sem perguntar. O Painel do Ciclo não
+// usa mais o showDirectoryPicker nem pede permissão: os dois mostram o aviso do Chrome
+// "Permitir que este site veja e copie arquivos?". Os tipos não estão no TS.
 
 type Permissao = "granted" | "denied" | "prompt";
 export interface ChavePasta {
@@ -36,8 +38,6 @@ export type ArquivoDaPastaCiclo = File | { getFile(): Promise<File> };
 export interface PastaLida { raiz: string; arquivos: Map<string, ArquivoDaPastaCiclo> }
 
 export const abrirArquivo = (a: ArquivoDaPastaCiclo): Promise<File> => (a instanceof File ? Promise.resolve(a) : a.getFile());
-
-export const navegadorLembraPasta = typeof window !== "undefined" && "showDirectoryPicker" in window;
 
 // Só lista os nomes: abrir cada arquivo (getFile) com milhares deles, em OneDrive ou
 // rede, levava minutos. O mapa só precisa dos nomes; o Processar abre na hora de enviar.
@@ -57,24 +57,11 @@ export async function lerPastaDaChave(chave: ChavePasta): Promise<PastaLida> {
   return { raiz: chave.name, arquivos: await lerChave(chave) };
 }
 
-/** Abre o seletor de pasta e devolve só a chave (rápido); null se a pessoa cancelar. */
-export async function escolherChavePasta(): Promise<ChavePasta | null> {
-  try {
-    // `id` faz o Chrome abrir direto na última pasta usada (em vez de varrer o PC todo).
-    const w = window as unknown as { showDirectoryPicker(o: { mode: "read"; id: string; startIn: string }): Promise<ChavePasta> };
-    return await w.showDirectoryPicker({ mode: "read", id: "pasta-ciclo", startIn: "downloads" });
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") return null;
-    throw e;
-  }
-}
-
-/** Relê uma pasta guardada. `pedir`: pode mostrar o aviso de permissão do navegador
- * (só funciona logo após um clique). Sem permissão → null. */
-export async function reabrirPasta(chave: ChavePasta, pedir: boolean): Promise<PastaLida | null> {
-  let permissao = await chave.queryPermission({ mode: "read" });
-  if (permissao === "prompt" && pedir) permissao = await chave.requestPermission({ mode: "read" });
-  if (permissao !== "granted") return null;
+/** Relê uma pasta guardada só se o navegador ainda der a permissão SEM perguntar
+ * (queryPermission não mostra aviso). Precisaria perguntar → null: arraste de novo. */
+export async function reabrirPasta(chave: ChavePasta): Promise<PastaLida | null> {
+  if (typeof chave?.queryPermission !== "function") return null;
+  if ((await chave.queryPermission({ mode: "read" })) !== "granted") return null;
   return lerPastaDaChave(chave);
 }
 

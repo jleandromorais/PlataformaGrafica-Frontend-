@@ -1,21 +1,23 @@
-/** "Auditar <mês>" no cartão da Auditoria CGR do Painel do Ciclo: o analista escolhe a
- * pasta das notas de UM mês, confere o resultado ali mesmo e só grava se confirmar.
- * Mesmo envio da tela da Auditoria (modo XML, todas as empresas, sem planilha). */
+/** "Auditar <mês>" no cartão da Auditoria CGR do Painel do Ciclo: o analista arrasta a
+ * pasta das notas de UM mês (ou escolhe o .zip dela), confere o resultado ali mesmo e só
+ * grava se confirmar. Mesmo envio da tela da Auditoria (modo XML, todas as empresas, sem
+ * planilha). Sem seletor de pasta: ele faz o Chrome mostrar aviso de permissão/upload. */
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Play, Save, X } from "lucide-react";
+import { FileArchive, Loader2, Play, Save, X } from "lucide-react";
 import { salvarAuditoria, type ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { Alert } from "../../components/ui/Alert";
+import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Button } from "../../components/ui/Button";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import { ListaProblemas } from "../../components/ui/ListaProblemas";
-import { Modal } from "../../components/ui/Modal";
-import { SeletorArquivos } from "../../components/ui/SeletorArquivos";
-import { SeletorPasta } from "../../components/ui/SeletorPasta";
+import { ModalAviso } from "../../components/ui/ModalAviso";
 import { Valor } from "../../components/ui/Valor";
 import { brl, num } from "../../utils/format";
-import { carregarNaMemoria, lerPasta } from "../../utils/pasta";
+import { carregarNaMemoria } from "../../utils/pasta";
 import { empresasDosCaminhos } from "../../utils/pastaCiclo";
+import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
+import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes";
 import { OndeDifere } from "./Processar";
@@ -34,6 +36,15 @@ interface Envio {
 
 const mesCurto = (periodo: string) => periodo.split("/")[0];
 
+/** Por que não dá para enviar (antes de gastar minutos de OCR no servidor). */
+const bloqueioDe = (envio: Envio | null) => !envio ? null
+  : !envio.arquivos.length ? "Esta pasta não tem nenhum XML ou PDF."
+  : envio.empresas && !envio.empresas.length
+    ? "Esta pasta não tem subpastas de empresa. Traga a pasta do mês, a que contém as pastas Petrobras, TAG… com os XML e PDF dentro."
+  : envio.arquivos.length > MAX_ARQUIVOS
+    ? `São ${num(envio.arquivos.length)} arquivos; o servidor aceita até ${num(MAX_ARQUIVOS)} por envio. Use a tela da Auditoria por empresa.`
+  : null;
+
 export function AuditarMes({ meses, auditoria, onGravado }: {
   meses: string[];
   auditoria: AuditoriaHistoricoLinha[];
@@ -42,12 +53,17 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
   const [ativo, setAtivo] = useState<string | null>(null);
   const [fase, setFase] = useState<Fase>("escolher");
   const [envio, setEnvio] = useState<Envio | null>(null);
+  const [lendoPasta, setLendoPasta] = useState(false); // listando a pasta arrastada
   const [lidos, setLidos] = useState<{ feitos: number; total: number } | null>(null);
   const [res, setRes] = useState<AuditoriaDoMes | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Entrada recusada (arquivos soltos, não é .zip, pasta sem empresas…): aviso em janela.
+  const [aviso, setAviso] = useState<{ titulo: string; texto: string } | null>(null);
   const [confirmar, setConfirmar] = useState(false);
   const [gravado, setGravado] = useState<{ cgr: number; notas: number } | null>(null);
   const titulo = useRef<HTMLHeadingElement>(null);
+  const inputZip = useRef<HTMLInputElement>(null);
+  const botaoZip = useRef<HTMLButtonElement>(null);
 
   // Ao abrir um mês e a cada resultado, o foco vai para o título do painel (leitor de tela e teclado).
   useEffect(() => {
@@ -63,6 +79,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     setEnvio(null);
     setRes(null);
     setErro(null);
+    setAviso(null);
     setLidos(null);
     setGravado(null);
   };
@@ -72,25 +89,46 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
   };
   const fechar = () => { zerar(); setAtivo(null); };
 
-  const escolherPasta = (lista: FileList) => {
+  /** Pasta ou .zip escolhido: se não serve, já avisa em janela (com o próximo passo). */
+  const usar = (novo: Envio) => {
     setErro(null);
-    const { raiz, arquivos } = lerPasta(lista, ["xml", "pdf"]);
-    setEnvio({ raiz, arquivos, empresas: empresasDosCaminhos(arquivos.map((a) => a.caminho)) });
-  };
-  const escolherZip = (zips: File[]) => {
-    setErro(null);
-    const zip = zips[zips.length - 1];
-    setEnvio(zip ? { raiz: zip.name.replace(/\.zip$/i, ""), arquivos: [{ arquivo: zip, caminho: zip.name }], empresas: null } : null);
+    setEnvio(novo);
+    const motivo = bloqueioDe(novo);
+    if (motivo) setAviso({ titulo: "Esta pasta não serve para auditar", texto: motivo });
   };
 
-  // Por que não dá para enviar (antes de gastar minutos de OCR no servidor).
-  const bloqueio = !envio ? null
-    : !envio.arquivos.length ? "Esta pasta não tem nenhum XML ou PDF."
-    : envio.empresas && !envio.empresas.length
-      ? "Esta pasta não tem subpastas de empresa. Escolha a pasta do mês, a que contém as pastas Petrobras, TAG… com os XML e PDF dentro."
-    : envio.arquivos.length > MAX_ARQUIVOS
-      ? `São ${num(envio.arquivos.length)} arquivos; o servidor aceita até ${num(MAX_ARQUIVOS)} por envio. Use a tela da Auditoria por empresa.`
-    : null;
+  const escolherZip = (zip: File | undefined) => {
+    if (!zip) return;
+    if (!ehZip(zip)) {
+      setAviso({ titulo: "Escolha um arquivo .zip",
+        texto: `“${zip.name}” não é um .zip. Compacte a pasta de ${ativo} (botão direito › Enviar para › Pasta compactada) `
+          + "e escolha o .zip, ou arraste a pasta para a área tracejada." });
+      return;
+    }
+    usar({ raiz: zip.name.replace(/\.zip$/i, ""), arquivos: [{ arquivo: zip, caminho: zip.name }], empresas: null });
+  };
+
+  const soltar = async (s: Soltura) => {
+    const nome = `de ${ativo}`;
+    if (s.tipo === "zip" && s.zip) return escolherZip(s.zip);
+    if (s.tipo !== "pasta" || !s.pasta) {
+      setAviso(avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, nome));
+      return;
+    }
+    setLendoPasta(true);
+    try {
+      const pasta = await lerPastaSolta(s.pasta);
+      const arquivos = await arquivosParaEnvio(pasta, ["xml", "pdf"]);
+      usar({ raiz: pasta.raiz, arquivos, empresas: empresasDosCaminhos(arquivos.map((a) => a.caminho)) });
+    } catch (e) {
+      setAviso({ titulo: "Não foi possível ler a pasta",
+        texto: e instanceof Error ? e.message : mensagemDeErro(e, "Não foi possível ler a pasta.") });
+    } finally {
+      setLendoPasta(false);
+    }
+  };
+
+  const bloqueio = bloqueioDe(envio);
 
   const processar = async () => {
     if (!envio || !ativo || bloqueio) return;
@@ -101,11 +139,11 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
       setFase("processando");
       const r = await auditarMes(memoria, envio.raiz, ativo, cgrGravado, true);
       if (r.erros.length) {
-        setErro(`O servidor não conseguiu auditar ${ativo}: ${r.erros.join(" ")} Corrija os arquivos indicados e escolha a pasta de novo.`);
+        setErro(`O servidor não conseguiu auditar ${ativo}: ${r.erros.join(" ")} Corrija os arquivos indicados e traga a pasta de novo.`);
         setFase("erro");
       } else if (r.outroMes) {
         setErro(`O nome da pasta “${envio.raiz}” indica ${r.outroMes}, não ${ativo}. Nada foi gravado. `
-          + `Escolha a pasta das notas de ${ativo}, ou use “Auditar ${mesCurto(r.outroMes)}” se essas notas são daquele mês.`);
+          + `Traga a pasta das notas de ${ativo}, ou use “Auditar ${mesCurto(r.outroMes)}” se essas notas são daquele mês.`);
         setFase("erro");
       } else {
         setRes(r);
@@ -137,11 +175,16 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     }
   };
 
+  /** Erro de auditar: volta a escolher (a pasta errada sai). */
+  const voltarAEscolher = () => { setErro(null); setEnvio(null); setFase("escolher"); };
+
   const d = res?.diferencas;
   // Gravar substitui o mês inteiro: empresa gravada que não veio nesta pasta some.
   const apagadas = d?.tem_notas_gravadas ? d.por_empresa.filter((e) => e.processado === 0 && e.gravado !== 0) : [];
   const temDiferenca = !!d && (d.resumo.length > 0 || d.notas.length > 0);
   const substitui = cgrGravado !== null;
+  const erroAoAuditar = fase === "erro" && !!erro;
+  const erroAoGravar = fase === "resultado" && !!erro;
 
   return (
     <div className="mt-3">
@@ -161,6 +204,10 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
         })}
       </div>
 
+      {/* Fora das fases: o botão principal dos avisos também abre a escolha do .zip. */}
+      <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
+        onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
+
       {ativo && (
         <div id="auditar-mes-painel" className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -172,25 +219,41 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
 
           {fase === "escolher" && (
             <div className="mt-3 space-y-3">
-              <SeletorPasta onEscolher={escolherPasta}
-                titulo={envio?.empresas ? `Pasta: ${envio.raiz}` : `Escolher a pasta das notas de ${ativo}`}
-                detalhe="A pasta do mês, que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF. Não escolha a pasta de uma só empresa." />
-              <SeletorArquivos accept=".zip" titulo="Ou um .zip da pasta do mês" dica="Com as pastas das empresas dentro"
-                arquivos={envio && !envio.empresas ? [envio.arquivos[0].arquivo] : []} onChange={escolherZip} />
-              {envio?.empresas && envio.empresas.length > 0 && (
-                <p className="text-xs text-zinc-400">
-                  {num(envio.arquivos.length)} arquivo(s) em {envio.empresas.length} empresa(s):{" "}
-                  {envio.empresas.map((e) => `${e.nome} (${e.xml} XML · ${e.pdf} PDF)`).join(", ")}.
-                  {envio.empresas.some((e) => e.pdf && !e.xml) && (
-                    <span className="block text-amber-200/90">
-                      Só PDF (lidas por OCR, confira com atenção): {envio.empresas.filter((e) => e.pdf && !e.xml).map((e) => e.nome).join(", ")}.
-                    </span>
-                  )}
+              <AreaSoltarPasta texto={`Arraste aqui a pasta de ${ativo}`} onSoltar={soltar} desabilitado={lendoPasta}>
+                <p className="max-w-[60ch] text-xs text-zinc-500">
+                  A pasta do mês, que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF. Não traga a pasta de uma só empresa.
+                </p>
+                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
+                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                  <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
+                </button>
+                <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+              </AreaSoltarPasta>
+              {lendoPasta && (
+                <p className="flex items-center gap-2 text-xs text-zinc-400" aria-live="polite">
+                  <Loader2 size={13} className="animate-spin text-sky-300" aria-hidden /> Lendo a pasta…
                 </p>
               )}
-              {bloqueio && <Alert variant="warning">{bloqueio}</Alert>}
+              {envio && !lendoPasta && (
+                <p className="text-xs text-zinc-400">
+                  {envio.empresas ? <>Pasta <b className="text-zinc-200">{envio.raiz}</b>: </> : <>.zip <b className="text-zinc-200">{envio.arquivos[0]?.caminho}</b> (o servidor confere as pastas das empresas).</>}
+                  {envio.empresas && envio.empresas.length > 0 && (
+                    <>
+                      {num(envio.arquivos.length)} arquivo(s) em {envio.empresas.length} empresa(s):{" "}
+                      {envio.empresas.map((e) => `${e.nome} (${e.xml} XML · ${e.pdf} PDF)`).join(", ")}.
+                      {envio.empresas.some((e) => e.pdf && !e.xml) && (
+                        <span className="block text-amber-200/90">
+                          Só PDF (lidas por OCR, confira com atenção): {envio.empresas.filter((e) => e.pdf && !e.xml).map((e) => e.nome).join(", ")}.
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {/* O motivo fica escrito aqui depois de fechar o aviso: é por isso que "Processar" está desligado. */}
+                  {bloqueio && <span className="block text-amber-200">⚠ {bloqueio}</span>}
+                </p>
+              )}
               <div className="flex flex-wrap gap-2">
-                <Button variant="solid" icon={<Play size={14} />} onClick={processar} disabled={!envio || !!bloqueio}>
+                <Button variant="solid" icon={<Play size={14} />} onClick={processar} disabled={!envio || !!bloqueio || lendoPasta}>
                   Processar {ativo}
                 </Button>
                 <Button variant="ghost" onClick={fechar}>Cancelar</Button>
@@ -214,19 +277,8 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
             </div>
           )}
 
-          {fase === "erro" && (
-            <div className="mt-3 space-y-3">
-              {erro && <Alert variant="error">{erro}</Alert>}
-              <div className="flex flex-wrap gap-2">
-                <Button variant="primary" onClick={() => { setErro(null); setEnvio(null); setFase("escolher"); }}>Escolher outra pasta</Button>
-                <Button variant="ghost" onClick={fechar}>Fechar</Button>
-              </div>
-            </div>
-          )}
-
           {(fase === "resultado" || fase === "gravando") && res && (
             <div className="mt-3 space-y-3">
-              {erro && <Alert variant="error">{erro}</Alert>}
               <dl className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div>
                   <dt className="text-xs text-zinc-500">CGR líquido calculado</dt>
@@ -289,21 +341,36 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
         </div>
       )}
 
-      <Modal aberto={confirmar} onFechar={() => setConfirmar(false)} icone={<Save size={20} />}
+      {/* Entrada recusada: o próximo passo é escolher o .zip (ou arrastar de novo). */}
+      <ModalAviso aberto={!!aviso} onFechar={() => setAviso(null)} variante="atencao" titulo={aviso?.titulo ?? ""} voltarFoco={botaoZip}
+        acao={{ rotulo: "Escolher o .zip da pasta", onClick: () => { setAviso(null); setEnvio(null); inputZip.current?.click(); } }}>
+        {aviso?.texto ?? ""}
+      </ModalAviso>
+
+      {/* Auditar falhou: escolher outra pasta. */}
+      <ModalAviso aberto={erroAoAuditar} onFechar={voltarAEscolher} variante="erro" titulo={`Não foi possível auditar ${ativo}`}
+        voltarFoco={titulo}
+        acao={{ rotulo: "Escolher o .zip da pasta", onClick: () => { voltarAEscolher(); inputZip.current?.click(); } }}>
+        {erroAoAuditar ? erro! : ""}
+      </ModalAviso>
+
+      {/* Gravar falhou: o resultado continua na tela; dá para tentar de novo. */}
+      <ModalAviso aberto={erroAoGravar} onFechar={() => setErro(null)} variante="erro" titulo={`Não foi possível gravar ${ativo}`}
+        acao={{ rotulo: "Tentar gravar de novo", onClick: gravar }}>
+        {erroAoGravar ? erro! : ""}
+      </ModalAviso>
+
+      {/* Confirmação antes de gravar: diz o que será substituído. */}
+      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante={substitui ? "atencao" : "info"}
+        icone={substitui ? undefined : <Save size={20} />}
         titulo={substitui ? `Substituir o CGR de ${ativo}?` : `Gravar o CGR de ${ativo}?`}
-        rodape={<>
-          <button type="button" onClick={gravar}
-            className="w-full rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">
-            {substitui ? "Substituir e gravar" : "Gravar"}
-          </button>
-          <button type="button" onClick={() => setConfirmar(false)}
-            className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white">Cancelar</button>
-        </>}>
+        acao={{ rotulo: substitui ? "Gravar e substituir" : "Gravar", onClick: gravar }} rotuloFechar="Cancelar">
         {res && (
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
-            {substitui && <><dt>Gravado hoje</dt><dd className="text-right text-zinc-200"><Valor valor={cgrGravado!} /></dd></>}
+            <dt className="col-span-2 font-medium text-zinc-200">Auditoria CGR · {ativo}</dt>
+            {substitui && <><dt>Gravado hoje</dt><dd className="text-right tabular-nums text-zinc-200"><Valor valor={cgrGravado!} /></dd></>}
             <dt>{substitui ? "Passa a ser" : "CGR calculado"}</dt>
-            <dd className="text-right font-semibold text-white"><Valor valor={res.r.totais.cgr_liquido} /></dd>
+            <dd className="text-right font-semibold tabular-nums text-white"><Valor valor={res.r.totais.cgr_liquido} /></dd>
           </dl>
         )}
         <p>{substitui ? `As notas gravadas de ${ativo} são apagadas e entram só` : `Entram em ${ativo}`} as {num(res?.r.itens.length ?? 0)} notas
@@ -312,7 +379,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
           <p className="text-red-300">{apagadas.map((e) => e.empresa).join(", ")} {apagadas.length === 1 ? "sairá" : "sairão"} do mês.</p>
         )}
         {!!res?.naoLidos && <p className="text-amber-200">{res.naoLidos} PDF(s) não lido(s) ficam fora do CGR.</p>}
-      </Modal>
+      </ModalAviso>
     </div>
   );
 }

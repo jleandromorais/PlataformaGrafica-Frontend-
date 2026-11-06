@@ -34,7 +34,7 @@ export function Alert({ variant = "info", children, className = "" }: AlertProps
 
 /** Texto com quebras de linha; o que vier depois de SEPARADOR_DETALHE fica
  * recolhido em "Detalhes técnicos" (só interessa ao suporte). */
-function Texto({ texto }: { texto: string }) {
+export function Texto({ texto }: { texto: string }) {
   const [principal, tecnico] = texto.split(SEPARADOR_DETALHE);
   return (
     <span className="min-w-0 whitespace-pre-line">

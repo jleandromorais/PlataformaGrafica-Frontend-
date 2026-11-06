@@ -10,6 +10,7 @@ import {
   salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
 } from "../../api";
 import { auditarMes } from "./auditoriaDoMes";
+import { ModalAviso } from "../../components/ui/ModalAviso";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
@@ -133,6 +134,7 @@ export function ProcessarTrimestre({
     })),
   );
   const [fase, setFase] = useState<Fase>(inicio?.fase ?? "previa");
+  const [confirmar, setConfirmar] = useState(false);
   const parar = useRef(false);
 
   // Guarda a prévia a cada mudança: recarregar a página não perde o que já foi processado.
@@ -244,6 +246,7 @@ export function ProcessarTrimestre({
   }
 
   async function gravar() {
+    setConfirmar(false);
     parar.current = false;
     setFase("gravando");
     for (const c of celulas.filter((x) => x.escolhida && x.estado === "processada")) {
@@ -277,6 +280,9 @@ export function ProcessarTrimestre({
 
   const aProcessar = celulas.filter((c) => c.escolhida && c.estado === "pronta").length;
   const aGravar = celulas.filter((c) => c.escolhida && c.estado === "processada").length;
+  // O que já tem valor gravado e será substituído: pede confirmação em janela antes de gravar.
+  const substituidas = celulas.filter((c) => c.escolhida && c.estado === "processada" && c.gravado !== null);
+  const pedirGravar = () => (substituidas.length ? setConfirmar(true) : gravar());
   const ocupado = fase === "processando" || fase === "gravando";
   const gravadas = celulas.filter((c) => c.estado === "gravada").length;
   const comErro = celulas.filter((c) => c.estado === "erro" || c.estado === "bloqueada").length;
@@ -379,13 +385,13 @@ export function ProcessarTrimestre({
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {fase === "previa" && (
           <button type="button" onClick={processar} disabled={!aProcessar || semArquivos}
-            title={semArquivos ? "Reabra a pasta acima para enviar os arquivos" : undefined}
+            title={semArquivos ? "Arraste a pasta acima (ou escolha o .zip) para enviar os arquivos" : undefined}
             className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
             Processar {aProcessar} etapa(s)-mês
           </button>
         )}
         {fase === "revisao" && (
-          <button type="button" onClick={gravar} disabled={!aGravar}
+          <button type="button" onClick={pedirGravar} disabled={!aGravar}
             className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
             Gravar {aGravar} etapa(s)-mês
           </button>
@@ -402,6 +408,37 @@ export function ProcessarTrimestre({
           </button>
         )}
       </div>
+
+      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante="atencao" rotuloFechar="Cancelar"
+        titulo={substituidas.length === 1 ? "Substituir 1 valor já gravado?" : `Substituir ${substituidas.length} valores já gravados?`}
+        acao={{ rotulo: "Gravar e substituir", onClick: gravar }}>
+        <p>Ao gravar, {substituidas.length === 1 ? "este valor é substituído" : "estes valores são substituídos"}:</p>
+        <div className="max-h-64 overflow-y-auto rounded-lg border border-white/[0.07]">
+          <table className="w-full text-xs">
+            <thead className="bg-white/[0.03] text-zinc-500">
+              <tr>
+                <th scope="col" className="px-2 py-1.5 text-left font-medium">Etapa · mês</th>
+                <th scope="col" className="px-2 py-1.5 text-right font-medium">Gravado hoje</th>
+                <th scope="col" className="px-2 py-1.5 text-right font-medium">Passa a ser</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {substituidas.map((c) => (
+                <tr key={`${c.etapa}-${c.periodo}`}>
+                  <td className="px-2 py-1.5 text-zinc-200">{NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{brl(c.gravado!)}</td>
+                  <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums text-white">
+                    {c.valor === undefined ? "—" : brl(c.valor)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {aGravar > substituidas.length && (
+          <p>{aGravar - substituidas.length === 1 ? "A outra etapa-mês marcada é gravada" : `As outras ${aGravar - substituidas.length} etapas-mês marcadas são gravadas`} pela primeira vez.</p>
+        )}
+      </ModalAviso>
     </div>
   );
 }
