@@ -15,8 +15,22 @@ export function paginasVisiveis(pagina: number, totalPaginas: number): ItemPagin
   return itens;
 }
 
+/** Nome do item no resumo: [singular, plural], ex.: ["mês", "meses"]. */
+export type RotuloItem = readonly [singular: string, plural: string];
+
+/**
+ * Resumo da paginação: "Mostrando 1–8 de 23 meses", "Mostrando 9 de 9 meses"
+ * (página com um item só) e "Mostrando 1 de 1 mês" (um item no total).
+ */
+export function textoResumo(pagina: number, porPagina: number, total: number, [singular, plural]: RotuloItem): string {
+  const primeiro = (pagina - 1) * porPagina + 1;
+  const ultimo = Math.min(pagina * porPagina, total);
+  const intervalo = primeiro === ultimo ? `${primeiro}` : `${primeiro}–${ultimo}`;
+  return `Mostrando ${intervalo} de ${total} ${total === 1 ? singular : plural}`;
+}
+
 interface OpcoesPaginacao {
-  /** Itens por página (padrão 12 = um ano de meses). */
+  /** Itens por página (padrão 8). */
   porPagina?: number;
   /** Índice do item em destaque (ex.: período aberto); a paginação pula para a página dele. -1 = nenhum. */
   focoIndice?: number;
@@ -25,7 +39,7 @@ interface OpcoesPaginacao {
 const paginaDoIndice = (indice: number, porPagina: number) => Math.floor(indice / porPagina) + 1;
 
 /** Fatia em páginas uma lista que já veio inteira da API. */
-export function usePaginacao<T>(itens: T[], { porPagina = 12, focoIndice = -1 }: OpcoesPaginacao = {}) {
+export function usePaginacao<T>(itens: T[], { porPagina = 8, focoIndice = -1 }: OpcoesPaginacao = {}) {
   const [pagina, setPagina] = useState(() => (focoIndice >= 0 ? paginaDoIndice(focoIndice, porPagina) : 1));
   const [focoAnterior, setFocoAnterior] = useState(focoIndice);
 

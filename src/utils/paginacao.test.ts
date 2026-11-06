@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { paginasVisiveis } from "./paginacao";
+import { paginasVisiveis, textoResumo } from "./paginacao";
+
+const MESES = ["mês", "meses"] as const;
+
+describe("textoResumo", () => {
+  it("um item só: singular, sem intervalo", () => {
+    expect(textoResumo(1, 8, 1, MESES)).toBe("Mostrando 1 de 1 mês");
+    expect(textoResumo(1, 8, 1, ["sessão", "sessões"])).toBe("Mostrando 1 de 1 sessão");
+  });
+
+  it("intervalo no plural", () => {
+    expect(textoResumo(1, 8, 23, MESES)).toBe("Mostrando 1–8 de 23 meses");
+    expect(textoResumo(3, 8, 23, MESES)).toBe("Mostrando 17–23 de 23 meses");
+    expect(textoResumo(1, 8, 5, ["sessão", "sessões"])).toBe("Mostrando 1–5 de 5 sessões");
+  });
+
+  it("página com um item só: sem intervalo (9 itens, 8 por página → pág. 2)", () => {
+    expect(textoResumo(2, 8, 9, MESES)).toBe("Mostrando 9 de 9 meses");
+  });
+});
 
 describe("paginasVisiveis", () => {
   it("uma página só", () => {

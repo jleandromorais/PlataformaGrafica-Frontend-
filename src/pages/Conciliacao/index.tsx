@@ -302,7 +302,7 @@ export default function ConciliacaoPage() {
               </tbody>
             </table>
           </div>
-          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo={["mês", "meses"]} />
         </section>
       </div>
     </div>
