@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* HeroUI v3 (componentes como a Paginação). Sempre depois do tailwindcss.
+   Usa o mesmo data-theme="dark"/"light" do <html>; o azul de destaque dele é o mesmo da ARPE. */
+@import "@heroui/styles";
 
 /*
  * Tema claro com as cores da ARPE.
@@ -203,6 +206,16 @@
  * todo padding/margin utilitário do app. O preflight do Tailwind já zera margin/padding.
  */
 @layer base {
+  /* O HeroUI muda a cor padrão de toda borda para o cinza dele; o site foi
+     desenhado com a padrão do Tailwind (cor do texto), então ela volta aqui. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: currentColor;
+  }
+
   html {
     color-scheme: light;
     transition: background-color 0.2s ease;

@@ -14,6 +14,8 @@ import { dicaDe, type Sigla } from "../../utils/glossario";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
@@ -63,6 +65,9 @@ export default function SCGPage() {
   const [fonte, setFonte] = useState<Record<Campo, Fonte>>({ cgr: "gravado", cgf: "gravado", ret: "gravado", rp: "gravado" });
   const [manual, setManual] = useState<Record<Campo, string>>({ cgr: "", cgf: "", ret: "", rp: "" });
   const [historico, setHistorico] = useState<SCGHistoricoLinha[]>([]);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === periodo) });
+  // Com paginação, um mês divergente pode estar em outra página: a lista abaixo do título mostra todos.
+  const mesesDivergentes = historico.filter((h) => h.diverge);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -293,6 +298,20 @@ export default function SCGPage() {
             <p className="mt-0.5 text-sm text-zinc-400">
               <AlertTriangle size={12} className="mr-1 inline text-amber-300" />marca os meses em que os módulos e o gravado não batem. Clique para abrir.
             </p>
+            {mesesDivergentes.length > 0 && (
+              <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-amber-300">
+                <span>{mesesDivergentes.length === 1 ? "1 mês diverge:" : `${mesesDivergentes.length} meses divergem:`}</span>
+                {mesesDivergentes.map((h) => {
+                  const [m, a] = h.periodo.split("/");
+                  return (
+                    <button key={h.periodo} type="button" onClick={() => mudarPeriodo(m, Number(a))}
+                      className="font-medium underline decoration-amber-300/40 underline-offset-2 hover:text-amber-200">
+                      {h.periodo}
+                    </button>
+                  );
+                })}
+              </p>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[52rem] text-sm">
@@ -305,7 +324,7 @@ export default function SCGPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={7} texto="Carregando o histórico…" />}
-                {historico.map((h) => {
+                {pag.itensDaPagina.map((h) => {
                   const [m, a] = h.periodo.split("/");
                   return (
                     <tr key={h.periodo} onClick={() => mudarPeriodo(m, Number(a))}
@@ -329,6 +348,7 @@ export default function SCGPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
         </section>
       </div>
     </div>

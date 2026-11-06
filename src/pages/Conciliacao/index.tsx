@@ -16,6 +16,8 @@ import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl
 import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
@@ -47,6 +49,10 @@ export default function ConciliacaoPage() {
   const [ocrDisponivel, setOcrDisponivel] = useState(true);
   const [editados, setEditados] = useState<Record<number, string>>({});
   const [historico, setHistorico] = useState<ConciliaHistoricoLinha[]>([]);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === periodo) });
+  const rpDiverge = (h: ConciliaHistoricoLinha) => Math.abs(h.rp_dos_itens - h.rp_gravado) > 0.01;
+  // Com paginação, um mês divergente pode estar em outra página: a lista abaixo do título mostra todos.
+  const divergentes = historico.filter(rpDiverge);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -261,6 +267,12 @@ export default function ConciliacaoPage() {
           <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
             <h2 className="text-base font-semibold text-white">RP gravado</h2>
             <p className="mt-0.5 text-sm text-zinc-400">Quando o RP gravado difere do calculado pelos PDFs gravados, a linha fica destacada.</p>
+            {divergentes.length > 0 && (
+              <p className="mt-2 text-sm text-amber-300">
+                {divergentes.length === 1 ? "1 mês diverge: " : `${divergentes.length} meses divergem: `}
+                <span className="font-medium">{divergentes.map((h) => h.periodo).join(", ")}</span>
+              </p>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
@@ -273,8 +285,8 @@ export default function ConciliacaoPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
-                {historico.map((h) => {
-                  const diverge = Math.abs(h.rp_dos_itens - h.rp_gravado) > 0.01;
+                {pag.itensDaPagina.map((h) => {
+                  const diverge = rpDiverge(h);
                   return (
                     <tr key={h.periodo} className={diverge ? "bg-amber-500/[0.05]" : ""}>
                       <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
@@ -290,6 +302,7 @@ export default function ConciliacaoPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
         </section>
       </div>
     </div>

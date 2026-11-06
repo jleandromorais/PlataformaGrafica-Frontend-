@@ -11,6 +11,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@heroui/react": "^3.2.7",
+    "@heroui/styles": "^3.2.7",
     "axios": "^1.15.2",
     "lucide-react": "^1.14.0",
     "react": "^19.2.5",

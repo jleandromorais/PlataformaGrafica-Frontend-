@@ -11,6 +11,8 @@ import { tituloDe } from "../../utils/glossario";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
@@ -60,6 +62,7 @@ export default function RPVPage() {
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [historico, setHistorico] = useState<RPVHistoricoLinha[]>([]);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === periodo) });
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [erro, setErro] = useState<string | null>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
@@ -220,7 +223,7 @@ export default function RPVPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={5} texto="Carregando o histórico…" />}
-                {historico.map((h) => (
+                {pag.itensDaPagina.map((h) => (
                   <tr
                     key={h.periodo}
                     onClick={() => abrirPeriodo(h.periodo)}
@@ -243,6 +246,7 @@ export default function RPVPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
         </section>
       </div>
     </div>

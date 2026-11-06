@@ -9,6 +9,8 @@ import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado 
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -234,6 +236,7 @@ export default function PMPVPage() {
   const [historico, setHistorico] = useState<PMPVHistoricoLinha[]>([]);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ultimaSalva, setUltimaSalva] = useState<number | null>(null);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.id === ultimaSalva) });
   const arquivoRef = useRef<HTMLInputElement>(null);
 
   const carregarHistorico = useCallback(() => {
@@ -668,7 +671,7 @@ export default function PMPVPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
-                {historico.map((h) => (
+                {pag.itensDaPagina.map((h) => (
                   <tr key={h.id} className={h.id === ultimaSalva ? "bg-sky-500/[0.06]" : ""}>
                     <td className="px-5 py-2.5 font-medium text-zinc-200">{h.nome}</td>
                     <td className="px-5 py-2.5 text-right tabular-nums text-sky-300">{brl(h.pmpv, 4)}</td>
@@ -686,6 +689,7 @@ export default function PMPVPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="sessões" />
         </section>
       </div>
     </div>

@@ -13,6 +13,8 @@ import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
 import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
@@ -59,6 +61,7 @@ export default function CGFPage() {
   const [pmpvTexto, setPmpvTexto] = useState("");
   const [carregandoPmpv, setCarregandoPmpv] = useState(true); // a busca inicial roda ao abrir
   const [historico, setHistorico] = useState<CGFHistoricoLinha[]>([]);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === periodo) });
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar">(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -350,7 +353,7 @@ export default function CGFPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
-                {historico.map((h) => (
+                {pag.itensDaPagina.map((h) => (
                   <tr key={h.periodo} className={h.periodo === periodo ? "bg-sky-500/[0.06]" : ""}>
                     <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{num(h.volume_faturado, 2)}</td>
@@ -369,6 +372,7 @@ export default function CGFPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
         </section>
       </div>
     </div>

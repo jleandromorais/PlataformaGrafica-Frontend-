@@ -1,3 +1,5 @@
+
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, FolderOpen, Loader2, Play, Save, X } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -14,6 +16,8 @@ import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl
 import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { usePaginacao } from "../../utils/paginacao";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
@@ -73,6 +77,7 @@ export default function AuditoriaPage() {
   const [resultado, setResultado] = useState<AuditoriaResultado | null>(null);
   const [verTodas, setVerTodas] = useState(false);
   const [historico, setHistorico] = useState<AuditoriaHistoricoLinha[]>([]);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === periodo) });
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [ocupado, setOcupado] = useState<null | "processar" | "salvar" | "relatorio">(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -380,7 +385,7 @@ export default function AuditoriaPage() {
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={4} texto="Carregando o histórico…" />}
-                {historico.map((h) => (
+                {pag.itensDaPagina.map((h) => (
                   <tr key={h.periodo}>
                     <td className="px-4 py-2.5 font-medium text-zinc-200">{h.periodo}{!h.periodo_valido && <span className="ml-2 rounded-full border border-red-500/30 bg-red-500/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-red-300" title="Período gravado com nome inválido: corrija ou apague no banco">inválido</span>}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{h.qtd_notas}</td>
@@ -392,6 +397,7 @@ export default function AuditoriaPage() {
               </tbody>
             </table>
           </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="meses" />
         </section>
       </div>
     </div>
