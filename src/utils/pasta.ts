@@ -60,8 +60,9 @@ export async function lerPastaDaChave(chave: ChavePasta): Promise<PastaLida> {
 /** Abre o seletor de pasta e devolve só a chave (rápido); null se a pessoa cancelar. */
 export async function escolherChavePasta(): Promise<ChavePasta | null> {
   try {
-    const picker = (window as unknown as { showDirectoryPicker(o: { mode: "read" }): Promise<ChavePasta> }).showDirectoryPicker;
-    return await picker({ mode: "read" });
+    // `id` faz o Chrome abrir direto na última pasta usada (em vez de varrer o PC todo).
+    const w = window as unknown as { showDirectoryPicker(o: { mode: "read"; id: string; startIn: string }): Promise<ChavePasta> };
+    return await w.showDirectoryPicker({ mode: "read", id: "pasta-ciclo", startIn: "downloads" });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return null;
     throw e;

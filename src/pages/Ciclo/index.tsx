@@ -204,6 +204,7 @@ export default function CicloPage() {
   // não no topo, para ser vista sem rolar a página.
   const [avisoLeitura, setAvisoLeitura] = useState<string | null>(null);
   const [rodada, setRodada] = useState(0); // "Recomeçar o Processar": muda a key e zera o painel
+  const [seletorBloqueado, setSeletorBloqueado] = useState(false); // showDirectoryPicker bloqueado: usa o input comum
   const [avisoPasta, setAvisoPasta] = useState(false); // nossa explicação antes do aviso do Chrome
   const inputPasta = useRef<HTMLInputElement>(null);    // seletor antigo (navegador sem showDirectoryPicker)
   const [gerandoNT, setGerandoNT] = useState(false);
@@ -283,9 +284,17 @@ export default function CicloPage() {
     setAvisoLeitura(null);
     setEstadoPasta("escolhendo");
     try {
+      const inicio = Date.now();
       const chave = await escolherChavePasta();
       // Cancelar o seletor ou clicar "Não permitir" no aviso do Chrome dão o mesmo resultado.
       if (!chave) {
+        // Voltou em menos de 1,5 s: nenhuma janela chegou a abrir (política do Chrome/TI bloqueando).
+        if (Date.now() - inicio < 1500) {
+          setSeletorBloqueado(true);
+          setAvisoLeitura("O Chrome fechou o seletor de pastas na hora, sem mostrar nada. Provavelmente o navegador deste computador "
+            + "bloqueia esse recurso (política da TI). Use o seletor alternativo abaixo.");
+          return;
+        }
         setAvisoLeitura("Nenhuma pasta foi aberta: a escolha foi cancelada ou o Chrome não recebeu permissão. "
           + "Clique em “Escolher outra pasta” de novo e, no aviso do Chrome, em “Permitir”.");
         return;
@@ -319,7 +328,7 @@ export default function CicloPage() {
   // senão o navegador bloqueia o seletor.
   const continuarPasta = () => {
     setAvisoPasta(false);
-    if (navegadorLembraPasta) escolherPastaLembrada();
+    if (navegadorLembraPasta && !seletorBloqueado) escolherPastaLembrada();
     else inputPasta.current?.click();
   };
 
@@ -400,7 +409,7 @@ export default function CicloPage() {
               className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2.5 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
               <FolderOpen size={16} /> {caminhos ? "Escolher outra pasta" : "Escolher pasta"}
             </button>
-            {!navegadorLembraPasta && (
+            {(!navegadorLembraPasta || seletorBloqueado) && (
               <input ref={inputPasta} type="file" className="hidden" multiple
                 // @ts-expect-error webkitdirectory não está nos tipos do React
                 webkitdirectory="" directory=""
@@ -428,12 +437,19 @@ export default function CicloPage() {
                   ? "Esperando você escolher a pasta e clicar em “Permitir” no aviso do Chrome…"
                   : `Lendo os nomes dos arquivos${raiz ? ` de ${raiz}` : ""}…`}
               </p>
-              <EsqueletoLista linhas={4} className="mt-4"
-                texto={estadoPasta === "escolhendo" ? "Esperando a escolha da pasta" : "Lendo os arquivos da pasta"} />
+              {estadoPasta === "lendo" && <EsqueletoLista linhas={4} className="mt-4" texto="Lendo os arquivos da pasta" />}
             </div>
           )}
           {avisoLeitura && !ocupadoPasta && (
-            <div className="mt-4"><Alert variant="warning">{avisoLeitura}</Alert></div>
+            <div className="mt-4">
+              <Alert variant="warning">{avisoLeitura}</Alert>
+              {seletorBloqueado && (
+                <button type="button" onClick={() => inputPasta.current?.click()}
+                  className="mt-3 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">
+                  Usar seletor alternativo
+                </button>
+              )}
+            </div>
           )}
           {semArquivos && !ocupadoPasta && (
             <p className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-100">
