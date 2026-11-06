@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2 } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
@@ -213,17 +214,10 @@ export default function PMPVPage() {
   const [trimestre, setTrimestre] = useState("");
   const [falhouTrimestres, setFalhouTrimestres] = useState(false); // após erro, troca o esqueleto por um aviso
   const [ano, setAno] = useState(new Date().getFullYear());
-  const [contaGrafica, setContaGrafica] = useState("");
-  /** De onde veio o valor do campo: PR salvo na tela PR, digitado à mão, ou ainda sem PR salvo. */
-  const [origemSalva, setOrigemSalva] = useState<"salvo" | "manual" | "ausente">("ausente");
   const [carregadoPara, setCarregadoPara] = useState<string | null>(null);   // "Ago - Out/2026" quando o PR dele já foi buscado
+  /** PR salvo no banco (tela PR) para o trimestre/ano escolhidos; null = ainda não há. Não é editável. */
   const [prSalvo, setPrSalvo] = useState<number | null>(null);
-  const origemRef = useRef<"salvo" | "manual" | "ausente">("ausente");
   const buscaPR = useRef(0);
-  const mudarOrigem = useCallback((o: "salvo" | "manual" | "ausente") => {
-    origemRef.current = o;
-    setOrigemSalva(o);
-  }, []);
   const [linhas, setLinhas] = useState<Record<Aba, LinhaEdit[]>>(() => ({
     "Mês 1": linhasPadrao(), "Mês 2": linhasPadrao(), "Mês 3": linhasPadrao(),
   }));
@@ -257,12 +251,13 @@ export default function PMPVPage() {
       });
   }, []);
 
-  const origemCG = carregadoPara === `${trimestre}/${ano}` ? origemSalva : "carregando";
+  const origemCG: "carregando" | "salvo" | "ausente" =
+    carregadoPara !== `${trimestre}/${ano}` ? "carregando" : prSalvo !== null ? "salvo" : "ausente";
   const formatarPR = (v: number) => v.toFixed(4).replace(".", ",");
 
-  // A Conta Gráfica do PMPV é o PR do mesmo trimestre (PV = PMPV + PR). Traz o PR salvo na
-  // tela PR quando o trimestre/ano mudam e de novo sempre que a janela volta ao foco (ex.: o PR
-  // foi salvo em outra aba). Valor digitado à mão nunca é sobrescrito: só o aviso é atualizado.
+  // A Conta Gráfica do PMPV é o PR do mesmo trimestre (PV = PMPV + PR), sempre o salvo no banco
+  // pela tela PR — não se digita. Busca de novo quando o trimestre/ano mudam e sempre que a janela
+  // volta ao foco (ex.: o PR foi salvo em outra aba).
   const atualizarPR = useCallback((troca: boolean) => {
     if (!trimestre || !(ano >= 2000 && ano <= 2100)) return;
     const busca = ++buscaPR.current;
@@ -270,28 +265,22 @@ export default function PMPVPage() {
     getPVTrimestre(trimestre, ano)
       .then((d) => {
         if (busca !== buscaPR.current) return; // o usuário já trocou de trimestre
-        const pr = Number(d.pr) || 0;
-        setPrSalvo(pr || null);
-        if (troca) setCarregadoPara(chave);
-        if (origemRef.current === "manual" && !troca) return; // respeita o que foi digitado
-        const texto = pr ? formatarPR(pr) : "";
-        setContaGrafica((atual) => {
-          if (atual !== texto) {   // o PR mudou: o resultado calculado ficou velho
+        const pr = Number(d.pr) || null;
+        setPrSalvo((atual) => {
+          if (atual !== pr) {   // o PR mudou: o resultado calculado ficou velho
             setResultado(null);
             setSucesso(null);
           }
-          return texto;
+          return pr;
         });
-        mudarOrigem(pr ? "salvo" : "ausente");
+        if (troca) setCarregadoPara(chave);
       })
       .catch(() => {
         if (busca !== buscaPR.current || !troca) return;
         setPrSalvo(null);
-        setContaGrafica("");
-        mudarOrigem("ausente");
         setCarregadoPara(chave);
       });
-  }, [trimestre, ano, mudarOrigem]);
+  }, [trimestre, ano]);
 
   useEffect(() => {
     atualizarPR(true);
@@ -307,8 +296,9 @@ export default function PMPVPage() {
   const mesesTri = useMemo(() => trimestres.find((t) => t.label === trimestre)?.meses ?? [], [trimestres, trimestre]);
   const periodos = useMemo(() => periodosDe(mesesTri, ano), [mesesTri, ano]);
   const dias = periodos.map(diasDoMes);
-  const cgValida = /^[+-]?\d+([.,]\d+)?$/.test(contaGrafica.trim());
-  const cg = paraNumero(contaGrafica);
+  // Sem PR salvo ainda, o PMPV usa 0; o PV do trimestre é atualizado sozinho quando o PR for salvo.
+  const cgValida = origemCG !== "carregando";
+  const cg = prSalvo ?? 0;
   const anoValido = ano >= 2000 && ano <= 2100;
 
   /** Qualquer mudança nos dados invalida o resultado — evita salvar números velhos. */
@@ -325,7 +315,7 @@ export default function PMPVPage() {
 
   const calcular = async () => {
     limparMensagens();
-    if (!cgValida) return setErro("O valor da Conta Gráfica não é um número válido. Exemplo: 0,0135");
+    if (!cgValida) return setErro("Aguarde: ainda estou buscando o PR salvo deste trimestre.");
     if (!anoValido) return setErro("O ano precisa estar entre 2000 e 2100.");
 
     const dados_extraidos: Record<string, PMPVLinhaCalculo[]> = {};
@@ -497,43 +487,30 @@ export default function PMPVPage() {
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="cg" className={`${LABEL} mb-2 block`}>Conta Gráfica = PR, Parcela de Recuperação (R$/m³)</label>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <input
-                      id="cg" inputMode="decimal" value={contaGrafica}
-                      placeholder="ex.: 0,0135"
-                      onChange={(e) => { setContaGrafica(e.target.value); mudarOrigem("manual"); invalidar(); }}
-                      className={`w-40 ${INPUT} text-base font-semibold ${cgValida ? "text-amber-300" : "border-red-500/50 text-red-300"}`}
-                    />
-                    {cgValida ? (
-                      <span className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                  <p id="cg-rotulo" className={`${LABEL} mb-2`}>Conta Gráfica = PR, Parcela de Recuperação (R$/m³)</p>
+                  {/* Só leitura: vem do banco (PR salvo na tela PR), igual para os 3 meses do trimestre. */}
+                  <div className="flex flex-wrap items-center gap-3" aria-labelledby="cg-rotulo" aria-live="polite">
+                    <output className={`w-40 ${INPUT} cursor-default select-text text-base font-semibold tabular-nums ${
+                      origemCG === "salvo" ? "text-amber-300" : "text-zinc-500"
+                    }`}>
+                      {origemCG === "carregando" ? "…" : origemCG === "salvo" ? formatarPR(cg) : "—"}
+                    </output>
+                    {origemCG === "salvo" && (
+                      <span className={`pointer-events-none flex select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium ${
                         cg < 0 ? "border-red-500/25 bg-red-500/10 text-red-300" : "border-emerald-500/25 bg-emerald-500/10 text-emerald-300"
                       }`}>
-                        <TrendingUp size={14} className={cg < 0 ? "rotate-180" : ""} />
+                        <TrendingUp size={14} className={cg < 0 ? "rotate-180" : ""} aria-hidden />
                         {cg < 0 ? "Recuperação" : "Devolução"}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-red-300">
-                        {contaGrafica.trim() ? "Valor inválido (ex.: 0,0135)" : "Informe o PR do trimestre (ex.: 0,0135)"}
                       </span>
                     )}
                   </div>
                   <p className={`mt-2 text-xs ${origemCG === "ausente" ? "text-amber-300" : "text-zinc-500"}`}>
                     {origemCG === "carregando" && "Buscando o PR salvo deste trimestre…"}
-                    {origemCG === "salvo" && `PR de ${trimestre}/${ano} salvo na tela PR. O PMPV soma esse valor (PV = PMPV + PR).`}
-                    {origemCG === "ausente" && `Ainda não há PR salvo para ${trimestre}/${ano}: calcule e salve na tela PR, ou digite o valor.`}
-                    {origemCG === "manual" && (prSalvo !== null && Math.abs(prSalvo - cg) > 0.00005 ? (
-                      <>
-                        Valor digitado à mão; o PR salvo na tela PR é {formatarPR(prSalvo)}.{" "}
-                        <button
-                          type="button"
-                          className="text-sky-300 underline hover:text-sky-200"
-                          onClick={() => { setContaGrafica(formatarPR(prSalvo)); mudarOrigem("salvo"); invalidar(); }}
-                        >
-                          Usar o PR salvo
-                        </button>
-                      </>
-                    ) : "Valor digitado à mão.")}
+                    {origemCG === "salvo" && `Preenchido automaticamente com o PR de ${trimestre}/${ano} salvo no banco (tela PR); vale para os 3 meses. PV = PMPV + PR.`}
+                    {origemCG === "ausente" && <>
+                      Ainda não há PR salvo para {trimestre}/{ano}: o PMPV é calculado com PR 0 e o PV é atualizado
+                      sozinho quando o PR for salvo. <Link to="/pr" className="text-sky-300 underline hover:text-sky-200">Abrir a tela PR</Link>
+                    </>}
                   </p>
                 </div>
               </div>
@@ -689,7 +666,7 @@ export default function PMPVPage() {
               </tbody>
             </table>
           </div>
-          <Paginacao {...pag} onMudar={pag.setPagina} rotulo="sessões" />
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo={["sessão", "sessões"]} />
         </section>
       </div>
     </div>
