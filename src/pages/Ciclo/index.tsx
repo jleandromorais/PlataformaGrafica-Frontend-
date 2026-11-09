@@ -435,6 +435,11 @@ export default function CicloPage() {
           )}
         </section>
 
+        {/* Comparar o CGR de um mês contra a planilha (opcional, não grava), acima das etapas */}
+        {!carregando && dados && (
+          <CompararPlanilha key={meses[0]} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria} />
+        )}
+
         {/* Etapas */}
         <section className={`${PANEL} overflow-hidden`}>
           <h2 className="border-b border-white/[0.07] px-5 py-4 text-base font-semibold text-white">Etapas do ciclo</h2>
@@ -479,11 +484,6 @@ export default function CicloPage() {
             </ol>
           )}
         </section>
-
-        {/* Depois do ciclo: conferir o CGR de um mês contra a planilha (opcional, não grava) */}
-        {!carregando && dados && (
-          <CompararPlanilha key={meses[0]} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria} />
-        )}
       </div>
     </div>
   );
