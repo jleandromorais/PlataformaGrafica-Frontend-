@@ -16,8 +16,10 @@ export interface EstadoProva<T> {
   atualizando: boolean;
 }
 
-/** `buscar` precisa ser uma função estável (as de src/api são): ela entra nas dependências do efeito. */
-export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: string) => Promise<T>): EstadoProva<T> {
+/** `buscar` precisa ser uma função estável (as de src/api são): ela entra nas dependências do efeito.
+ * `chave` é o que identifica o item aberto (o período; no PMPV, o id da sessão em texto).
+ * `rotulo` entra na mensagem de erro (por padrão, a própria chave). */
+export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: string) => Promise<T>, rotulo?: string): EstadoProva<T> {
   // A última resposta, marcada com o período a que pertence (dados ou erro).
   const [resposta, setResposta] = useState<{ periodo: string; dados?: T; erro?: string } | null>(null);
 
@@ -26,9 +28,9 @@ export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: s
     let vigente = true;
     buscar(periodo)
       .then((dados) => { if (vigente) setResposta({ periodo, dados }); })
-      .catch((e) => { if (vigente) setResposta({ periodo, erro: mensagemDeErro(e, `Não foi possível montar a prova real de ${periodo}.`) }); });
+      .catch((e) => { if (vigente) setResposta({ periodo, erro: mensagemDeErro(e, `Não foi possível montar a prova real de ${rotulo ?? periodo}.`) }); });
     return () => { vigente = false; };
-  }, [periodo, buscar]);
+  }, [periodo, buscar, rotulo]);
 
   const daVez = !!periodo && resposta?.periodo === periodo;
   const esperando = !!periodo && !daVez;

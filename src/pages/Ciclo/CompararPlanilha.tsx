@@ -345,6 +345,10 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
               // Sem comparação: planilha ilegível ou sem aba do mês. Mostra o motivo que o servidor deu.
               <p className="text-sm text-amber-200">{res.planilhaIlegivel ?? res.avisoComparacao ?? "A planilha não pôde ser comparada."}</p>
             )}
+            <p className="text-xs text-zinc-500">
+              Esta comparação não grava nada. Se houver divergência com a planilha, o ciclo gravado continua com ela até ser corrigido:
+              cabe ao analista analisar os dados antes de gravar.
+            </p>
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => { zerar(); }}>Comparar de novo</Button>
               <Button variant="ghost" onClick={() => { zerar(); setAtivo(null); }}>Fechar</Button>

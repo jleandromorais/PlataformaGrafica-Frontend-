@@ -8,7 +8,7 @@ import { ArrowUpRight, ClipboardCheck, CircleHelp } from "lucide-react";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
 import { Fechamento } from "../../components/ui/Fechamento";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import type { EstadoProva } from "../../components/ui/useProvaRealDoMes";
 import { brl, dataHora } from "../../utils/format";
 import { contabil } from "../Auditoria/formatoProva";
@@ -50,7 +50,7 @@ export function ProvaRealRPV({ periodo, estado, cardRef, className = "" }: {
       <Card.Content className={`gap-0 transition-opacity ${atualizando ? "opacity-50" : ""}`}>
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês gravado ainda.</p>}
         {periodo && erro && <p role="alert" className="mt-4 text-sm text-red-300">{erro}</p>}
-        {carregando && <EsqueletoProva />}
+        {carregando && <EsqueletoBlocos blocos={["h-36", "h-24"]} texto="Montando a prova real…" />}
 
         {d && !erro && !d.gravado && (
           <p className="mt-4 text-sm text-amber-200">
@@ -146,14 +146,4 @@ function trimestreDe(periodo: string) {
   const [m, a] = periodo.split("/");
   const i = MESES.indexOf(m);
   return encodeURIComponent(`${MESES[Math.max(0, i - (i % 3))]}/${a}`);
-}
-
-function EsqueletoProva() {
-  return (
-    <div role="status" className="mt-4 space-y-3">
-      <span className="sr-only">Montando a prova real…</span>
-      <Skeleton className="h-36 w-full" />
-      <Skeleton className="h-24 w-full" />
-    </div>
-  );
 }

@@ -271,6 +271,34 @@ export interface ProvaRealAuditoria {
   data_atualizacao: string;
 }
 
+/** Uma empresa na prova real do PMPV: preço = molécula + transporte + logística. */
+export interface ProvaRealEmpresaPMPV {
+  empresa: string; molecula: number; transporte: number; logistica: number;
+  preco: number;   // R$/m³
+  volume: number;  // m³
+  custo: number;   // preço × volume (R$)
+}
+
+export interface ProvaRealMesPMPV {
+  mes: number;     // 1, 2 ou 3 do trimestre
+  empresas: ProvaRealEmpresaPMPV[];
+  volume: number; custo: number; pmpv_do_mes: number;
+}
+
+/** A conta do PMPV de uma sessão salva, refeita com as linhas gravadas (GET /pmpv/prova-real). */
+export interface ProvaRealPMPV {
+  sessao_id: number; nome: string; data_criacao: string | null;
+  tem_linhas: boolean;       // false: sessão sem linhas com volume
+  tem_resultado: boolean;    // false: sessão sem resultado gravado
+  meses: ProvaRealMesPMPV[];
+  custo_total_calculado: number | null; custo_total_gravado: number | null; diferenca_custo: number | null;
+  volume_total: number | null; vp_gravado: number | null; diferenca_vp: number | null;   // Σ volume = VP da sessão
+  pmpv_calculado: number | null; pmpv_gravado: number | null; diferenca_pmpv: number | null; // Σ(preço×volume) ÷ Σ volume
+  conta_grafica: number | null;       // a gravada (vem do PR); não é recalculada
+  preco_final_calculado: number | null; preco_final_gravado: number | null; diferenca_preco_final: number | null;
+  confere: boolean;
+}
+
 /** A conta do CGF gravado de um mês, aberta (GET /cgf/prova-real). */
 export interface ProvaRealCGF {
   periodo: string;

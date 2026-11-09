@@ -183,6 +183,8 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
   const apagadas = d?.tem_notas_gravadas ? d.por_empresa.filter((e) => e.processado === 0 && e.gravado !== 0) : [];
   const temDiferenca = !!d && (d.resumo.length > 0 || d.notas.length > 0);
   const substitui = cgrGravado !== null;
+  // Divergência: notas ou empresas diferentes do gravado, PDF não lido (fica fora do CGR) ou empresa gravada que sai do mês.
+  const divergencia = temDiferenca || !!res?.naoLidos || apagadas.length > 0;
   const erroAoAuditar = fase === "erro" && !!erro;
   const erroAoGravar = fase === "resultado" && !!erro;
 
@@ -313,6 +315,12 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
               )}
               {res.avisos.map((a) => <p key={a} className="text-xs text-amber-200">⚠ {a}</p>)}
               {temDiferenca && <OndeDifere d={d!} total={res.r.totais.cgr_liquido - (cgrGravado ?? 0)} />}
+              {divergencia && (
+                <Alert variant="warning">
+                  <strong>Há divergência neste mês.</strong> Se gravar agora, o CGR de {ativo} será gravado <b>com a divergência</b>.
+                  Cabe ao analista analisar os dados antes de gravar.
+                </Alert>
+              )}
               {res.r.problemas.length > 0 && (
                 <details className="text-xs">
                   <summary className="cursor-pointer text-sky-300">Ver os problemas por arquivo ({res.r.problemas.length})</summary>
@@ -361,10 +369,14 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
       </ModalAviso>
 
       {/* Confirmação antes de gravar: diz o que será substituído. */}
-      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante={substitui ? "atencao" : "info"}
-        icone={substitui ? undefined : <Save size={20} />}
-        titulo={substitui ? `Substituir o CGR de ${ativo}?` : `Gravar o CGR de ${ativo}?`}
-        acao={{ rotulo: substitui ? "Gravar e substituir" : "Gravar", onClick: gravar }} rotuloFechar="Cancelar">
+      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante={substitui || divergencia ? "atencao" : "info"}
+        icone={substitui || divergencia ? undefined : <Save size={20} />}
+        titulo={divergencia ? `Gravar o CGR de ${ativo} com divergências?` : substitui ? `Substituir o CGR de ${ativo}?` : `Gravar o CGR de ${ativo}?`}
+        acao={{ rotulo: divergencia ? "Gravar com divergências" : substitui ? "Gravar e substituir" : "Gravar", onClick: gravar }}
+        rotuloFechar={divergencia ? "Cancelar e conferir" : "Cancelar"}>
+        {divergencia && (
+          <p>Há divergência neste mês. Se continuar, será gravado <b>com a divergência</b>. <b>Cabe ao analista analisar os dados antes de gravar.</b></p>
+        )}
         {res && (
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
             <dt className="col-span-2 font-medium text-zinc-200">Auditoria CGR · {ativo}</dt>

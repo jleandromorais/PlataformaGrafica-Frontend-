@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
-import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2 } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
+import { Conferencia } from "../../components/ui/Conferencia";
+import { CardFormula } from "../../components/ui/CardFormula";
+import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
+import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
+import { linhaDoMes } from "../../utils/linhaDoMes";
+import { rolarAteCardSeEscondido } from "../../utils/rolagem";
+import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
-import { calcularPMPV, getHistoricoPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
+import { calcularPMPV, getHistoricoPMPV, getProvaRealPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
 import { brl, dataHora, num } from "../../utils/format";
@@ -12,6 +19,9 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+
+/** Busca da prova real de uma sessão: a chave é o id da sessão (em texto). Função estável do módulo. */
+const buscarProvaDaSessao = (id: string) => getProvaRealPMPV(Number(id));
 
 // ─── Regras de período (espelham tela_pmpv.py) ──────────────────────────────
 
@@ -229,15 +239,36 @@ export default function PMPVPage() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [historico, setHistorico] = useState<PMPVHistoricoLinha[]>([]);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
-  const [ultimaSalva, setUltimaSalva] = useState<number | null>(null);
-  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.id === ultimaSalva) });
+  // Sessão aberta na prova real (histórico clicável). Vem de ?sessao=ID, senão a mais recente;
+  // ao salvar uma sessão nova, a prova real abre nela.
+  const [params, setParams] = useSearchParams();
+  const [escolhida, setEscolhida] = useState<number | null>(() => Number(params.get("sessao")) || null);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.id === escolhida) });
   const arquivoRef = useRef<HTMLInputElement>(null);
 
   const carregarHistorico = useCallback(() => {
-    getHistoricoPMPV().then(setHistorico).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PMPV."))).finally(() => setHistoricoCarregado(true));
+    getHistoricoPMPV().then((h) => {
+      setHistorico(h);
+      // Sem sessão na URL: abre na mais recente (o histórico vem da mais nova para a mais antiga).
+      setEscolhida((atual) => atual ?? h[0]?.id ?? null);
+    }).catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PMPV."))).finally(() => setHistoricoCarregado(true));
   }, []);
 
   useEffect(carregarHistorico, [carregarHistorico]);
+
+  // Mantém ?sessao=ID no endereço: recarregar ou compartilhar o link abre a mesma prova real.
+  useEffect(() => {
+    if (escolhida === null || params.get("sessao") === String(escolhida)) return;
+    setParams((p) => { p.set("sessao", String(escolhida)); return p; }, { replace: true });
+  }, [escolhida, params, setParams]);
+
+  // Uma busca só da prova real para o 4º destaque, a fórmula preenchida e o card da prova real.
+  const prova = useProvaRealDoMes(escolhida === null ? null : String(escolhida), buscarProvaDaSessao, escolhida === null ? undefined : `a sessão nº ${escolhida}`);
+  const provaRef = useRef<HTMLElement>(null);
+  const abrirSessao = (id: number) => {
+    setEscolhida(id);
+    rolarAteCardSeEscondido(provaRef.current);
+  };
 
   useEffect(() => {
     getTrimestresFiscais()
@@ -375,7 +406,7 @@ export default function PMPVPage() {
       setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
       const pendente = pv.filter((t) => !t.ok).map((t) => t.texto).join("\n");
       if (pendente) setAviso(pendente);
-      setUltimaSalva(sessao_id);
+      setEscolhida(sessao_id); // a prova real abre na sessão que acabou de ser salva
       carregarHistorico();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar a sessão."));
@@ -417,20 +448,30 @@ export default function PMPVPage() {
     }
   };
 
+  // A prova real só vale como destaque quando a sessão tem linhas e resultado para comparar.
+  const provaDaSessao = prova.dados && !prova.erro && prova.dados.tem_linhas && prova.dados.tem_resultado ? prova.dados : null;
+  const aplicada = provaDaSessao && provaDaSessao.custo_total_calculado !== null && provaDaSessao.volume_total !== null && provaDaSessao.pmpv_calculado !== null ? [
+    `PMPV = ${num(provaDaSessao.custo_total_calculado, 2)} ÷ ${num(provaDaSessao.volume_total, 2)} = ${num(provaDaSessao.pmpv_calculado, 4)}`,
+    ...(provaDaSessao.conta_grafica !== null && provaDaSessao.preco_final_calculado !== null
+      ? [`Preço final = ${num(provaDaSessao.pmpv_calculado, 4)} ${provaDaSessao.conta_grafica < 0 ? "−" : "+"} ${num(Math.abs(provaDaSessao.conta_grafica), 4)} = ${num(provaDaSessao.preco_final_calculado, 4)}`]
+      : []),
+    `VP = Σ volume = ${num(provaDaSessao.volume_total, 2)} m³`,
+  ] : undefined;
+
   const idxAba = ABAS.indexOf(aba);
   const pronto = trimestres.length > 0 && periodos.length === 3;
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-        <PageHeader modulo="pmpv" formula="PMPV = Σ(Pᵢ·Vᵢ) / ΣVᵢ · preço médio ponderado por volume, cálculo trimestral" />
+        <PageHeader modulo="pmpv" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {aviso && <Alert variant="warning" className="whitespace-pre-line">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
-        {/* KPIs */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {/* KPIs: os 3 primeiros mostram o resultado do cálculo em andamento; o 4º, a prova real da sessão aberta. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: "PMPV do trimestre", valor: resultado && brl(resultado.pmpv, 4), sub: "R$/m³", cor: "text-sky-300" },
             { label: "Preço final", valor: resultado && brl(resultado.preco_final, 4), sub: "PMPV + Conta Gráfica, R$/m³", cor: "text-emerald-300" },
@@ -444,6 +485,28 @@ export default function PMPVPage() {
               <p className="mt-2 text-xs text-zinc-500">{resultado ? k.sub : "Calcule para ver"}</p>
             </div>
           ))}
+          <div className={`${PANEL} card-hover p-5`} aria-busy={prova.carregando || prova.atualizando}>
+            <p className={`${LABEL} flex items-center gap-1.5`}><Scale size={13} aria-hidden /> Prova real da sessão</p>
+            {prova.carregando ? (
+              <div role="status">
+                <span className="sr-only">Carregando…</span>
+                <Skeleton className="mt-3 h-7 w-3/4" />
+                <Skeleton className="mt-3 h-3 w-1/2" />
+              </div>
+            ) : (
+              <>
+                <p className={`mt-3 truncate text-[1.75rem] font-bold leading-none tracking-tight ${!provaDaSessao ? "text-zinc-600" : ""}`}>
+                  {!provaDaSessao
+                    ? "—"
+                    : <Conferencia confere={provaDaSessao.confere}>{provaDaSessao.confere ? "Confere" : "Não confere"}</Conferencia>}
+                </p>
+                <p className="mt-2 truncate text-xs text-zinc-500">
+                  {!provaDaSessao ? (escolhida === null ? "Nenhuma sessão aberta" : "sem conta para provar")
+                    : provaDaSessao.nome}
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
@@ -493,7 +556,9 @@ export default function PMPVPage() {
                     <output className={`w-40 ${INPUT} cursor-default select-text text-base font-semibold tabular-nums ${
                       origemCG === "salvo" ? "text-amber-300" : "text-zinc-500"
                     }`}>
-                      {origemCG === "carregando" ? "…" : origemCG === "salvo" ? formatarPR(cg) : "—"}
+                      {origemCG === "carregando"
+                        ? <><span className="sr-only">Carregando o PR…</span><Skeleton className="h-5 w-20" /></>
+                        : origemCG === "salvo" ? formatarPR(cg) : "—"}
                     </output>
                     {origemCG === "salvo" && (
                       <span className={`pointer-events-none flex select-none items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium ${
@@ -504,14 +569,14 @@ export default function PMPVPage() {
                       </span>
                     )}
                   </div>
-                  <p className={`mt-2 text-xs ${origemCG === "ausente" ? "text-amber-300" : "text-zinc-500"}`}>
-                    {origemCG === "carregando" && "Buscando o PR salvo deste trimestre…"}
+                  <div className={`mt-2 text-xs ${origemCG === "ausente" ? "text-amber-300" : "text-zinc-500"}`}>
+                    {origemCG === "carregando" && <Skeleton className="mt-1 h-3 w-72 max-w-full rounded" />}
                     {origemCG === "salvo" && `Preenchido automaticamente com o PR de ${trimestre}/${ano} salvo no banco (tela PR); vale para os 3 meses. PV = PMPV + PR.`}
                     {origemCG === "ausente" && <>
                       Ainda não há PR salvo para {trimestre}/{ano}: o PMPV é calculado com PR 0 e o PV é atualizado
                       sozinho quando o PR for salvo. <Link to="/pr" className="text-sky-300 underline hover:text-sky-200">Abrir a tela PR</Link>
                     </>}
-                  </p>
+                  </div>
                 </div>
               </div>
             </Painel>
@@ -628,40 +693,74 @@ export default function PMPVPage() {
           </div>
         </div>
 
+        {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real da sessão aberta à direita. */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <CardFormula className="xl:sticky xl:top-6 xl:col-span-5 xl:self-start 2xl:col-span-4"
+            descricao="Como o PMPV, o preço final e o volume prospectivo são calculados."
+            tituloAplicada={provaDaSessao ? `Com os números de ${provaDaSessao.nome}` : undefined}
+            aplicada={aplicada}
+            atualizando={prova.atualizando}
+            formula={[
+              "PMPV = Σ(preço × volume) ÷ Σ volume",
+              "preço = molécula + transporte + logística",
+              "Preço final = PMPV + Conta Gráfica",
+              "VP = Σ volume",
+            ]}
+            termos={[
+              { termo: "preço", explicacao: "Molécula + transporte + logística de cada empresa, em R$/m³." },
+              { termo: "volume", explicacao: "QDC (m³/dia) × dias do mês, de cada empresa." },
+              { termo: "Conta Gráfica", explicacao: "O PR do trimestre, gravado na tela PR. Entra como está, sem recalcular." },
+              { termo: "VP", explicacao: "Volume prospectivo: a soma dos volumes do trimestre (m³)." },
+            ]}
+            regras={[
+              "O PMPV é um preço médio ponderado: empresa com mais volume pesa mais.",
+              "Os dias do mês só entram no volume de cada empresa, não aparecem na conta do PMPV.",
+              "Linhas com volume zero não entram na conta.",
+            ]}
+          />
+          <ProvaRealPMPV rotuloSessao={escolhida === null ? null : (historico.find((h) => h.id === escolhida)?.nome ?? `sessão nº ${escolhida}`)}
+            estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8" />
+        </div>
+
         {/* Histórico */}
         <section className={`${PANEL} overflow-hidden`}>
           <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
             <h2 className="text-base font-semibold text-white">Histórico</h2>
-            <p className="mt-0.5 text-sm text-zinc-400">Sessões salvas, da mais recente para a mais antiga.</p>
+            <p className="mt-0.5 text-sm text-zinc-400">Sessões salvas, da mais recente para a mais antiga. Clique numa sessão para ver a prova real dela.</p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[48rem] text-sm">
               <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
-                  <th className="px-5 py-3 text-left font-semibold">Sessão</th>
-                  <th className="px-5 py-3 text-right font-semibold">PMPV (R$/m³)</th>
-                  <th className="px-5 py-3 text-right font-semibold">Conta Gráfica</th>
-                  <th className="px-5 py-3 text-right font-semibold">Preço final</th>
-                  <th className="px-5 py-3 text-right font-semibold">Volume prospectivo</th>
-                  <th className="px-5 py-3 text-right font-semibold">Salvo em</th>
+                  <th scope="col" className="border-l-[3px] border-l-transparent px-4 py-3 text-left font-semibold">Sessão</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">PMPV (R$/m³)</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Conta Gráfica</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Preço final</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Volume prospectivo</th>
+                  <th scope="col" className="px-4 py-3 text-right font-semibold">Salvo em</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
-                {pag.itensDaPagina.map((h) => (
-                  <tr key={h.id} className={h.id === ultimaSalva ? "bg-sky-500/[0.06]" : ""}>
-                    <td className="px-5 py-2.5 font-medium text-zinc-200">{h.nome}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-sky-300">{brl(h.pmpv, 4)}</td>
-                    <td className={`px-5 py-2.5 text-right tabular-nums ${h.conta_grafica < 0 ? "text-red-300" : "text-emerald-300"}`}>
-                      {`${h.conta_grafica >= 0 ? "+" : ""}${brl(h.conta_grafica, 4)}`}
-                    </td>
-                    <td className="px-5 py-2.5 text-right font-semibold tabular-nums text-emerald-300">{brl(h.preco_final, 4)}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-300">{h.vp ? `${num(h.vp)} m³` : "—"}</td>
-                    <td className="px-5 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_criacao)}</td>
-                  </tr>
-                ))}
+                {pag.itensDaPagina.map((h) => {
+                  const ativo = h.id === escolhida;
+                  return (
+                    <tr key={h.id} aria-current={ativo ? "true" : undefined}
+                      onClick={() => abrirSessao(h.id)}
+                      className={linhaDoMes(ativo, true)}>
+                      <PeriodoClicavel periodo={h.nome} valido ativo={ativo} onAbrir={() => abrirSessao(h.id)} />
+                      <td className="px-4 py-2.5 text-right tabular-nums text-sky-300">{brl(h.pmpv, 4)}</td>
+                      <td className={`px-4 py-2.5 text-right tabular-nums ${h.conta_grafica < 0 ? "text-red-300" : "text-emerald-300"}`}>
+                        {`${h.conta_grafica >= 0 ? "+" : ""}${brl(h.conta_grafica, 4)}`}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-semibold tabular-nums text-emerald-300">{brl(h.preco_final, 4)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{h.vp ? `${num(h.vp)} m³` : "—"}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_criacao)}</td>
+                    </tr>
+                  );
+                })}
                 {historicoCarregado && historico.length === 0 && (
-                  <tr><td colSpan={6} className="px-5 py-8 text-center text-zinc-500">Nenhuma sessão salva ainda.</td></tr>
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhuma sessão salva ainda.</td></tr>
                 )}
               </tbody>
             </table>

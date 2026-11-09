@@ -20,6 +20,7 @@ import { Alert } from "../../components/ui/Alert";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
+import { EsqueletoKpi } from "../../components/ui/EsqueletoBlocos";
 import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -159,16 +160,6 @@ function GraficoOuEsqueleto({ carregando, children }: { carregando: boolean; chi
   return carregando ? <Skeleton className="h-full w-full rounded-xl" /> : <>{children}</>;
 }
 
-/** Cartão de KPI carregando: rótulo, número grande e variação, no tamanho do cartão real. */
-function KpiSkeleton() {
-  return (
-    <div className={`${PANEL} p-5 sm:p-6`} aria-hidden>
-      <Skeleton className="h-3 w-24 rounded" />
-      <Skeleton className="mt-4 h-7 w-44" />
-      <Skeleton className="mt-3 h-3 w-24 rounded" />
-    </div>
-  );
-}
 
 /** Barra de composição em duas metades a partir de um eixo central — evita o
  * bug de `margin-left: auto` dentro de flex estourando o container quando o
@@ -325,7 +316,7 @@ export default function DashboardPage() {
           loading ? (
             <div role="status" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
               <span className="sr-only">Carregando os indicadores…</span>
-              {KPI_CAMPOS.map(({ chave }) => <KpiSkeleton key={chave} />)}
+              {KPI_CAMPOS.map(({ chave }) => <EsqueletoKpi key={chave} />)}
             </div>
           ) : erro ? null : (
             <EmptyState

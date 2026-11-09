@@ -30,8 +30,11 @@ export function Layout() {
   }, [menuAberto]);
 
   return (
-    // h-screen + overflow-hidden: a rolagem acontece só dentro do <main>.
-    <div className="flex h-screen w-full overflow-hidden bg-canvas">
+    // h-screen + overflow-clip: a rolagem acontece só dentro do <main>. Não é overflow-hidden de
+    // propósito: um contêiner "hidden" ainda pode ser rolado por código (focus() ou
+    // scrollIntoView() num elemento fora da tela), e aí a barra lateral e o conteúdo subiam
+    // juntos, deixando um vazio embaixo. O "clip" corta igual, mas nunca rola.
+    <div className="flex h-screen w-full overflow-clip bg-canvas">
       <Sidebar aberto={menuAberto} onFechar={() => setMenuAberto(false)} />
 
       <div className="flex min-w-0 flex-1 flex-col">

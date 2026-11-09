@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -47,6 +47,10 @@ export const salvarPMPV = (payload: PMPVSalvarRequest) =>
 
 export const getPMPVMensal = (periodo: string) =>
   api.get<{ pmpv: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
+
+/** A conta do PMPV de uma sessão salva, refeita com as linhas gravadas. Não grava nada. */
+export const getProvaRealPMPV = (sessaoId: number) =>
+  api.get<ProvaRealPMPV>("/pmpv/prova-real", { params: { sessao_id: sessaoId } }).then((r) => r.data);
 
 export const getHistoricoPMPV = () =>
   api.get<PMPVHistoricoLinha[]>("/pmpv/historico").then((r) => r.data);

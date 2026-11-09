@@ -7,7 +7,7 @@ import { Card } from "@heroui/react";
 import { ArrowUpRight, ClipboardCheck } from "lucide-react";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import { brl, dataHora, num } from "../../utils/format";
 import { contabil, participacao, textoParticipacao } from "./formatoProva";
 import type { EstadoProvaReal } from "./useProvaReal";
@@ -45,7 +45,7 @@ export function ProvaReal({ periodo, estado, cardRef, className = "" }: {
       <Card.Content className={`gap-0 transition-opacity ${atualizando ? "opacity-50" : ""}`}>
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês auditado ainda. Audite um mês no Painel do Ciclo.</p>}
         {periodo && erro && <p role="alert" className="mt-4 text-sm text-red-300">{erro}</p>}
-        {carregando && <EsqueletoProva />}
+        {carregando && <EsqueletoBlocos blocos={["h-5", "h-5", "h-5", "h-5", "h-24"]} texto="Montando a prova real…" />}
 
         {d && !erro && d.qtd_notas === 0 && (
           <p className="mt-4 text-sm text-amber-200">
@@ -161,14 +161,4 @@ function trimestreDe(periodo: string) {
   const [m, a] = periodo.split("/");
   const i = MESES.indexOf(m);
   return encodeURIComponent(`${MESES[Math.max(0, i - (i % 3))]}/${a}`);
-}
-
-function EsqueletoProva() {
-  return (
-    <div role="status" className="mt-4 space-y-3">
-      <span className="sr-only">Montando a prova real…</span>
-      {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-5 w-full" />)}
-      <Skeleton className="mt-2 h-24 w-full" />
-    </div>
-  );
 }

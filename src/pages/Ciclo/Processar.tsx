@@ -11,6 +11,7 @@ import {
 } from "../../api";
 import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
+import { Alert } from "../../components/ui/Alert";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { COLUNAS_PADRAO_CGF } from "../../utils/cgfColunas";
@@ -78,6 +79,22 @@ function precisaAtencao(c: Celula) {
   return difere || c.avisos.length > 0 || !!c.diferencas || (c.etapa === "conciliacao" && !c.escolhida);
 }
 
+/** Por que esta etapa-mês tem DIVERGÊNCIA (lista vazia: sem divergência). É o que o analista precisa
+ * ler antes de gravar: o valor processado difere do já gravado, há notas ou empresas diferentes, ou o
+ * processamento trouxe avisos (PDF não lido, devoluções zeradas…). Só descreve: não bloqueia nada. */
+function motivosDeDivergencia(c: Celula): string[] {
+  const m: string[] = [];
+  if (c.gravado !== null && c.valor !== undefined && Math.abs(c.valor - c.gravado) > 1) {
+    m.push(`valor processado ${brl(c.valor)} difere do gravado ${brl(c.gravado)}`);
+  }
+  if (c.diferencas) m.push("há notas ou empresas diferentes do gravado (veja “Onde está” na tabela)");
+  if (c.avisos.length) m.push(c.avisos.length === 1 ? "1 aviso do processamento" : `${c.avisos.length} avisos do processamento`);
+  return m;
+}
+
+const chaveDe = (c: Celula) => `${c.etapa}|${c.periodo}`;
+const rotuloDe = (c: Celula) => `${NOMES_ETAPA[c.etapa].split(" (")[0]} · ${c.periodo}`;
+
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
 const ROTA: Record<Etapa, string> = { auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
 
@@ -135,6 +152,8 @@ export function ProcessarTrimestre({
   );
   const [fase, setFase] = useState<Fase>(inicio?.fase ?? "previa");
   const [confirmar, setConfirmar] = useState(false);
+  // Etapas-mês gravadas JÁ COM divergência: o aviso do fim do ciclo lista só as que gravaram mesmo.
+  const [gravadasComDivergencia, setGravadasComDivergencia] = useState<string[]>([]);
   const parar = useRef(false);
 
   // Guarda a prévia a cada mudança: recarregar a página não perde o que já foi processado.
@@ -247,6 +266,7 @@ export function ProcessarTrimestre({
 
   async function gravar() {
     setConfirmar(false);
+    setGravadasComDivergencia(divergentes.map(chaveDe));
     parar.current = false;
     setFase("gravando");
     for (const c of celulas.filter((x) => x.escolhida && x.estado === "processada")) {
@@ -282,7 +302,10 @@ export function ProcessarTrimestre({
   const aGravar = celulas.filter((c) => c.escolhida && c.estado === "processada").length;
   // O que já tem valor gravado e será substituído: pede confirmação em janela antes de gravar.
   const substituidas = celulas.filter((c) => c.escolhida && c.estado === "processada" && c.gravado !== null);
-  const pedirGravar = () => (substituidas.length ? setConfirmar(true) : gravar());
+  // Marcadas e processadas COM divergência: gravar assim é decisão do analista, então pede confirmação.
+  const divergentes = celulas.filter((c) => c.escolhida && c.estado === "processada" && motivosDeDivergencia(c).length > 0);
+  const pedirGravar = () => (substituidas.length || divergentes.length ? setConfirmar(true) : gravar());
+  const gravadasDivergentes = celulas.filter((c) => c.estado === "gravada" && gravadasComDivergencia.includes(chaveDe(c)));
   const ocupado = fase === "processando" || fase === "gravando";
   const gravadas = celulas.filter((c) => c.estado === "gravada").length;
   const comErro = celulas.filter((c) => c.estado === "erro" || c.estado === "bloqueada").length;
@@ -382,6 +405,37 @@ export function ProcessarTrimestre({
         </table>
       </div>
 
+      {/* Antes de gravar: divergência é dita com todas as letras, e quem decide é o analista. */}
+      {fase === "revisao" && divergentes.length > 0 && (
+        <Alert variant="warning" className="mt-4">
+          <span className="block font-semibold">
+            Há divergência em {divergentes.length === 1 ? "1 etapa marcada" : `${divergentes.length} etapas marcadas`}.
+          </span>
+          <span className="mt-1 block">
+            Se você gravar agora, {divergentes.length === 1 ? "ela será gravada" : "elas serão gravadas"} <b>com a divergência</b>.
+            Cabe ao analista analisar os dados antes de gravar: desmarque o que não estiver certo ou confira na tela da etapa.
+          </span>
+          <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
+            {divergentes.map((c) => <li key={chaveDe(c)}><b>{rotuloDe(c)}</b>: {motivosDeDivergencia(c).join("; ")}.</li>)}
+          </ul>
+        </Alert>
+      )}
+      {fase === "revisao" && divergentes.length === 0 && aGravar > 0 && (
+        <p className="mt-4 text-sm text-emerald-300">Nenhuma divergência nas etapas marcadas. Mesmo assim, cabe ao analista conferir os dados antes de gravar.</p>
+      )}
+      {/* Depois de gravar: fica dito na tela que o ciclo foi gravado com divergência. */}
+      {fase === "fim" && gravadasDivergentes.length > 0 && (
+        <Alert variant="warning" className="mt-4">
+          <span className="block font-semibold">
+            {gravadasDivergentes.length === 1 ? "1 etapa foi gravada com divergência" : `${gravadasDivergentes.length} etapas foram gravadas com divergência`}.
+          </span>
+          <span className="mt-1 block">
+            O ciclo foi gravado com divergências e o valor gravado continua assim até ser corrigido. Cabe ao analista analisar os dados e,
+            se precisar, refazer a etapa: {gravadasDivergentes.map(rotuloDe).join(", ")}.
+          </span>
+        </Alert>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {fase === "previa" && (
           <button type="button" onClick={processar} disabled={!aProcessar || semArquivos}
@@ -409,34 +463,49 @@ export function ProcessarTrimestre({
         )}
       </div>
 
-      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante="atencao" rotuloFechar="Cancelar"
-        titulo={substituidas.length === 1 ? "Substituir 1 valor já gravado?" : `Substituir ${substituidas.length} valores já gravados?`}
-        acao={{ rotulo: "Gravar e substituir", onClick: gravar }}>
-        <p>Ao gravar, {substituidas.length === 1 ? "este valor é substituído" : "estes valores são substituídos"}:</p>
-        <div className="max-h-64 overflow-y-auto rounded-lg border border-white/[0.07]">
-          <table className="w-full text-xs">
-            <thead className="bg-white/[0.03] text-zinc-500">
-              <tr>
-                <th scope="col" className="px-2 py-1.5 text-left font-medium">Etapa · mês</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-medium">Gravado hoje</th>
-                <th scope="col" className="px-2 py-1.5 text-right font-medium">Passa a ser</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/[0.05]">
-              {substituidas.map((c) => (
-                <tr key={`${c.etapa}-${c.periodo}`}>
-                  <td className="px-2 py-1.5 text-zinc-200">{NOMES_ETAPA[c.etapa].split(" (")[0]} · {c.periodo}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{brl(c.gravado!)}</td>
-                  <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums text-white">
-                    {c.valor === undefined ? "—" : brl(c.valor)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {aGravar > substituidas.length && (
-          <p>{aGravar - substituidas.length === 1 ? "A outra etapa-mês marcada é gravada" : `As outras ${aGravar - substituidas.length} etapas-mês marcadas são gravadas`} pela primeira vez.</p>
+      <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante="atencao" rotuloFechar="Cancelar e conferir"
+        titulo={divergentes.length ? "Gravar com divergências?" : substituidas.length === 1 ? "Substituir 1 valor já gravado?" : `Substituir ${substituidas.length} valores já gravados?`}
+        acao={{ rotulo: divergentes.length ? "Gravar com divergências" : "Gravar e substituir", onClick: gravar }}>
+        {divergentes.length > 0 && (
+          <>
+            <p>
+              Há divergência em <b>{divergentes.length === 1 ? "1 etapa" : `${divergentes.length} etapas`}</b>. Se continuar, será gravado
+              {" "}<b>com as divergências</b>. <b>Cabe ao analista analisar os dados antes de gravar.</b>
+            </p>
+            <ul className="list-disc space-y-0.5 pl-5 text-xs">
+              {divergentes.map((c) => <li key={chaveDe(c)}><b>{rotuloDe(c)}</b>: {motivosDeDivergencia(c).join("; ")}.</li>)}
+            </ul>
+          </>
+        )}
+        {substituidas.length > 0 && (
+          <>
+            <p>Ao gravar, {substituidas.length === 1 ? "este valor é substituído" : "estes valores são substituídos"}:</p>
+            <div className="max-h-64 overflow-y-auto rounded-lg border border-white/[0.07]">
+              <table className="w-full text-xs">
+                <thead className="bg-white/[0.03] text-zinc-500">
+                  <tr>
+                    <th scope="col" className="px-2 py-1.5 text-left font-medium">Etapa · mês</th>
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium">Gravado hoje</th>
+                    <th scope="col" className="px-2 py-1.5 text-right font-medium">Passa a ser</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.05]">
+                  {substituidas.map((c) => (
+                    <tr key={chaveDe(c)}>
+                      <td className="px-2 py-1.5 text-zinc-200">{rotuloDe(c)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right tabular-nums">{brl(c.gravado!)}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums text-white">
+                        {c.valor === undefined ? "—" : brl(c.valor)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {aGravar > substituidas.length && (
+              <p>{aGravar - substituidas.length === 1 ? "A outra etapa-mês marcada é gravada" : `As outras ${aGravar - substituidas.length} etapas-mês marcadas são gravadas`} pela primeira vez.</p>
+            )}
+          </>
         )}
       </ModalAviso>
     </div>
