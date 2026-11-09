@@ -436,7 +436,7 @@ export default function PMPVPage() {
             { label: "Preço final", valor: resultado && brl(resultado.preco_final, 4), sub: "PMPV + Conta Gráfica, R$/m³", cor: "text-emerald-300" },
             { label: "Volume prospectivo", valor: resultado && num(resultado.vp_mensal), sub: "m³ no trimestre", cor: "text-amber-300" },
           ].map((k) => (
-            <div key={k.label} className={`${PANEL} p-5`}>
+            <div key={k.label} className={`${PANEL} card-hover p-5`}>
               <p className={LABEL}>{k.label}</p>
               <p className={`mt-3 truncate text-[1.75rem] font-bold leading-none tracking-tight tabular-nums ${k.valor ? k.cor : "text-zinc-600"}`}>
                 {k.valor ?? "—"}

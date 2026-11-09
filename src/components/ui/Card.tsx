@@ -33,7 +33,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, sub, color = "text-white", icon }: StatCardProps) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-panel p-5 flex flex-col gap-1">
+    <div className="card-hover rounded-xl border border-white/[0.07] bg-panel p-5 flex flex-col gap-1">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-zinc-500">{label}</span>
         {icon && <span className="text-zinc-600">{icon}</span>}

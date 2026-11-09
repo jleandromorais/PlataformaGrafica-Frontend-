@@ -24,7 +24,7 @@ interface TableProps<T> {
   footer?: FooterCell[];
 }
 
-export function Table<T extends Record<string, any>>({
+export function Table<T extends object>({
   columns,
   data,
   emptyMessage = "Sem dados.",
@@ -60,7 +60,7 @@ export function Table<T extends Record<string, any>>({
                     key={String(col.key)}
                     className={`px-4 py-2.5 tabular-nums text-${col.align ?? "left"}`}
                   >
-                    {col.render ? col.render(row) : row[col.key as keyof T]}
+                    {col.render ? col.render(row) : (row[col.key as keyof T] as ReactNode)}
                   </td>
                 ))}
               </tr>

@@ -86,6 +86,21 @@
   --color-green-300: #15803d;
   --color-green-400: #15803d;
 
+  /* Hover dos cards pequenos de destaque (classe card-hover, regras no fim do arquivo). Base: azul da ARPE a 20%, a cor pedida.
+     No claro o fundo usa 12%: com 20% os textos cinza-claros dos cards ficariam abaixo do contraste AA. */
+  --color-hover-card: oklch(0.6204 0.195 253.8254 / 0.12);
+  --color-hover-card-borda: oklch(0.6204 0.195 253.8254 / 0.6);
+  --color-hover-card-sombra: oklch(0.6204 0.195 253.8254 / 0.35);
+
+  /* Vinho: cor do card da Fórmula nas telas da Conta Gráfica (components/ui/estilosCard.ts).
+     Claro: fundo rosado suave com texto vinho (contraste AA sobre o fundo). */
+  --color-vinho-fundo: #fbf1f3;
+  --color-vinho-caixa: #f5e1e6;  /* caixa da fórmula, dentro do card */
+  --color-vinho-borda: #e2bcc6;
+  --color-vinho-titulo: #5c1424; /* título e fórmula (~12:1 sobre o fundo) */
+  --color-vinho-texto: #6e2a3a;  /* explicações (~9:1) */
+  --color-vinho-mudo: #8a3d50;   /* rótulos pequenos (~6,6:1) */
+
   --font-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
 
   /* Brilho que atravessa o "esqueleto" enquanto a tela carrega (components/ui/Skeleton). */
@@ -162,6 +177,19 @@
   --color-amber-200: #fde68a;
   --color-amber-300: #fcd34d;
   --color-amber-400: #fbbf24;
+
+  /* Hover dos cards no escuro: o fundo usa exatamente o azul a 20%. */
+  --color-hover-card: oklch(0.6204 0.195 253.8254 / 0.2);
+  --color-hover-card-borda: oklch(0.6204 0.195 253.8254 / 0.75);
+  --color-hover-card-sombra: oklch(0.6204 0.195 253.8254 / 0.4);
+
+  /* Vinho no escuro: fundo vinho sólido, textos em rosa claro (todos acima de 4,5:1 sobre o fundo). */
+  --color-vinho-fundo: #4f1020;
+  --color-vinho-caixa: #3d0a17;
+  --color-vinho-borda: #7d2a40;
+  --color-vinho-titulo: #ffe4ea; /* ~12:1 */
+  --color-vinho-texto: #f2c3cf;  /* ~9:1 */
+  --color-vinho-mudo: #e09aac;   /* ~6:1 */
 
   --color-violet-300: #c4b5fd;
   --color-violet-400: #a78bfa;
@@ -302,6 +330,35 @@
    "pularem" ao mudar. Use em todo valor monetário e percentual. */
 @utility num {
   font-variant-numeric: tabular-nums;
+}
+
+/* Hover dos CARDS PEQUENOS de destaque (KPIs): só onde a classe `card-hover` é posta
+   (CARD_KPI em estilosCard.ts, StatCard, KPIs do Dashboard e do PMPV, contadores da
+   comparação com a planilha). Painéis grandes, tabelas, gráficos e o card da Fórmula
+   ficam sem hover de propósito.
+   O Card da HeroUI v3 não tem estado de hover próprio (é uma div, sem data-hovered),
+   então o efeito é CSS puro, com transição curta como a HeroUI faz nos componentes dela:
+   fundo com o azul de --color-hover-card (sombra interna, que anima), borda e anel azuis,
+   sombra azul suave e uma leve subida. Fora de @layer para vencer a borda dos utilitários. */
+.card-hover {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-hover:hover {
+  border-color: var(--color-hover-card-borda);
+  box-shadow: inset 0 0 0 100vmax var(--color-hover-card), 0 0 0 1px var(--color-hover-card-borda),
+    0 12px 28px -12px var(--color-hover-card-sombra);
+}
+/* Com o fundo azulado, o texto cinza secundário ficaria abaixo do contraste AA (4,5:1):
+   no hover ele sobe um tom (zinc-400), em vez de diminuir a cor do hover. */
+.card-hover:hover :is(.text-zinc-500, .text-zinc-600) {
+  color: var(--color-zinc-400);
+}
+/* Leve subida, só para quem não pediu menos movimento (no sistema ou no
+   atributo data-reduce-motion da HeroUI). */
+@media (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduce-motion="true"]) .card-hover:hover {
+    transform: translateY(-3px);
+  }
 }
 
 /* Eixos dos gráficos Recharts (o <text> do SVG não recebe classe por tick). */

@@ -129,7 +129,7 @@ function KpiTile({
   const isZero = rawValue === 0;
   const isNegative = rawValue < 0;
   return (
-    <div className={`${PANEL} p-5 transition-colors hover:border-white/[0.14] sm:p-6`}>
+    <div className={`${PANEL} card-hover p-5 sm:p-6`}>
       <span className="text-sm font-medium text-zinc-400">{label}</span>
       <p
         className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none xl:text-[1.625rem] ${

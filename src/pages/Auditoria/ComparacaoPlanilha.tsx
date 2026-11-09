@@ -82,7 +82,7 @@ export function ComparacaoPlanilha({ comparacao: c, className }: { comparacao: A
             ["Só na auditoria", c.notas_apenas_auditoria.length, "text-amber-300"],
             ["Só na planilha", c.notas_apenas_planilha.length, "text-amber-300"],
           ] as const).filter(([r]) => porNota || r !== "Valor diferente").map(([r, v, cor]) => (
-            <div key={r} className="rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
+            <div key={r} className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
               <p className={`text-2xl font-bold tabular-nums ${v ? cor : "text-zinc-500"}`}>{v}</p>
               <p className="text-xs text-zinc-400">{r}</p>
             </div>

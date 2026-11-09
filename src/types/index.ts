@@ -244,6 +244,69 @@ export interface AuditoriaHistoricoLinha {
   periodo_valido: boolean;
 }
 
+/** Uma empresa na prova real do CGR (GET /auditoria/prova-real). */
+export interface ProvaRealEmpresa {
+  empresa: string;
+  qtd_nfe: number;
+  qtd_cte: number;
+  qtd_devolucoes: number;
+  compras: number;            // CGR das notas de compra (positivo)
+  devolucoes: number;         // CGR das devoluções (negativo)
+  frete_fora_do_cgr: number;  // valor dos CT-e de frete comum (não entra)
+  cgr: number;                // compras + devoluções
+}
+
+/** A conta do CGR gravado de um mês, aberta por empresa, com o selo "confere". */
+export interface ProvaRealAuditoria {
+  periodo: string;
+  qtd_notas: number;
+  por_empresa: ProvaRealEmpresa[];
+  compras: number;
+  devolucoes: number;
+  frete_fora_do_cgr: number;
+  cgr_das_notas: number;
+  cgr_gravado: number | null;
+  diferenca: number | null;
+  confere: boolean;
+  data_atualizacao: string;
+}
+
+/** A conta do CGF gravado de um mês, aberta (GET /cgf/prova-real). */
+export interface ProvaRealCGF {
+  periodo: string;
+  tem_resumo: boolean;                // false: mês gravado só com o total, sem o resumo de volumes
+  volume_faturado: number;
+  volume_canceladas: number;          // informativo: não entra no volume final
+  volume_devolucoes: number;
+  volume_consumo_proprio: number;     // informativo: já retirado do faturado
+  volume_final_calculado: number;     // faturado − devoluções
+  volume_final_gravado: number | null;
+  diferenca_volume: number | null;
+  volume_confere: boolean;
+  pmpv: number | null;                // PMPV do mês (R$/m³); null sem PMPV gravado
+  cgf_calculado: number | null;       // volume final × PMPV
+  cgf_gravado: number | null;
+  diferenca_cgf: number | null;
+  cgf_confere: boolean;
+  confere: boolean;                   // volume e CGF conferem
+  data_atualizacao: string;
+}
+
+/** A conta do RPV gravado de um mês e de onde vêm CGR e CGF (GET /rpv/prova-real). */
+export interface ProvaRealRPV {
+  periodo: string;
+  gravado: boolean;                   // false: nada gravado neste mês
+  cgr: number;
+  cgf: number;
+  rpv_calculado: number;              // CGR − CGF
+  rpv_gravado: number | null;
+  diferenca: number | null;
+  confere: boolean;
+  origem_cgr: { tem_notas: boolean; valor_das_notas: number | null; confere: boolean };
+  origem_cgf: { tem_resumo: boolean; valor_calculado: number | null; confere: boolean };
+  data_atualizacao: string;
+}
+
 // ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
 export interface ConciliaItem {
   arquivo: string;

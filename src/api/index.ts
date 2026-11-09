@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -80,6 +80,10 @@ export const getRPV = (periodo: string) =>
 export const salvarRPV = (periodo: string, cgr: number, cgf: number) =>
   api.post<{ rpv: number }>("/rpv/salvar", { periodo, cgr, cgf }).then((r) => r.data);
 
+/** A conta do RPV gravado do mês (CGR − CGF) e de onde vêm os dois. Não grava nada. */
+export const getProvaRealRPV = (periodo: string) =>
+  api.get<ProvaRealRPV>("/rpv/prova-real", { params: { periodo } }).then((r) => r.data);
+
 export const getHistoricoRPV = () =>
   api.get<RPVHistoricoLinha[]>("/rpv/historico").then((r) => r.data);
 
@@ -104,6 +108,10 @@ export const salvarCGF = (payload: CGFVolumes & { periodo: string; pmpv: number 
 /** CGF em R$ = volume final × PMPV. Sem `pmpv`, o back usa o PMPV salvo do mês. Não grava. */
 export const calcularCGFRs = (periodo: string, volume_final: number, pmpv?: number) =>
   api.post<CGFCalcularRsResponse>("/cgf/calcular-rs", { periodo, volume_final, pmpv: pmpv ?? null }).then((r) => r.data);
+
+/** A conta do CGF gravado do mês, aberta (volumes × PMPV). Não grava nada. */
+export const getProvaRealCGF = (periodo: string) =>
+  api.get<ProvaRealCGF>("/cgf/prova-real", { params: { periodo } }).then((r) => r.data);
 
 export const getHistoricoCGF = () =>
   api.get<CGFHistoricoLinha[]>("/cgf/historico").then((r) => r.data);
@@ -157,6 +165,10 @@ export const baixarRelatorioAuditoria = (periodo: string, itens: AuditoriaItem[]
 
 export const getHistoricoAuditoria = () =>
   api.get<AuditoriaHistoricoLinha[]>("/auditoria/historico").then((r) => r.data);
+
+/** A conta do CGR gravado do mês, aberta por empresa (prova real). Não grava nada. */
+export const getProvaRealAuditoria = (periodo: string) =>
+  api.get<ProvaRealAuditoria>("/auditoria/prova-real", { params: { periodo } }).then((r) => r.data);
 
 // ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
 /** Lê os PDFs das pastas de receitas e despesas. Não grava nada. */

@@ -16,7 +16,7 @@ export function AuthShell({ titulo, subtitulo, children, rodape }: {
           <img src="/arpe-logo-escuro.png" alt="ARPE — Agência de Regulação de Pernambuco" className="hidden h-28 w-auto dark:block" />
           <p className="text-lg font-bold text-white">Conta Gráfica <span className="font-extrabold">ARPE</span></p>
         </div>
-        <div className="rounded-xl border border-white/[0.08] bg-panel p-7 shadow-[0_1px_2px_rgba(16,39,89,0.06),0_8px_24px_-12px_rgba(16,39,89,0.12)]">
+        <div className="sem-hover rounded-xl border border-white/[0.08] bg-panel p-7 shadow-[0_1px_2px_rgba(16,39,89,0.06),0_8px_24px_-12px_rgba(16,39,89,0.12)]">
           <h1 className="text-xl font-semibold text-white">{titulo}</h1>
           <p className="mt-1 text-sm text-zinc-500">{subtitulo}</p>
           <div className="mt-6">{children}</div>
