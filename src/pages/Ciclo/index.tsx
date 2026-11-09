@@ -18,6 +18,7 @@ import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situaca
 import { mesesDoPRDoCivil } from "../../utils/periodos";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
+import { CompararPlanilha } from "./CompararPlanilha";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { reabrirPasta, type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida } from "../../utils/pasta";
@@ -478,6 +479,11 @@ export default function CicloPage() {
             </ol>
           )}
         </section>
+
+        {/* Depois do ciclo: conferir o CGR de um mês contra a planilha (opcional, não grava) */}
+        {!carregando && dados && (
+          <CompararPlanilha key={meses[0]} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria} />
+        )}
       </div>
     </div>
   );

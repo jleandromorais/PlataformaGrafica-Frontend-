@@ -2,7 +2,7 @@
  * sem planilha). Usada pelo Processar do trimestre e pelo "Auditar <mês>" do Painel.
  * Só interpreta a resposta do backend: nenhum valor é calculado aqui. */
 import { diferencasAuditoria, processarAuditoria, type ArquivoDaPasta } from "../../api";
-import type { AuditoriaDiferencas, AuditoriaResultado } from "../../types";
+import type { AuditoriaComparacao, AuditoriaDiferencas, AuditoriaResultado } from "../../types";
 
 export interface AuditoriaDoMes {
   r: AuditoriaResultado;
@@ -16,16 +16,24 @@ export interface AuditoriaDoMes {
   avisos: string[];
   /** Onde difere das notas gravadas (só quando o mês já tem CGR gravado e o valor mudou). */
   diferencas?: AuditoriaDiferencas;
+  /** Só quando foi enviada a planilha da Conta Gráfica: a comparação (ou por que não saiu). */
+  comparacao?: AuditoriaComparacao | null;
+  avisoComparacao?: string;
+  /** A planilha não abriu: a auditoria vale, só a comparação não saiu. */
+  planilhaIlegivel?: string;
 }
 
+/** `planilha`: a da Conta Gráfica, como na tela da Auditoria. Só compara, nunca grava. */
 /** `sempreComparar`: busca as diferenças sempre que o mês já tem CGR gravado, mesmo com o
  * total igual. Gravar substitui o mês inteiro, então empresas gravadas que não vieram na
  * pasta seriam apagadas, e só a comparação por empresa mostra isso. */
 export async function auditarMes(envio: ArquivoDaPasta[], pastaRaiz: string, periodo: string, gravado: number | null,
-  sempreComparar = false): Promise<AuditoriaDoMes> {
-  const r = await processarAuditoria({ arquivos: envio, pastaRaiz, empresas: [], modo: "XML", periodo, planilha: null });
+  sempreComparar = false, planilha: File | null = null): Promise<AuditoriaDoMes> {
+  const r = await processarAuditoria({ arquivos: envio, pastaRaiz, empresas: [], modo: "XML", periodo, planilha });
   const problemas = r.problemas ?? [];
-  const erros = problemas.filter((p) => p.gravidade === "erro").map((p) => p.mensagem);
+  // Planilha ilegível não invalida a auditoria (o backend segue sem comparação): não é erro do mês.
+  const ilegivel = problemas.find((p) => p.codigo === "planilha_comparacao_ilegivel");
+  const erros = problemas.filter((p) => p.gravidade === "erro" && p.codigo !== "planilha_comparacao_ilegivel").map((p) => p.mensagem);
   const outroMes = r.periodo_detectado && r.periodo_detectado !== periodo ? r.periodo_detectado : undefined;
   const naoLidos = problemas.filter((p) => p.codigo === "pdf_ocr_falhou").length;
   const porCodigo = new Map<string, { n: number; mensagem: string }>();
@@ -37,5 +45,8 @@ export async function auditarMes(envio: ArquivoDaPasta[], pastaRaiz: string, per
   // Diferente do gravado: o backend aponta empresa e nota. Sem isso, só some o detalhe.
   const diferencas = !erros.length && !outroMes && gravado !== null && (sempreComparar || Math.abs(r.totais.cgr_liquido - gravado) > 1)
     ? await diferencasAuditoria(periodo, r.itens).catch(() => undefined) : undefined;
-  return { r, erros, outroMes, naoLidos, avisos, diferencas };
+  return {
+    r, erros, outroMes, naoLidos, avisos, diferencas,
+    ...(planilha ? { comparacao: r.comparacao, avisoComparacao: r.aviso_comparacao, planilhaIlegivel: ilegivel?.mensagem } : {}),
+  };
 }
