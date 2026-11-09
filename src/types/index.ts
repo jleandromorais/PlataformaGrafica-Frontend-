@@ -716,3 +716,32 @@ export interface SRProposta {
   bloqueios: string[];                       // o que impede de gravar (lista vazia: pode gravar)
   pode_gravar: boolean;
 }
+
+// ─── RET: PROVA REAL (GET /ret/prova-real) ──────────────────────────────────
+/** Uma empresa na prova real do RET, por tipo de encargo. */
+export interface ProvaRealEmpresaRET {
+  empresa: string;
+  tipo_encargo: "EAT" | "EC";
+  qtd: number;
+  valor: number;
+}
+
+/** A conta do RET gravado de um mês, refeita com os documentos gravados: EAT × (1 − PIS/COFINS) + EC. */
+export interface ProvaRealRET {
+  periodo: string;
+  tem_itens: boolean;          // false: mês gravado só com o total, sem os documentos
+  qtd_documentos: number;
+  qtd_eat: number;
+  qtd_ec: number;
+  qtd_outros: number;          // documentos de outras pastas (penalidades, TOP, outros): ficam fora do RET
+  eat_bruto: number;
+  pis_cofins_rate: number;     // 0.0925
+  eat_liquido: number;
+  ec: number;
+  ret_calculado: number | null;
+  ret_gravado: number | null;
+  diferenca: number | null;
+  confere: boolean;
+  por_empresa: ProvaRealEmpresaRET[];
+  data_atualizacao: string;
+}

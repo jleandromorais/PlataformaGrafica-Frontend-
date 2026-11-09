@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -225,6 +225,10 @@ export const salvarRET = (documentos: RETDocumento[], periodoPadrao: string) =>
   api
     .post<{ periodo: string; ret: number; qtd_documentos: number }[]>("/ret/salvar", { documentos, periodo_padrao: periodoPadrao })
     .then((r) => r.data);
+
+/** A conta do RET gravado do mês, aberta (EAT × (1 − PIS/COFINS) + EC). Não grava nada. */
+export const getProvaRealRET = (periodo: string) =>
+  api.get<ProvaRealRET>("/ret/prova-real", { params: { periodo } }).then((r) => r.data);
 
 export const getHistoricoRET = () =>
   api.get<RETHistoricoLinha[]>("/ret/historico").then((r) => r.data);
