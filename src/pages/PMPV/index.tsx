@@ -9,11 +9,11 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
-import { calcularPMPV, getHistoricoPMPV, getProvaRealPMPV, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
+import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
-import { brl, dataHora, num } from "../../utils/format";
-import type { EmpresaLinha, PMPVHistoricoLinha, PMPVLinhaCalculo, PMPVResultado } from "../../types";
+import { brl, brlEntrada, dataHora, num, parseBRL } from "../../utils/format";
+import type { EmpresaLinha, PMPVHistoricoLinha, PMPVMargem, PMPVLinhaCalculo, PMPVResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
@@ -232,6 +232,12 @@ export default function PMPVPage() {
     "Mês 1": linhasPadrao(), "Mês 2": linhasPadrao(), "Mês 3": linhasPadrao(),
   }));
   const [aba, setAba] = useState<Aba>("Mês 1");
+  // Margem regulatória do ano escolhido: a última resposta, marcada com o ano a que pertence.
+  const [respMargem, setRespMargem] = useState<{ ano: number; dados?: PMPVMargem; erro?: string } | null>(null);
+  const [editandoMargem, setEditandoMargem] = useState(false);
+  const [margemTexto, setMargemTexto] = useState("");
+  const [salvandoMargem, setSalvandoMargem] = useState(false);
+  const [erroMargem, setErroMargem] = useState<string | null>(null);
   const [resultado, setResultado] = useState<PMPVResultado | null>(null);
   const [ocupado, setOcupado] = useState<null | "calcular" | "salvar" | "importar">(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -281,6 +287,20 @@ export default function PMPVPage() {
         setFalhouTrimestres(true);
       });
   }, []);
+
+  // Busca a margem do ano quando ele muda. Só vale a resposta do ano atual (anti-corrida).
+  useEffect(() => {
+    if (!(ano >= 2000 && ano <= 2100)) return;
+    let vigente = true;
+    getMargemRegulatoria(ano)
+      .then((dados) => { if (vigente) setRespMargem({ ano, dados }); })
+      .catch((e) => { if (vigente) setRespMargem({ ano, erro: mensagemDeErro(e, `Não foi possível buscar a margem regulatória de ${ano}.`) }); });
+    return () => { vigente = false; };
+  }, [ano]);
+  const margemDaVez = respMargem?.ano === ano ? respMargem : null;
+  const buscandoMargem = ano >= 2000 && ano <= 2100 && !margemDaVez;
+  const margem = margemDaVez?.dados ?? null;          // null: carregando, erro ou ano inválido
+  const valorMargem = margem?.margem ?? null;         // null: ausente
 
   const origemCG: "carregando" | "salvo" | "ausente" =
     carregadoPara !== `${trimestre}/${ano}` ? "carregando" : prSalvo !== null ? "salvo" : "ausente";
@@ -344,7 +364,8 @@ export default function PMPVPage() {
     setSucesso(null);
   };
 
-  const calcular = async () => {
+  /** `margemUsada`: a margem a mandar (ex.: a que acabou de ser salva); sem ela, vale a do ano na tela. */
+  const calcular = async (margemUsada: number | null = valorMargem) => {
     limparMensagens();
     if (!cgValida) return setErro("Aguarde: ainda estou buscando o PR salvo deste trimestre.");
     if (!anoValido) return setErro("O ano precisa estar entre 2000 e 2100.");
@@ -372,6 +393,7 @@ export default function PMPVPage() {
       const r = await calcularPMPV({
         dados_extraidos, valor_cg: cg, dias_config,
         lista_meses: MESES_NOME, idx_start: MESES_ABREV.indexOf(mesesTri[0]),
+        ...(margemUsada !== null ? { margem_regulatoria: margemUsada } : {}),
       });
       setResultado(r);
       if (r.avisos.length) setAviso(`Campos vazios considerados como 0:\n${r.avisos.map((a) => a.trim()).join("\n")}`);
@@ -399,7 +421,11 @@ export default function PMPVPage() {
 
     setOcupado("salvar");
     try {
-      const { sessao_id, pv_automatico } = await salvarPMPV({ nome, dados_por_mes, resultado, periodos });
+      // A sessão não guarda margem nem tarifa média: o resultado vai como sempre foi.
+      const resultadoDaSessao = { ...resultado };
+      delete resultadoDaSessao.margem_regulatoria;
+      delete resultadoDaSessao.tarifa_media;
+      const { sessao_id, pv_automatico } = await salvarPMPV({ nome, dados_por_mes, resultado: resultadoDaSessao, periodos });
       // O backend regrava o PV do trimestre com o PMPV novo e o PR salvo.
       const pv = (pv_automatico ?? []).map(textoPVAutomatico).filter((t) => t !== null);
       const pvOk = pv.filter((t) => t.ok).map((t) => ` ${t.texto}`).join("");
@@ -412,6 +438,26 @@ export default function PMPVPage() {
       setErro(mensagemDeErro(e, "Não foi possível salvar a sessão."));
     } finally {
       setOcupado(null);
+    }
+  };
+
+  /** Salva a margem do ano e, se já há um cálculo na tela, calcula de novo no back (a tarifa média não é somada aqui). */
+  const salvarMargem = async () => {
+    const v = parseBRL(margemTexto);
+    if (v === null || v < 0) return setErroMargem("Digite a margem em R$/m³, como 0,5410. Não pode ser negativa.");
+    setErroMargem(null);
+    limparMensagens();
+    setSalvandoMargem(true);
+    try {
+      const r = await salvarMargemRegulatoria(ano, v);
+      setRespMargem({ ano, dados: r });
+      setEditandoMargem(false);
+      if (resultado) await calcular(r.margem);
+      setSucesso(`Margem regulatória de ${ano} salva: ${brl(v, 4)}.`);
+    } catch (e) {
+      setErroMargem(mensagemDeErro(e, "Não foi possível salvar a margem regulatória."));
+    } finally {
+      setSalvandoMargem(false);
     }
   };
 
@@ -457,6 +503,9 @@ export default function PMPVPage() {
       : []),
     `VP = Σ volume = ${num(provaDaSessao.volume_total, 2)} m³`,
   ] : undefined;
+
+  // A tarifa média vem do back (PV + margem); só vale se o cálculo usou a margem que está na tela.
+  const tarifaOk = !!resultado && resultado.tarifa_media !== undefined && valorMargem !== null && resultado.margem_regulatoria === valorMargem;
 
   const idxAba = ABAS.indexOf(aba);
   const pronto = trimestres.length > 0 && periodos.length === 3;
@@ -632,7 +681,7 @@ export default function PMPVPage() {
             <Painel title="Calcular e salvar">
               <div className="flex flex-col gap-3">
                 <button
-                  type="button" onClick={calcular} disabled={!pronto || ocupado !== null}
+                  type="button" onClick={() => calcular()} disabled={!pronto || ocupado !== null}
                   className="flex items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
                 >
                   {ocupado === "calcular" ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
@@ -652,23 +701,84 @@ export default function PMPVPage() {
               </div>
             </Painel>
 
-            <Painel title="Composição do preço">
-              <dl className="space-y-3 text-sm">
-                <div className="flex items-baseline justify-between gap-3">
+            <Painel title="Composição da tarifa">
+              <div className="space-y-3 text-sm">
+                <dl className="flex items-baseline justify-between gap-3">
                   <dt className="text-zinc-400">PMPV</dt>
                   <dd className="font-semibold tabular-nums text-zinc-100">{resultado ? brl(resultado.pmpv, 4) : "—"}</dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-zinc-400">Conta Gráfica</dt>
+                </dl>
+                <dl className="flex items-baseline justify-between gap-3">
+                  <dt className="text-zinc-400">(+) Conta Gráfica <span className="text-xs text-zinc-500">(PR)</span></dt>
                   <dd className={`font-semibold tabular-nums ${cg < 0 ? "text-red-300" : "text-emerald-300"}`}>
                     {cgValida ? `${cg >= 0 ? "+" : ""}${brl(cg, 4)}` : "—"}
                   </dd>
+                </dl>
+                <div>
+                  <dl className="flex items-baseline justify-between gap-3">
+                    <dt className="text-zinc-400">(+) Margem regulatória <span className="text-xs text-zinc-500">({ano})</span></dt>
+                    <dd className="font-semibold tabular-nums text-zinc-100">
+                      {buscandoMargem
+                        ? <><span className="sr-only">Carregando a margem…</span><Skeleton className="ml-auto h-4 w-20" /></>
+                        : valorMargem !== null && !editandoMargem ? `+${brl(valorMargem, 4)}` : "—"}
+                    </dd>
+                  </dl>
+                  {/* De onde veio a margem; sem ela (ou ao alterar), o campo para digitar. */}
+                  {buscandoMargem ? (
+                    <Skeleton className="mt-2 h-3 w-48 rounded" />
+                  ) : !anoValido ? (
+                    <p className="mt-1 text-xs text-amber-300">Informe um ano entre 2000 e 2100.</p>
+                  ) : margemDaVez?.erro ? (
+                    <p role="alert" className="mt-1 text-xs text-red-300">{margemDaVez.erro}</p>
+                  ) : (valorMargem === null || editandoMargem) ? (
+                    <div className="mt-2">
+                      <label htmlFor="margem" className="text-xs text-zinc-400">
+                        {valorMargem === null ? `Informe a margem regulatória de ${ano} (R$/m³)` : `Nova margem regulatória de ${ano} (R$/m³)`}
+                      </label>
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <input id="margem" inputMode="decimal" placeholder="0,5410" value={margemTexto}
+                          onChange={(e) => { setMargemTexto(e.target.value); setErroMargem(null); }}
+                          aria-invalid={erroMargem !== null} aria-describedby={erroMargem ? "margem-erro" : undefined}
+                          className={`w-28 ${INPUT} ${erroMargem ? "border-red-500/50" : ""}`} />
+                        <button type="button" onClick={salvarMargem} disabled={salvandoMargem || !margemTexto.trim()}
+                          className="flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/15 disabled:opacity-50">
+                          {salvandoMargem ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Salvar margem
+                        </button>
+                        {editandoMargem && (
+                          <button type="button" onClick={() => { setEditandoMargem(false); setErroMargem(null); }} disabled={salvandoMargem}
+                            className="rounded text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+                            Cancelar
+                          </button>
+                        )}
+                      </div>
+                      {erroMargem && <p id="margem-erro" role="alert" className="mt-1.5 text-xs text-red-300">{erroMargem}</p>}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {margem?.origem === "salva" ? `informada pelo analista (${ano})` : `padrão do sistema (${ano})`}
+                      {" · "}
+                      <button type="button" onClick={() => { setMargemTexto(brlEntrada(valorMargem)); setEditandoMargem(true); }}
+                        className="rounded text-sky-300 underline underline-offset-2 hover:text-sky-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+                        alterar
+                      </button>
+                    </p>
+                  )}
                 </div>
-                <div className="flex items-baseline justify-between gap-3 border-t border-white/[0.07] pt-3">
-                  <dt className="font-medium text-zinc-200">Preço final</dt>
-                  <dd className="text-lg font-bold tabular-nums text-emerald-300">{resultado ? brl(resultado.preco_final, 4) : "—"}</dd>
+                <div className="border-t border-white/[0.07] pt-3">
+                  <dl className="flex items-baseline justify-between gap-3">
+                    <dt className="font-medium text-zinc-200">Tarifa média</dt>
+                    <dd className="text-lg font-bold tabular-nums text-emerald-300">
+                      {tarifaOk ? brl(resultado.tarifa_media!, 4) : "—"}
+                    </dd>
+                  </dl>
+                  {!tarifaOk && !buscandoMargem && (
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {valorMargem === null ? `informe a margem regulatória de ${ano}`
+                        : !resultado ? "calcule para ver a tarifa média"
+                          : "calcule de novo para atualizar a tarifa média"}
+                    </p>
+                  )}
                 </div>
-              </dl>
+              </div>
             </Painel>
 
             <Painel title="Volume prospectivo por mês">

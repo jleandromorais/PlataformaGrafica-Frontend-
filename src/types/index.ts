@@ -20,6 +20,15 @@ export interface PMPVCalculoRequest {
   dias_config: Record<string, number>;
   lista_meses: string[];
   idx_start: number;
+  /** Margem regulatória do ano (R$/m³). Quando vem, o back devolve também a tarifa média. */
+  margem_regulatoria?: number | null;
+}
+
+/** Margem regulatória de um ano: a salva pelo analista vale mais que o padrão do sistema. */
+export interface PMPVMargem {
+  ano: number;
+  margem: number | null;
+  origem: "salva" | "padrao" | "ausente";
 }
 
 export interface PMPVResultado {
@@ -32,6 +41,9 @@ export interface PMPVResultado {
   vp_por_mes: Record<string, number>; // chave = nome do mês ("Fevereiro")
   vf_total: number;
   avisos: string[];
+  /** Só vêm quando o cálculo foi pedido com margem. Não vão para a sessão salva. */
+  margem_regulatoria?: number;
+  tarifa_media?: number;      // = preco_final (PV) + margem, calculada no back
 }
 
 export interface PMPVSalvarRequest {

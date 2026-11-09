@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PMPVMargem,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -38,6 +38,14 @@ export const getTrimestresFiscais = () =>
     .then((r) => r.data);
 
 // ─── PMPV ────────────────────────────────────────────────────────────────────
+/** Margem regulatória do ano (R$/m³): a salva, senão o padrão do sistema, senão ausente. */
+export const getMargemRegulatoria = (ano: number) =>
+  api.get<PMPVMargem>("/pmpv/margem-regulatoria", { params: { ano } }).then((r) => r.data);
+
+/** Salva a margem regulatória de um ano (vale mais que o padrão do sistema). */
+export const salvarMargemRegulatoria = (ano: number, margem: number) =>
+  api.post<PMPVMargem>("/pmpv/margem-regulatoria", { ano, margem }).then((r) => r.data);
+
 export const calcularPMPV = (payload: PMPVCalculoRequest) =>
   api.post<PMPVResultado>("/pmpv/calcular", payload).then((r) => r.data);
 
