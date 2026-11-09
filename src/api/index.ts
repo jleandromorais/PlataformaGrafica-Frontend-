@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PMPVMargem,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -321,6 +321,14 @@ export const salvarPV = (periodo: string, pmpv: number, pr: number) =>
   api.post<{ pv: number }>("/pv/salvar", { periodo, pmpv, pr }).then((r) => r.data);
 
 /** PV do trimestre fiscal = PMPV + PR do mesmo trimestre (ano = do 1º mês). */
+/** PVs gravados por trimestre fiscal, do mais recente ao mais antigo. */
+export const getHistoricoPV = () =>
+  api.get<PVHistoricoTrimestre[]>("/pv/historico").then((r) => r.data);
+
+/** A conta do PV gravado do trimestre (PMPV + PR) e se ainda bate com os módulos. Não grava nada. */
+export const getProvaRealPV = (trimestre: string, ano: number) =>
+  api.get<ProvaRealPV>("/pv/prova-real", { params: { trimestre, ano } }).then((r) => r.data);
+
 export const getPVTrimestre = (trimestre: string, ano: number) =>
   api.get<PVTrimestre>("/pv/trimestre", { params: { trimestre, ano } }).then((r) => r.data);
 
@@ -348,6 +356,11 @@ export const calcularTrimestreSR = (linhas: SRLinhaEntrada[]) =>
   api
     .post<SRTrimestreCalculo>("/sr/trimestre/calcular", { linhas })
     .then((r) => r.data);
+
+/** Monta o SR do trimestre com VP, VF, PR e SELIC buscados pelo back e compara com o gravado.
+ * Não grava nada: quem grava, depois da confirmação do analista, é o salvarTrimestreSR. */
+export const propostaSRTrimestre = (labelsMeses: string[]) =>
+  api.post<SRProposta>("/sr/trimestre/proposta", { labels_meses: labelsMeses }).then((r) => r.data);
 
 export const salvarTrimestreSR = (
   labelsMeses: string[],

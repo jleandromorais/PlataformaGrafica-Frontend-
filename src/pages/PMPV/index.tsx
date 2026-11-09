@@ -294,7 +294,7 @@ export default function PMPVPage() {
     let vigente = true;
     getMargemRegulatoria(ano)
       .then((dados) => { if (vigente) setRespMargem({ ano, dados }); })
-      .catch((e) => { if (vigente) setRespMargem({ ano, erro: mensagemDeErro(e, `Não foi possível buscar a margem regulatória de ${ano}.`) }); });
+      .catch((e) => { if (vigente) setRespMargem({ ano, erro: mensagemDeErro(e, `Não foi possível buscar a MB (margem de distribuição) de ${ano}.`) }); });
     return () => { vigente = false; };
   }, [ano]);
   const margemDaVez = respMargem?.ano === ano ? respMargem : null;
@@ -453,9 +453,9 @@ export default function PMPVPage() {
       setRespMargem({ ano, dados: r });
       setEditandoMargem(false);
       if (resultado) await calcular(r.margem);
-      setSucesso(`Margem regulatória de ${ano} salva: ${brl(v, 4)}.`);
+      setSucesso(`MB (margem de distribuição) de ${ano} salva: ${brl(v, 4)}.`);
     } catch (e) {
-      setErroMargem(mensagemDeErro(e, "Não foi possível salvar a margem regulatória."));
+      setErroMargem(mensagemDeErro(e, "Não foi possível salvar a MB (margem de distribuição)."));
     } finally {
       setSalvandoMargem(false);
     }
@@ -715,7 +715,7 @@ export default function PMPVPage() {
                 </dl>
                 <div>
                   <dl className="flex items-baseline justify-between gap-3">
-                    <dt className="text-zinc-400">(+) Margem regulatória <span className="text-xs text-zinc-500">({ano})</span></dt>
+                    <dt className="text-zinc-400">(+) MB (margem de distribuição) <span className="text-xs text-zinc-500">({ano})</span></dt>
                     <dd className="font-semibold tabular-nums text-zinc-100">
                       {buscandoMargem
                         ? <><span className="sr-only">Carregando a margem…</span><Skeleton className="ml-auto h-4 w-20" /></>
@@ -732,7 +732,7 @@ export default function PMPVPage() {
                   ) : (valorMargem === null || editandoMargem) ? (
                     <div className="mt-2">
                       <label htmlFor="margem" className="text-xs text-zinc-400">
-                        {valorMargem === null ? `Informe a margem regulatória de ${ano} (R$/m³)` : `Nova margem regulatória de ${ano} (R$/m³)`}
+                        {valorMargem === null ? `Informe a MB (margem de distribuição) de ${ano} (R$/m³)` : `Nova MB (margem de distribuição) de ${ano} (R$/m³)`}
                       </label>
                       <div className="mt-1.5 flex flex-wrap items-center gap-2">
                         <input id="margem" inputMode="decimal" placeholder="0,5410" value={margemTexto}
@@ -772,7 +772,7 @@ export default function PMPVPage() {
                   </dl>
                   {!tarifaOk && !buscandoMargem && (
                     <p className="mt-1 text-xs text-zinc-500">
-                      {valorMargem === null ? `informe a margem regulatória de ${ano}`
+                      {valorMargem === null ? `informe a MB (margem de distribuição) de ${ano}`
                         : !resultado ? "calcule para ver a tarifa média"
                           : "calcule de novo para atualizar a tarifa média"}
                     </p>

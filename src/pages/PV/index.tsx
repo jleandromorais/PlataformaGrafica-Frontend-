@@ -1,17 +1,40 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { RefreshCw, Save, Trash2 } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input, Select } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
 import { colorForValue } from "../../theme";
-import { getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
+import { getHistoricoPV, getProvaRealPV, getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { MESES_ABREV } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { CardFormula } from "../../components/ui/CardFormula";
+import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
+import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
+import { brl, dataHora } from "../../utils/format";
+import { linhaDoMes } from "../../utils/linhaDoMes";
+import { usePaginacao } from "../../utils/paginacao";
+import { rolarAteCardSeEscondido } from "../../utils/rolagem";
+import type { PVHistoricoTrimestre } from "../../types";
+import { KpisPV } from "./KpisPV";
+import { ProvaRealPV } from "./ProvaRealPV";
+
+const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
+
+/** Busca da prova real: a chave é "Fev - Abr/2026#versão" (a versão sobe ao salvar, para buscar de novo).
+ * Função estável do módulo, como pede o hook. */
+const buscarProvaDoTrimestre = (chave: string) => {
+  const [tri] = chave.split("#"); // o que vem depois do # só força uma nova busca
+  const i = tri.lastIndexOf("/");
+  return getProvaRealPV(tri.slice(0, i), Number(tri.slice(i + 1)));
+};
 
 interface Trimestre { label: string; meses: string[] }
 
@@ -52,8 +75,41 @@ export default function PVPage() {
   // o trimestre anterior enquanto o novo ainda carrega ou depois de um erro).
   const [carregadoPara, setCarregadoPara] = useState<string | null>(null);
 
+  // Histórico de PVs gravados por trimestre e o trimestre aberto na prova real (?prova=Fev - Abr/2026).
+  const [params, setParams] = useSearchParams();
+  const [historico, setHistorico] = useState<PVHistoricoTrimestre[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
+  const [escolhido, setEscolhido] = useState<string | null>(() => params.get("prova"));
+  const [versaoProva, setVersaoProva] = useState(0); // sobe ao salvar: a prova real do mesmo trimestre é buscada de novo
+  const provaRef = useRef<HTMLElement>(null);
+
+  const carregarHistorico = useCallback(() => {
+    getHistoricoPV()
+      .then(setHistorico)
+      .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do PV.")))
+      .finally(() => setHistoricoCarregado(true));
+  }, []);
+  useEffect(carregarHistorico, [carregarHistorico]);
+
   const pv = pmpv + pr;
   const anoValido = anoOk(ano);
+  // Aberto na prova real: o escolhido; senão o gravado mais recente; senão o do formulário (mostra "sem PV gravado").
+  const chaveForm = trimestre && anoOk(ano) ? `${trimestre}/${ano}` : null;
+  const aberto = escolhido ?? historico[0]?.chave ?? (historicoCarregado ? chaveForm : null);
+  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#${versaoProva}`, buscarProvaDoTrimestre, aberto === null ? undefined : aberto);
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.chave === aberto) });
+
+  // Mantém ?prova=... no endereço: recarregar ou compartilhar o link abre a mesma prova real.
+  useEffect(() => {
+    if (escolhido === null || params.get("prova") === escolhido) return;
+    setParams((p) => { p.set("prova", escolhido); return p; }, { replace: true });
+  }, [escolhido, params, setParams]);
+
+  const abrirProva = (chave: string) => {
+    setEscolhido(chave);
+    rolarAteCardSeEscondido(provaRef.current);
+  };
+  const dProva = prova.dados && !prova.erro && prova.dados.tem_salvo ? prova.dados : null;
   const podeSalvar = !carregando && carregadoPara === `${trimestre}/${ano}`;
 
   const carregar = async (label = trimestre, a = ano) => {
@@ -130,6 +186,10 @@ export default function PVPage() {
       const r = await salvarPVTrimestre(trimestre, ano, pmpv, pr);
       setAvisos([]);
       setSucesso(`PV de ${trimestre}, ano ${ano} salvo: R$ ${r.pv.toFixed(4)}. Gravado em ${r.gravado_em.join(", ")}.`);
+      // Recarrega o histórico e abre a prova real do trimestre salvo (buscada de novo).
+      setEscolhido(`${trimestre}/${ano}`);
+      setVersaoProva((v) => v + 1);
+      carregarHistorico();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar o PV."));
     } finally {
@@ -139,12 +199,14 @@ export default function PVPage() {
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
-      <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-6">
-      <PageHeader modulo="pv" formula="PV = PMPV + PR do mesmo trimestre" />
+      <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
+      <PageHeader modulo="pv" />
 
       {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
       {avisos.length > 0 && <Alert variant="warning" className="whitespace-pre-line">{avisos.join("\n")}</Alert>}
       {sucesso && <Alert variant="success">{sucesso}</Alert>}
+
+      <KpisPV chave={aberto} estado={prova} />
 
       <Card title="Trimestre">
         <div className="flex flex-wrap items-end gap-3">
@@ -226,6 +288,74 @@ export default function PVPage() {
       <p className="-mt-3 text-xs text-zinc-600">
         Salvar grava o PV no trimestre e repete o valor nos 3 meses, que é como o Excel Final lê.
       </p>
+
+      {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+        <CardFormula className="xl:sticky xl:top-6 xl:col-span-5 xl:self-start 2xl:col-span-4"
+          descricao="Como o PV do trimestre é calculado."
+          tituloAplicada={dProva ? `Com os números de ${dProva.chave}` : undefined}
+          aplicada={dProva && dProva.pmpv_gravado !== null && dProva.pr_gravado !== null && dProva.pv_da_soma !== null
+            ? [`PV = ${dProva.pmpv_gravado.toFixed(4)} + ${dProva.pr_gravado.toFixed(4)} = ${dProva.pv_da_soma.toFixed(4)}`]
+            : undefined}
+          atualizando={prova.atualizando}
+          formula={["PV = PMPV + PR (do mesmo trimestre fiscal)"]}
+          termos={[
+            { termo: "PMPV", explicacao: "Preço médio ponderado do trimestre, em R$/m³ (tela PMPV)." },
+            { termo: "PR", explicacao: "Parcela de Recuperação do trimestre, em R$/m³ (tela PR)." },
+            { termo: "PV", explicacao: "O preço de venda do trimestre, em R$/m³." },
+          ]}
+          regras={[
+            "Salvar grava o PV no trimestre e repete o valor nos 3 meses, como o Excel Final lê.",
+            "Se o PMPV ou o PR mudar depois de salvo, o PV gravado fica velho: salve de novo.",
+          ]}
+        />
+        <ProvaRealPV chave={aberto} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8"
+          onUsarNoFormulario={aberto ? () => {
+            const i = aberto.lastIndexOf("/");
+            mudar(aberto.slice(0, i), Number(aberto.slice(i + 1)));
+          } : undefined} />
+      </div>
+
+      <section className={`${PANEL} overflow-hidden`}>
+        <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+          <h2 className="text-base font-semibold text-white">PVs gravados por trimestre</h2>
+          <p className="mt-0.5 text-xs text-zinc-500">Clique num trimestre para ver a prova real dele. O formulário de cima não muda.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[40rem] text-sm">
+            <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
+              <tr>
+                <th scope="col" className="border-l-[3px] border-l-transparent px-4 py-3 text-left font-semibold">Trimestre</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">PMPV (R$/m³)</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">PR (R$/m³)</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">PV (R$/m³)</th>
+                <th scope="col" className="px-4 py-3 text-right font-semibold">Gravado em</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/[0.05]">
+              {!historicoCarregado && <LinhasEsqueleto colunas={5} texto="Carregando o histórico…" />}
+              {pag.itensDaPagina.map((h) => {
+                const ativo = h.chave === aberto;
+                return (
+                  <tr key={h.chave} aria-current={ativo ? "true" : undefined}
+                    onClick={() => abrirProva(h.chave)}
+                    className={linhaDoMes(ativo, true)}>
+                    <PeriodoClicavel periodo={h.chave} valido ativo={ativo} onAbrir={abrirProva} />
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.pmpv, 4)}</td>
+                    <td className={`px-4 py-2.5 text-right tabular-nums ${colorForValue(h.pr)}`}>{brl(h.pr, 4)}</td>
+                    <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${colorForValue(h.pv)}`}>{brl(h.pv, 4)}</td>
+                    <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
+                  </tr>
+                );
+              })}
+              {historicoCarregado && historico.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Nenhum trimestre gravado ainda.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Paginacao {...pag} onMudar={pag.setPagina} rotulo={["trimestre", "trimestres"]} />
+      </section>
       </div>
     </div>
   );

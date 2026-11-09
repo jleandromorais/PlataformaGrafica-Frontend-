@@ -283,6 +283,32 @@ export interface ProvaRealAuditoria {
   data_atualizacao: string;
 }
 
+/** PV gravado de um trimestre fiscal: uma linha do histórico da tela PV (GET /pv/historico). */
+export interface PVHistoricoTrimestre {
+  chave: string;      // "Fev - Abr/2026"
+  trimestre: string;  // "Fev - Abr"
+  ano: number;        // ano do 1º mês
+  pmpv: number; pr: number; pv: number;
+  data_atualizacao: string;
+}
+
+/** A conta do PV gravado do trimestre e se ele ainda bate com os módulos (GET /pv/prova-real). */
+export interface ProvaRealPV {
+  chave: string;
+  periodos: string[];
+  tem_salvo: boolean;               // false: o trimestre ainda não tem PV gravado
+  pmpv_gravado: number | null; pr_gravado: number | null; pv_gravado: number | null;
+  pv_da_soma: number | null;        // PMPV gravado + PR gravado
+  diferenca_conta: number | null;
+  conta_confere: boolean;           // PV gravado = PMPV gravado + PR gravado
+  pmpv_atual: number; pr_atual: number; pv_atual: number;   // os dos módulos hoje
+  pmpv_confere: boolean;            // o PMPV gravado no PV é o de hoje
+  pr_confere: boolean;              // o PR gravado no PV é o de hoje
+  confere: boolean;
+  data_atualizacao: string;
+  avisos: string[];
+}
+
 /** Uma empresa na prova real do PMPV: preço = molécula + transporte + logística. */
 export interface ProvaRealEmpresaPMPV {
   empresa: string; molecula: number; transporte: number; logistica: number;
@@ -654,4 +680,39 @@ export interface DashVolumesResponse {
   ano_filtro: string | null;
   meses: DashVolumeMes[];
   totais: DashVolumeMes;
+}
+
+// ─── SR NO PAINEL DO CICLO (proposta: POST /sr/trimestre/proposta) ──────────
+/** Aviso de um mês da proposta. Códigos: sem_vp, pr_ausente, pr_estimado, vf_ausente,
+ * selic_indisponivel, selic_zero_gravada, difere_gravado. */
+export interface SRPropostaAlerta {
+  codigo: string;
+  mensagem: string;
+}
+
+/** O que está gravado hoje para o mês (null na linha quando ainda não há SR gravado). */
+export interface SRPropostaGravado {
+  vp: number; vf: number; pr: number; selic_mensal: number; sr_selic: number; sr_anterior: number;
+}
+
+export interface SRPropostaLinha {
+  mes: string;                               // "Jan/2026"
+  vp: number; vf: number; pr: number;
+  pr_origem: "salvo" | "estimado" | "ausente";
+  pr_chave: string;                          // trimestre do PR usado, ex.: "Ago - Out/2025"
+  selic_mensal: number; sr_anterior: number;
+  diferenca: number; sr_parcela: number; sr_selic: number; total: number;
+  gravado: SRPropostaGravado | null;
+  alertas: SRPropostaAlerta[];
+}
+
+export interface SRProposta {
+  labels_meses: string[];
+  linhas: SRPropostaLinha[];
+  total: number;
+  total_gravado: number | null;
+  diferenca_total: number | null;
+  selic: { disponivel: boolean; fecha_em: string; fonte: string; mensagem: string };
+  bloqueios: string[];                       // o que impede de gravar (lista vazia: pode gravar)
+  pode_gravar: boolean;
 }

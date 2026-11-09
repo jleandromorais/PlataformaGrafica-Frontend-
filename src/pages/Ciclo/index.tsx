@@ -19,6 +19,7 @@ import { mesesDoPRDoCivil } from "../../utils/periodos";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
+import { SRDoTrimestre } from "./SRDoTrimestre";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { reabrirPasta, type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida } from "../../utils/pasta";
@@ -434,6 +435,9 @@ export default function CicloPage() {
               auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
           )}
         </section>
+
+        {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
+        <SRDoTrimestre key={meses[0]} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
 
         {/* Comparar o CGR de um mês contra a planilha (opcional, não grava), acima das etapas */}
         {!carregando && dados && (
