@@ -745,3 +745,45 @@ export interface ProvaRealRET {
   por_empresa: ProvaRealEmpresaRET[];
   data_atualizacao: string;
 }
+
+// ─── RP: PROVA REAL (GET /conciliacao/prova-real) ───────────────────────────
+/** Uma nota de penalidade na prova real do RP. `liquido` já tem o desconto do PIS/COFINS. */
+export interface ProvaRealItemRP {
+  arquivo: string;
+  nome: string;                                  // nome curto da nota
+  lado: "receita" | "despesa" | "ja_no_ret";     // "ja_no_ret": já contada no RET, vale 0 no RP
+  tipo: "PFP" | "TOP" | "OUTRA";
+  numero: string;
+  valor: number;
+  liquido: number;
+  status: string;
+  repetida: boolean;                             // o mesmo número aparece mais de uma vez no mês
+}
+
+/** Uma nota que aparece mais de uma vez no mês (provável versão original + atualizada). */
+export interface ProvaRealDuplicadaRP {
+  tipo: string;
+  numero: string;
+  qtd: number;
+  valor_total: number;
+  liquido_total: number;
+  arquivos: string[];
+}
+
+/** A conta do RP gravado de um mês, refeita com as notas gravadas: (despesas − receitas) × (1 − PIS/COFINS). */
+export interface ProvaRealRP {
+  periodo: string;
+  tem_itens: boolean;            // false: mês gravado só com o total, sem as notas
+  qtd_itens: number;
+  taxa: number;                  // 0.0925
+  receitas: { qtd: number; bruto: number; liquido: number };
+  despesas: { qtd: number; bruto: number; liquido: number };
+  ja_no_ret: { qtd: number; bruto: number };
+  rp_calculado: number | null;
+  rp_gravado: number | null;
+  diferenca: number | null;
+  confere: boolean;
+  itens: ProvaRealItemRP[];      // do maior valor ao menor
+  possiveis_duplicadas: ProvaRealDuplicadaRP[];
+  data_atualizacao: string;
+}

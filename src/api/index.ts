@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -202,6 +202,10 @@ export const salvarConcilia = (periodo: string, itens: ConciliaItem[]) =>
 
 export const baixarRelatorioConcilia = (periodo: string, itens: ConciliaItem[]) =>
   api.post<Blob>("/conciliacao/relatorio", { periodo, itens }, { responseType: "blob" }).then((r) => r.data);
+
+/** A conta do RP gravado do mês, aberta (notas, receitas, despesas e possíveis notas repetidas). Não grava nada. */
+export const getProvaRealRP = (periodo: string) =>
+  api.get<ProvaRealRP>("/conciliacao/prova-real", { params: { periodo } }).then((r) => r.data);
 
 export const getHistoricoConcilia = () =>
   api.get<ConciliaHistoricoLinha[]>("/conciliacao/historico").then((r) => r.data);
