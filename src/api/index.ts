@@ -4,7 +4,7 @@ import type {
   PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
-  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP,
+  CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP, ProvaRealSCG, ProvaRealSR, SRHistoricoTrimestre,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
@@ -240,6 +240,10 @@ export const getHistoricoRET = () =>
 // ─── SCG ─────────────────────────────────────────────────────────────────────
 // `periodo` sempre via query string — path param quebra com a barra do
 // formato mês/ano (ex: "Jan/2026").
+/** A conta do SCG gravado do mês (CGR − CGF = RPV; RPV + RET + RP) e de onde vêm os 4 valores. Não grava nada. */
+export const getProvaRealSCG = (periodo: string) =>
+  api.get<ProvaRealSCG>("/scg/prova-real", { params: { periodo } }).then((r) => r.data);
+
 export const getSCGPeriodos = () =>
   api.get<SCGPeriodo[]>("/scg/periodos").then((r) => r.data);
 
@@ -382,6 +386,14 @@ export const salvarTrimestreSR = (
       linhas,
     })
     .then((r) => r.data);
+
+/** Trimestres com SR gravado, do mais novo ao mais antigo. */
+export const getHistoricoSR = () =>
+  api.get<SRHistoricoTrimestre[]>("/sr/historico").then((r) => r.data);
+
+/** A conta do SR gravado do trimestre ("Jan/2026_Mar/2026") e o que as fontes dão hoje. Não grava nada. */
+export const getProvaRealSR = (trimestre: string) =>
+  api.get<ProvaRealSR>("/sr/prova-real", { params: { trimestre } }).then((r) => r.data);
 
 export const buscarTrimestreSR = (label: string) =>
   api

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { SeletorMes } from "../../components/ui/SeletorMes";
-import { getHistoricoSCG, getSCGComparacao, salvarSCG } from "../../api";
+import { getHistoricoSCG, getProvaRealSCG, getSCGComparacao, salvarSCG } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { brl, brlEntrada, parseBRL } from "../../utils/format";
+import { brl, brlEntrada, num, parseBRL } from "../../utils/format";
 import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { MESES_ABREV, anoValido } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
@@ -16,9 +16,20 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { CardFormula } from "../../components/ui/CardFormula";
+import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
+import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
+import { linhaDoMes } from "../../utils/linhaDoMes";
+import { rolarAteCardSeEscondido } from "../../utils/rolagem";
+import { KpisSCG } from "./KpisSCG";
+import { ProvaRealSCG } from "./ProvaRealSCG";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
+
+/** Busca da prova real: a chave é "Fev/2026#versão" (a versão sobe ao salvar, para buscar de novo).
+ * Função estável do módulo, como pede o hook. */
+const buscarProvaDoMes = (chave: string) => getProvaRealSCG(chave.split("#")[0]);
 
 type Campo = "cgr" | "cgf" | "ret" | "rp";
 type Fonte = "modulos" | "gravado" | "manual";
@@ -76,6 +87,12 @@ export default function SCGPage() {
   const [avisoPR, setAvisoPR] = useState<string | null>(null); // PR/PV não regravados ao salvar
   const ultimaBusca = useRef(0);
 
+  // Prova real do mês que está na tela (o mesmo do formulário): KPIs, fórmula preenchida e card.
+  const [versaoProva, setVersaoProva] = useState(0); // sobe ao salvar: a prova real do mesmo mês é buscada de novo
+  const prova = useProvaRealDoMes(anoValido(ano) ? `${periodo}#${versaoProva}` : null, buscarProvaDoMes, periodo);
+  const dProva = prova.dados && !prova.erro && prova.dados.gravado && prova.dados.scg_gravado !== null ? prova.dados : null;
+  const provaRef = useRef<HTMLElement>(null);
+
   const buscar = useCallback((p: string) => {
     const busca = ++ultimaBusca.current;
     getSCGComparacao(p)
@@ -103,6 +120,13 @@ export default function SCGPage() {
     if (!anoValido(a)) return;
     setCarregando(true);
     buscar(`${m}/${a}`);
+  };
+
+  /** Clique no histórico: o mês passa a ser o da tela (formulário e prova real) e a vista vai até a prova real. */
+  const abrirDoHistorico = (p: string) => {
+    const [m, a] = p.split("/");
+    mudarPeriodo(m, Number(a));
+    rolarAteCardSeEscondido(provaRef.current);
   };
 
   // Abre no mês do endereço (Painel do Ciclo) ou no mais recente que já tem SCG gravado.
@@ -148,6 +172,7 @@ export default function SCGPage() {
       if (pr && !pr.ok) setAvisoPR(pr.texto);
       buscar(periodo);
       carregarHistorico();
+      setVersaoProva((n) => n + 1);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar o SCG."));
     } finally {
@@ -161,8 +186,8 @@ export default function SCGPage() {
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <PageHeader modulo="scg" formula="SCG = RPV + RET + RP, com RPV = CGR − CGF (consolidação mensal)" />
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
+        <PageHeader modulo="scg" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
@@ -190,6 +215,38 @@ export default function SCGPage() {
             Escolha em cada linha qual vale antes de salvar. Hoje o Excel Final usa o gravado.
           </Alert>
         )}
+
+        <KpisSCG periodo={anoValido(ano) ? periodo : null} estado={prova} />
+
+        {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do mês à direita. */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <CardFormula className="xl:sticky xl:top-6 xl:col-span-5 xl:self-start 2xl:col-span-4"
+            descricao="Como o SCG do mês é calculado."
+            tituloAplicada={dProva ? `Com os números de ${dProva.periodo}` : undefined}
+            aplicada={dProva && dProva.scg_gravado !== null ? [
+              `RPV = ${num(dProva.cgr, 2)} − ${num(dProva.cgf, 2)} = ${num(dProva.rpv_calculado, 2)}`,
+              `SCG = ${num(dProva.rpv_calculado, 2)} + ${num(dProva.ret, 2)} + ${num(dProva.rp, 2)} = ${brl(dProva.scg_calculado)}`,
+            ] : undefined}
+            atualizando={prova.atualizando}
+            formula={[
+              "SCG = RPV + RET + RP",
+              "RPV = CGR − CGF",
+            ]}
+            termos={[
+              { termo: "SCG", explicacao: "Saldo da Conta Gráfica: o saldo do mês, em reais." },
+              { termo: "RPV", explicacao: "Recuperação de Preço de Venda: o custo realizado (CGR) menos o faturado (CGF)." },
+              { termo: "RET", explicacao: "Recuperação de Encargos de Transporte, gravado na tela RET." },
+              { termo: "RP", explicacao: "Recuperação das Penalidades, gravado na tela RP (Conciliação)." },
+              { termo: "CGR e CGF", explicacao: "Custo do gás realizado (Auditoria CGR) e custo do gás faturado (tela CGF)." },
+            ]}
+            regras={[
+              "Os quatro valores vêm dos módulos. Aqui você pode usar o dos módulos, o já gravado ou digitar.",
+              "Quando o gravado e os módulos diferem, a prova real mostra qual deles está desatualizado.",
+              "O SCG gravado de cada mês alimenta o PR e o Excel Final.",
+            ]}
+          />
+          <ProvaRealSCG periodo={anoValido(ano) ? periodo : null} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8" />
+        </div>
 
         <section className={`${PANEL} overflow-hidden ${carregando ? "opacity-60" : ""}`}>
           <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
@@ -296,7 +353,7 @@ export default function SCGPage() {
           <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
             <h2 className="text-base font-semibold text-white">Histórico gravado</h2>
             <p className="mt-0.5 text-sm text-zinc-400">
-              <AlertTriangle size={12} className="mr-1 inline text-amber-300" />marca os meses em que os módulos e o gravado não batem. Clique para abrir.
+              <AlertTriangle size={12} className="mr-1 inline text-amber-300" />marca os meses em que os módulos e o gravado não batem. Clique num mês para ver a prova real e abri-lo no formulário.
             </p>
             {mesesDivergentes.length > 0 && (
               <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-amber-300">
@@ -318,23 +375,20 @@ export default function SCGPage() {
               <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   {["Período", "CGR", "CGF", "RPV", "RET", "RP", "SCG"].map((h, i) => (
-                    <th key={h} title={i ? dicaDe(h as Sigla) : undefined} className={`px-4 py-3 font-semibold ${i ? "text-right" : "text-left"}`}>{h}</th>
+                    <th key={h} scope="col" title={i ? dicaDe(h as Sigla) : undefined} className={`px-4 py-3 font-semibold ${i ? "text-right" : "border-l-[3px] border-l-transparent text-left"}`}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
                 {!historicoCarregado && <LinhasEsqueleto colunas={7} texto="Carregando o histórico…" />}
                 {pag.itensDaPagina.map((h) => {
-                  const [m, a] = h.periodo.split("/");
+                  const ativo = h.periodo === periodo;
                   return (
-                    <tr key={h.periodo} onClick={() => mudarPeriodo(m, Number(a))}
-                      className={`cursor-pointer transition-colors hover:bg-white/[0.03] ${h.periodo === periodo ? "bg-sky-500/[0.06]" : ""}`}>
-                      <td className="px-4 py-2.5">
-                        <button type="button" onClick={() => mudarPeriodo(m, Number(a))} className="flex items-center gap-1.5 font-medium text-zinc-200 hover:text-sky-300">
-                          {h.periodo}
-                          {h.diverge && <AlertTriangle size={13} className="text-amber-300" aria-label="Diverge dos módulos" />}
-                        </button>
-                      </td>
+                    <tr key={h.periodo} aria-current={ativo ? "true" : undefined}
+                      onClick={() => abrirDoHistorico(h.periodo)}
+                      className={linhaDoMes(ativo, true)}>
+                      <PeriodoClicavel periodo={h.periodo} valido ativo={ativo} onAbrir={abrirDoHistorico}
+                        extra={h.diverge ? <AlertTriangle size={13} className="ml-1.5 inline text-amber-300" aria-label="Diverge dos módulos" /> : undefined} />
                       {(["cgr", "cgf", "rpv", "ret", "rp"] as const).map((k) => (
                         <td key={k} className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h[k])}</td>
                       ))}

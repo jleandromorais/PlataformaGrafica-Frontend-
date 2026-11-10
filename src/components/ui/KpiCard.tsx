@@ -5,12 +5,15 @@ import { CARD_KPI } from "./estilosCard";
 import { Skeleton } from "./Skeleton";
 
 /** Faixa com os cards de destaque: 2 colunas em telas pequenas, 4 em xl. Esmaece ao trocar de mês. */
-export function GradeKpis({ titulo, carregando, atualizando, children }: {
-  titulo: string; carregando: boolean; atualizando: boolean; children: ReactNode;
+export function GradeKpis({ titulo, carregando, atualizando, cinco = false, children }: {
+  titulo: string; carregando: boolean; atualizando: boolean;
+  /** 5 cards em xl (em vez de 4). */
+  cinco?: boolean;
+  children: ReactNode;
 }) {
   return (
     <section aria-labelledby="kpis-titulo" aria-busy={carregando || atualizando}
-      className={`grid grid-cols-2 gap-4 transition-opacity xl:grid-cols-4 ${atualizando ? "opacity-50" : ""}`}>
+      className={`grid grid-cols-2 gap-4 transition-opacity ${cinco ? "xl:grid-cols-5" : "xl:grid-cols-4"} ${atualizando ? "opacity-50" : ""}`}>
       <h2 id="kpis-titulo" className="sr-only">{titulo}</h2>
       {children}
     </section>

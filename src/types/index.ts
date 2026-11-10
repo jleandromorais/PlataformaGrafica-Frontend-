@@ -787,3 +787,62 @@ export interface ProvaRealRP {
   possiveis_duplicadas: ProvaRealDuplicadaRP[];
   data_atualizacao: string;
 }
+
+// ─── SCG: PROVA REAL (GET /scg/prova-real) ──────────────────────────────────
+/** A conta do SCG gravado de um mês (CGR − CGF = RPV; RPV + RET + RP = SCG) e de onde vêm os 4 valores. */
+export interface ProvaRealSCG {
+  periodo: string;
+  gravado: boolean;
+  cgr: number; cgf: number; rpv: number; ret: number; rp: number;
+  rpv_calculado: number;
+  scg_calculado: number;
+  scg_gravado: number | null;
+  diferenca: number | null;
+  confere: boolean;
+  origens: {
+    cgr: { tem_itens: boolean; valor_das_notas: number | null; confere: boolean };
+    cgf: { tem_resumo: boolean; valor_calculado: number | null; confere: boolean };
+    ret: { tem_itens: boolean; valor_calculado: number | null; confere: boolean };
+    rp: { tem_itens: boolean; valor_calculado: number | null; confere: boolean };
+  };
+  data_atualizacao: string;
+}
+
+// ─── SR: HISTÓRICO E PROVA REAL (GET /sr/historico, GET /sr/prova-real) ─────
+/** Um trimestre com SR gravado. `trimestre` é a chave, ex.: "Jan/2026_Mar/2026". */
+export interface SRHistoricoTrimestre {
+  trimestre: string;
+  labels_meses: string[];
+  total: number;
+  qtd_meses: number;
+  data_atualizacao: string;
+}
+
+/** O que as fontes (PMPV, CGF, módulo PR, Banco Central) dão hoje para um mês, e o que difere do gravado. */
+export interface ProvaRealFontesSR {
+  vp: number; vf: number; pr: number; selic_mensal: number;
+  diferem: string[];   // nomes dos campos que diferem: "vp", "vf", "pr", "selic_mensal"
+}
+
+export interface ProvaRealLinhaSR {
+  mes: string;
+  vp: number; vf: number; pr: number; selic_mensal: number; sr_anterior: number;
+  diferenca: number; sr_parcela: number;
+  sr_selic_recalculado: number;
+  sr_selic_gravado: number;
+  conta_confere: boolean;
+  fontes: ProvaRealFontesSR | null;   // null: fontes indisponíveis
+}
+
+export interface ProvaRealSR {
+  trimestre: string;
+  labels_meses: string[];
+  gravado: boolean;
+  linhas: ProvaRealLinhaSR[];
+  total_gravado: number;
+  total_recalculado: number;
+  conta_confere: boolean;
+  fontes_disponiveis: boolean;
+  alertas: { codigo: string; mensagem: string }[];
+  data_atualizacao: string;
+}
