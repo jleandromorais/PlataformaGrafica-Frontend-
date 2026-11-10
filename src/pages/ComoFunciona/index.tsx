@@ -17,13 +17,14 @@ const SECOES = [
   { id: "quando-nao-bate", titulo: "Quando algo não bate" },
   { id: "sozinho", titulo: "O que o sistema faz sozinho" },
   { id: "ordem", titulo: "A ordem importa" },
+  { id: "pegadinhas", titulo: "Pegadinhas que confundem quem está começando" },
   { id: "glossario", titulo: "Glossário" },
 ];
 
 const GLOSSARIO_EXTRA: [string, string][] = [
-  ["SELIC", "Taxa de juros do Banco Central. O sistema a usa para corrigir os saldos."],
+  ["SELIC", "Taxa de juros do Banco Central. No SR, é a SELIC acumulada do mês até o fim do trimestre, calculada com as taxas diárias, e corrige os saldos."],
   ["MB", "Margem de distribuição: a parte da tarifa que é ganho da Copergás. É anual e definida pelo regulador."],
-  ["TOP", "Um tipo de nota. Quando é \"não recuperável\", entra no RP como receita."],
+  ["TOP", "Um tipo de nota. A nota de TOP não recuperável (a pasta ou o nome do arquivo tem \"TOP\") entra no RP como receita, mesmo vinda da pasta de despesas."],
   ["PFP", "Um tipo de nota de penalidade (aparece como NDPFP no nome do arquivo)."],
 ];
 
@@ -111,9 +112,15 @@ export default function ComoFuncionaPage() {
             <p className="font-semibold text-white">Dois trimestres diferentes</p>
             <ul className="mt-1 list-disc space-y-1 pl-5 marker:text-sky-400">
               <li>O trimestre <strong className="text-white">apurado</strong> é o que passou, o que você está conferindo.</li>
-              <li>O trimestre em que o PR <strong className="text-white">vale</strong> é o seguinte, dois meses depois.</li>
+              <li>O trimestre em que o PR <strong className="text-white">vale</strong> é o seguinte: o ciclo apura um trimestre e aplica o resultado a partir de 2 meses depois do fim dele.</li>
             </ul>
-            <p className="mt-2">Exemplo: o saldo de janeiro a março vira o PR de maio a julho.</p>
+            <p className="mt-2">Exemplos:</p>
+            <ul className="mt-1 list-disc space-y-0.5 pl-5 marker:text-sky-400">
+              <li>Jan–Mar vira o PR de Mai–Jul.</li>
+              <li>Abr–Jun vira o PR de Ago–Out.</li>
+              <li>Jul–Set vira o PR de Nov–Jan (do ano seguinte).</li>
+              <li>Out–Dez vira o PR de Fev–Abr (do ano seguinte).</li>
+            </ul>
           </div>
         </Secao>
 
@@ -154,7 +161,11 @@ export default function ComoFuncionaPage() {
           </ul>
           <h3 className="text-base font-semibold text-white">Alertas especiais</h3>
           <ul className={`${P} list-disc space-y-1 pl-5 marker:text-zinc-500`}>
-            <li><strong className="text-white">Nota repetida</strong> (no RP).</li>
+            <li>
+              <strong className="text-white">Nota repetida</strong> (no RP). O processamento junta a original e a &quot;Atualizada&quot; quando o nome do arquivo tem PFP ou TOPNREC e o mesmo número, e mantém a &quot;Atualizada&quot;.
+              Ele não junta: arquivo sem PFP/TOPNREC no nome; nota &quot;cancelada&quot; (entra negativa); a mesma nota nas duas pastas (receitas e despesas).
+              O botão Salvar não refaz essa limpeza: quem avisa as repetidas é a prova real. O mês gravado vale pelas notas que estavam lá na hora de gravar.
+            </li>
             <li><strong className="text-white">PDF não lido com valor 0</strong> (no RP).</li>
             <li><strong className="text-white">Fontes desatualizadas</strong> (no SR).</li>
           </ul>
@@ -178,7 +189,9 @@ export default function ComoFuncionaPage() {
             <div className="rounded-xl border border-white/[0.07] bg-panel p-5">
               <h3 className="text-base font-semibold text-white">Faz sozinho</h3>
               <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300 marker:text-emerald-400">
-                <li>Ao gravar Auditoria, CGF, RET, RP, SCG ou SR, recalcula e regrava o RPV, o PR e o PV afetados. Se faltar algum dado, nada é regravado e ele diz o que falta.</li>
+                <li>Ao gravar Auditoria, CGF, RET, RP, SCG ou SR, regrava sozinho o PR e o PV afetados. O RPV e o SCG são recalculados pelo próprio salvar.</li>
+                <li>Ao gravar o PMPV ou o PR, regrava só o PV.</li>
+                <li>É tudo ou nada: se faltar algum dado (SR do trimestre apurado, SCG de algum mês, VP, PMPV), nada de PR e PV é regravado e o sistema diz o que falta. O que você já gravou fica gravado.</li>
                 <li>Busca a SELIC no Banco Central.</li>
               </ul>
             </div>
@@ -187,6 +200,9 @@ export default function ComoFuncionaPage() {
               <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300 marker:text-amber-400">
                 <li>Não inventa dado que falta. Sem o PMPV do trimestre não há VP: o SR bloqueia e avisa.</li>
                 <li>Não grava nada sem você confirmar no Painel.</li>
+                <li>Não dispara a cadeia quando você grava o RPV à mão ou o SCG à mão.</li>
+                <li>Não confere a SELIC nessa cadeia: um SR salvo com SELIC 0 gera um PR com 0. Confira a SELIC antes de gravar o SR.</li>
+                <li>Quem bloqueia a gravação do SR quando falta dado é a tela, não o servidor. Por isso, grave o SR pelo card do SR ou pela tela SR.</li>
                 <li>Não corrige planilha.</li>
               </ul>
             </div>
@@ -201,6 +217,19 @@ export default function ComoFuncionaPage() {
             <li><Link to={MODULOS.pr.to} className={FOCO}>PR</Link> e <Link to={MODULOS.pv.to} className={FOCO}>PV</Link>.</li>
           </ol>
           <p className={P}>Se uma etapa disser que falta algo, ela diz qual tela resolve.</p>
+        </Secao>
+
+        <Secao id="pegadinhas" titulo="Pegadinhas que confundem quem está começando">
+          <ul className={`${P} list-disc space-y-3 pl-5 marker:text-amber-400`}>
+            <li><strong className="text-white">Duas grades de trimestre.</strong> O trimestre civil (Jan–Mar, Abr–Jun, Jul–Set, Out–Dez) vale para CGR, CGF, RET, RP, SCG e SR. O trimestre do ciclo (Nov–Jan, Fev–Abr, Mai–Jul, Ago–Out) vale para PMPV, PR e PV. O PR de Mai–Jul usa o SCG e o SR de Jan–Mar.</li>
+            <li><strong className="text-white">O ano da chave muda.</strong> No PMPV e no PV, o ano é o do primeiro mês (Nov–Jan/2025 = Nov/2025, Dez/2025 e Jan/2026). No PR, o ano é o do último mês (Nov–Jan/2026). Só difere no Nov–Jan.</li>
+            <li><strong className="text-white">A ordem importa.</strong> O SR de um mês usa o PR do trimestre fiscal do mês de 3 meses antes. O PR usa o SR salvo do trimestre apurado. Sem PR salvo, o SR não pode ser gravado. Sem SR salvo, não sai o PR.</li>
+            <li><strong className="text-white">Cuidado com os sinais.</strong> RP = despesas − receitas: fica negativo quando as receitas (TOP incluído) são maiores. A devolução entra negativa no CGR. RPV = CGR − CGF. O SR fica negativo quando o volume faturado passa do previsto (VF &gt; VP).</li>
+            <li><strong className="text-white">Processar não grava; Salvar grava.</strong> &quot;Processar&quot; só mostra e nunca grava. &quot;Salvar&quot; usa os itens que a tela enviou (não lê os arquivos de novo), grava e depois regrava em cadeia o PR e o PV. Se faltar dado, o que você salvou fica, mas o PR e o PV não, e o sistema diz o que falta.</li>
+            <li><strong className="text-white">Nem toda gravação dispara a cadeia.</strong> Gravar o RPV ou o SCG à mão não atualiza PR e PV. Gravar o PMPV ou o PR atualiza só o PV.</li>
+            <li><strong className="text-white">A SELIC do SR é a acumulada.</strong> É a do mês até o fim do trimestre, não a taxa do mês, e só existe depois que o trimestre fecha.</li>
+            <li><strong className="text-white">Arredondamento e o que fica fora.</strong> PMPV, PR e PV têm 4 casas, e o volume tem 2 antes de multiplicar. Notas canceladas e consumo próprio não entram no volume final do CGF. Nota de despesa que já está no RET entra no RP com valor 0, mas só se o RET já tiver sido salvo.</li>
+          </ul>
         </Secao>
 
         <Secao id="glossario" titulo="Glossário">
