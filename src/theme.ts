@@ -32,6 +32,6 @@ export function colorForValue(value: number): string {
  * por módulo virava arco-íris e competia com as cores de positivo/negativo/aviso.
  */
 export const moduleColor: Record<string, string> = Object.fromEntries(
-  ["dashboard", "ciclo", "pmpv", "cgf", "auditoria", "conciliacao", "ret", "pr", "pv", "rpv", "scg", "sr", "excel"]
+  ["dashboard", "comofunciona", "ciclo", "pmpv", "cgf", "auditoria", "conciliacao", "ret", "pr", "pv", "rpv", "scg", "sr", "excel"]
     .map((k) => [k, "text-marinho"]),
 );

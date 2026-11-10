@@ -16,6 +16,7 @@ import SCGPage from "../pages/SCG";
 import SRPage from "../pages/SR";
 import ExcelFinalPage from "../pages/ExcelFinal";
 import CicloPage from "../pages/Ciclo";
+import ComoFuncionaPage from "../pages/ComoFunciona";
 
 export const router = createBrowserRouter([
   {
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
     element: <Layout />,
     children: [
       { index: true,        element: <DashboardPage /> },
+      { path: "como-funciona", element: <ComoFuncionaPage /> },
       { path: "pmpv",       element: <PMPVPage /> },
       { path: "cgf",        element: <CGFPage /> },
       { path: "auditoria",  element: <AuditoriaPage /> },

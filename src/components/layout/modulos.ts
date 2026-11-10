@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, Calculator, BarChart2, FileSearch,
   FileText, Zap, TrendingUp, DollarSign, PieChart, Activity, Layers, FileSpreadsheet,
-  Route, type LucideIcon,
+  Route, BookOpen, type LucideIcon,
 } from "lucide-react";
 import { GLOSSARIO, type Sigla } from "../../utils/glossario";
 
@@ -24,6 +24,8 @@ export const MODULOS = {
   ciclo: m("ciclo", "/ciclo", Route, "Painel do Ciclo", undefined,
     "Tudo o que o trimestre precisa, na ordem: o que já está pronto, o que falta e onde fazer."),
   dashboard: m("dashboard", "/", LayoutDashboard, "Dashboard"),
+  comofunciona: m("comofunciona", "/como-funciona", BookOpen, "Como funciona", undefined,
+    "Entenda o caminho do ciclo, as contas e como conferir cada número, antes de começar."),
   pmpv: m("pmpv", "/pmpv", Calculator, GLOSSARIO.PMPV.nome, "PMPV",
     "Calcule o preço médio de venda do trimestre com os preços e volumes de cada empresa."),
   auditoria: m("auditoria", "/auditoria", FileSearch, "Auditoria CGR", undefined,
@@ -56,7 +58,7 @@ export const ORDEM_DO_CICLO: ChaveModulo[] = [
 ];
 
 export const GRUPOS_DO_MENU: { titulo?: string; itens: ChaveModulo[] }[] = [
-  { itens: ["dashboard", "pmpv", "ciclo"] },
+  { itens: ["dashboard", "comofunciona", "pmpv", "ciclo"] },
   { titulo: "Conta Gráfica", itens: ["auditoria", "cgf", "rpv", "ret", "conciliacao", "scg", "sr"] },
   { titulo: "Módulo 3 · Consolidação", itens: ["pr", "pv"] },
   { titulo: "Exportação", itens: ["excel"] },

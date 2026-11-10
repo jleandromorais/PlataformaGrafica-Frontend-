@@ -1,3 +1,4 @@
+
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Area,
@@ -5,15 +6,29 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Line,
   LineChart,
+  Pie,
+  PieChart,
   ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowDownRight, ArrowUpRight, Briefcase, Coins, FileText, Receipt, RefreshCw, Scale, Search } from "lucide-react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Briefcase,
+  Coins,
+  FileText,
+  Receipt,
+  RefreshCw,
+  Scale,
+  Search,
+} from "lucide-react";
+
 import { Select } from "../../components/ui/Input";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Alert } from "../../components/ui/Alert";
@@ -27,17 +42,52 @@ import { mensagemDeErro } from "../../api/client";
 import type { DashboardResponse, KpiMensal } from "../../types";
 import { PaineisExtras } from "./PaineisExtras";
 import { Valor } from "../../components/ui/Valor";
-import { GLOSSARIO, tituloDe, type Sigla } from "../../utils/glossario";
+import { GLOSSARIO, tituloDe } from "../../utils/glossario";
 
 const TODOS_OS_ANOS = "Todos os anos";
 
-const KPI_CAMPOS: { chave: keyof KpiMensal; label: string; Icon: typeof Search; accent: string }[] = [
-  { chave: "cgr", label: tituloDe("CGR"), Icon: Search, accent: "var(--chart-azul)" },
-  { chave: "ret", label: tituloDe("RET"), Icon: Receipt, accent: "var(--chart-ambar)" },
-  { chave: "cgf", label: tituloDe("CGF"), Icon: FileText, accent: "var(--chart-teal)" },
-  { chave: "rp", label: tituloDe("RP"), Icon: Coins, accent: "var(--chart-violeta)" },
-  { chave: "rpv", label: tituloDe("RPV"), Icon: Scale, accent: "var(--chart-rosa)" },
-  { chave: "scg", label: tituloDe("SCG"), Icon: Briefcase, accent: "var(--chart-verde)" },
+const KPI_CAMPOS: {
+  chave: keyof KpiMensal;
+  label: string;
+  Icon: typeof Search;
+  accent: string;
+}[] = [
+  {
+    chave: "cgr",
+    label: tituloDe("CGR"),
+    Icon: Search,
+    accent: "var(--chart-azul)",
+  },
+  {
+    chave: "ret",
+    label: tituloDe("RET"),
+    Icon: Receipt,
+    accent: "var(--chart-ambar)",
+  },
+  {
+    chave: "cgf",
+    label: tituloDe("CGF"),
+    Icon: FileText,
+    accent: "var(--chart-teal)",
+  },
+  {
+    chave: "rp",
+    label: tituloDe("RP"),
+    Icon: Coins,
+    accent: "var(--chart-violeta)",
+  },
+  {
+    chave: "rpv",
+    label: tituloDe("RPV"),
+    Icon: Scale,
+    accent: "var(--chart-rosa)",
+  },
+  {
+    chave: "scg",
+    label: tituloDe("SCG"),
+    Icon: Briefcase,
+    accent: "var(--chart-verde)",
+  },
 ];
 
 // Paleta categórica validada no dashboard original (Tkinter).
@@ -48,52 +98,99 @@ const COR_RPV = "var(--chart-rosa)";
 const COR_PMPV = "var(--chart-azul)";
 const COR_SCG = "var(--chart-verde)";
 const COR_CGF = "var(--chart-teal)";
-const COR_NEG = "var(--chart-neg)";
 
 function agruparTrimestres(
   historico: KpiMensal[],
   trimestresCivis: { label: string; meses: string[] }[]
 ) {
   const porMes = new Map(historico.map((h) => [h.periodo, h]));
-  const anos = [...new Set(historico.map((h) => Number(h.periodo.split("/")[1])))].sort(
-    (a, b) => a - b
-  );
-  const resultado: { trimestre: string; cgr: number; ret: number; rp: number; rpv: number; total: number }[] = [];
+
+  const anos = [
+    ...new Set(
+      historico.map((h) => Number(h.periodo.split("/")[1]))
+    ),
+  ].sort((a, b) => a - b);
+
+  const resultado: {
+    trimestre: string;
+    cgr: number;
+    ret: number;
+    rp: number;
+    rpv: number;
+    total: number;
+  }[] = [];
+
   for (const ano of anos) {
     for (const tri of trimestresCivis) {
       const periodosTri = tri.meses.map((m) => `${m}/${ano}`);
-      const itens = periodosTri.map((p) => porMes.get(p)).filter(Boolean) as KpiMensal[];
+
+      const itens = periodosTri
+        .map((p) => porMes.get(p))
+        .filter(Boolean) as KpiMensal[];
+
       if (!itens.length) continue;
+
       const cgr = itens.reduce((s, i) => s + i.cgr, 0);
       const ret = itens.reduce((s, i) => s + i.ret, 0);
       const rp = itens.reduce((s, i) => s + i.rp, 0);
       const rpv = itens.reduce((s, i) => s + i.rpv, 0);
+
       // SCG = RPV + RET + RP. O CGR já está dentro do RPV (CGR − CGF):
       // somá-lo de novo dava um "Total SCG" de R$ 294 mi.
-      resultado.push({ trimestre: `${tri.label} ${ano}`, cgr, ret, rp, rpv, total: rpv + ret + rp });
+      resultado.push({
+        trimestre: `${tri.label} ${ano}`,
+        cgr,
+        ret,
+        rp,
+        rpv,
+        total: rpv + ret + rp,
+      });
     }
   }
+
   return resultado;
 }
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
-const AXIS_TICK = { fill: "var(--chart-eixo)", fontSize: 11 };
+
+const AXIS_TICK = {
+  fill: "var(--chart-eixo)",
+  fontSize: 11,
+};
+
 const GRID_STROKE = "var(--chart-grade)";
 
 interface TooltipProps {
   active?: boolean;
   label?: string;
-  payload?: { dataKey: string; name: string; value: number; color?: string; fill?: string }[];
-  casas?: number; // PMPV usa 4 casas (R$/m³), igual ao desktop
+  payload?: {
+    dataKey: string;
+    name: string;
+    value: number;
+    color?: string;
+    fill?: string;
+  }[];
+  casas?: number;
 }
 
-const TooltipBRL = ({ active, payload, label, casas = 2 }: TooltipProps) => {
+const TooltipBRL = ({
+  active,
+  payload,
+  label,
+  casas = 2,
+}: TooltipProps) => {
   if (!active || !payload?.length) return null;
+
   return (
     <div className="rounded-lg border border-white/10 bg-raised px-3.5 py-2.5 text-xs shadow-[0_8px_24px_-8px_rgba(16,39,89,0.25)]">
       <p className="mb-1 font-medium text-zinc-400">{label}</p>
+
       {payload.map((p) => (
-        <p key={p.dataKey} className="font-semibold num" style={{ color: p.color ?? p.fill }}>
+        <p
+          key={p.dataKey}
+          className="font-semibold num"
+          style={{ color: p.color ?? p.fill }}
+        >
           {p.name}: {brl(p.value, casas)}
         </p>
       ))}
@@ -101,13 +198,29 @@ const TooltipBRL = ({ active, payload, label, casas = 2 }: TooltipProps) => {
   );
 };
 
-function SectionHeading({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
+function SectionHeading({
+  title,
+  subtitle,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: ReactNode;
+}) {
   return (
     <div className="flex items-start justify-between gap-4">
       <div>
-        <h2 className="text-base font-semibold text-white">{title}</h2>
-        {subtitle && <p className="mt-0.5 text-sm text-zinc-400">{subtitle}</p>}
+        <h2 className="text-base font-semibold text-white">
+          {title}
+        </h2>
+
+        {subtitle && (
+          <p className="mt-0.5 text-sm text-zinc-400">
+            {subtitle}
+          </p>
+        )}
       </div>
+
       {right}
     </div>
   );
@@ -129,93 +242,84 @@ function KpiTile({
 }) {
   const isZero = rawValue === 0;
   const isNegative = rawValue < 0;
+
   return (
     <div className={`${PANEL} card-hover p-5 sm:p-6`}>
-      <span className="text-sm font-medium text-zinc-400">{label}</span>
+      <span className="text-sm font-medium text-zinc-400">
+        {label}
+      </span>
+
       <p
         className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none xl:text-[1.625rem] ${
-          isZero ? "text-zinc-600" : isNegative ? "text-red-400" : "text-white"
+          isZero
+            ? "text-zinc-600"
+            : isNegative
+              ? "text-red-400"
+              : "text-white"
         }`}
       >
-        {/* Zerado: tudo no mesmo cinza apagado do card */}
-        <Valor valor={rawValue} secundaria={isZero ? "" : undefined} />
+        <Valor
+          valor={rawValue}
+          secundaria={isZero ? "" : undefined}
+        />
       </p>
+
       {delta !== null ? (
         <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
           <span className="flex items-center gap-0.5 num">
-            {delta >= 0 ? <ArrowUpRight size={14} aria-hidden /> : <ArrowDownRight size={14} aria-hidden />}
-            {delta >= 0 ? "+" : ""}{brlCompact(delta)}
+            {delta >= 0 ? (
+              <ArrowUpRight size={14} aria-hidden />
+            ) : (
+              <ArrowDownRight size={14} aria-hidden />
+            )}
+
+            {delta >= 0 ? "+" : ""}
+            {brlCompact(delta)}
           </span>
-          {varLabel && <span className="font-normal text-zinc-500">vs {varLabel}</span>}
+
+          {varLabel && (
+            <span className="font-normal text-zinc-500">
+              vs {varLabel}
+            </span>
+          )}
         </p>
       ) : (
-        <p className="mt-3 text-xs text-zinc-500">Sem comparativo</p>
+        <p className="mt-3 text-xs text-zinc-500">
+          Sem comparativo
+        </p>
       )}
     </div>
   );
 }
 
-/** Na 1ª carga o gráfico vira um bloco de esqueleto do mesmo tamanho (antes ficavam só os eixos vazios). */
-function GraficoOuEsqueleto({ carregando, children }: { carregando: boolean; children: ReactNode }) {
-  return carregando ? <Skeleton className="h-full w-full rounded-xl" /> : <>{children}</>;
-}
-
-
-/** Barra de composição em duas metades a partir de um eixo central — evita o
- * bug de `margin-left: auto` dentro de flex estourando o container quando o
- * valor é negativo. Cada linha ocupa no máximo a metade do espaço disponível
- * de cada lado do eixo, proporcional ao maior |valor| do grupo. */
-function CompositionRow({
-  label,
-  dica,
-  value,
-  maxAbs,
-  color,
+/** Na 1ª carga o gráfico vira um bloco de esqueleto do mesmo tamanho. */
+function GraficoOuEsqueleto({
+  carregando,
+  children,
 }: {
-  label: string;
-  dica?: string;
-  value: number;
-  maxAbs: number;
-  color: string;
+  carregando: boolean;
+  children: ReactNode;
 }) {
-  const widthPct = maxAbs > 0 ? Math.min(100, (Math.abs(value) / maxAbs) * 100) : 0;
-  const isNeg = value < 0;
-  const isZero = value === 0;
-  return (
-    <div className={`flex items-center gap-3 ${isZero ? "opacity-40" : ""}`}>
-      <span className="w-9 shrink-0 text-xs font-semibold text-zinc-400" title={dica}>{label}</span>
-      <div className="flex h-6 flex-1 items-center">
-        <div className="flex h-full flex-1 justify-end overflow-hidden rounded-l bg-white/[0.04]">
-          {isNeg && (
-            <div
-              className="h-full rounded-l transition-all"
-              style={{ width: `${widthPct}%`, backgroundColor: COR_NEG }}
-            />
-          )}
-        </div>
-        <div className="mx-px h-full w-px bg-white/10" />
-        <div className="h-full flex-1 overflow-hidden rounded-r bg-white/[0.04]">
-          {!isNeg && (
-            <div
-              className="h-full rounded-r transition-all"
-              style={{ width: `${widthPct}%`, backgroundColor: color }}
-            />
-          )}
-        </div>
-      </div>
-      <span className={`w-36 shrink-0 text-right text-[0.8125rem] font-semibold num ${isNeg ? "text-red-400" : "text-zinc-200"}`}>
-        {brl(value)}
-      </span>
-    </div>
+  return carregando ? (
+    <Skeleton className="h-full w-full rounded-xl" />
+  ) : (
+    <>{children}</>
   );
 }
 
 export default function DashboardPage() {
   const [historicoCompleto, setHistoricoCompleto] = useState<KpiMensal[]>([]);
   const [ultimoMes, setUltimoMes] = useState<KpiMensal | null>(null);
-  const [seriePmpv, setSeriePmpv] = useState<{ periodo: string; valor: number }[]>([]);
-  const [serieScg, setSerieScg] = useState<{ periodo: string; valor: number }[]>([]);
-  const [trimestresCivis, setTrimestresCivis] = useState<{ label: string; meses: string[] }[]>([]);
+  const [seriePmpv, setSeriePmpv] = useState<
+    { periodo: string; valor: number }[]
+  >([]);
+  const [serieScg, setSerieScg] = useState<
+    { periodo: string; valor: number }[]
+  >([]);
+  const [trimestresCivis, setTrimestresCivis] = useState<
+    { label: string; meses: string[] }[]
+  >([]);
+
   const [ano, setAno] = useState(TODOS_OS_ANOS);
   const [anosDisponiveis, setAnosDisponiveis] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -226,18 +330,42 @@ export default function DashboardPage() {
     setUltimoMes(dados.ultimo_mes);
     setSeriePmpv(dados.serie_pmpv);
     setSerieScg(dados.serie_scg);
+
     if (!anoFiltro) {
-      setAnosDisponiveis([...new Set(dados.historico.map((h) => h.periodo.split("/")[1]))].sort((x, y) => Number(y) - Number(x)));
+      setAnosDisponiveis(
+        [
+          ...new Set(
+            dados.historico.map((h) => h.periodo.split("/")[1])
+          ),
+        ].sort((x, y) => Number(y) - Number(x))
+      );
     }
   };
 
   const ultimaBusca = useRef(0);
+
   const buscar = (anoFiltro?: string) => {
     const busca = ++ultimaBusca.current;
+
     getDashboard(anoFiltro)
-      .then((dados) => busca === ultimaBusca.current && aplicar(dados, anoFiltro))
-      .catch((e) => busca === ultimaBusca.current && setErro(mensagemDeErro(e, "Não foi possível carregar o dashboard.")))
-      .finally(() => busca === ultimaBusca.current && setLoading(false));
+      .then(
+        (dados) =>
+          busca === ultimaBusca.current && aplicar(dados, anoFiltro)
+      )
+      .catch(
+        (e) =>
+          busca === ultimaBusca.current &&
+          setErro(
+            mensagemDeErro(
+              e,
+              "Não foi possível carregar o dashboard."
+            )
+          )
+      )
+      .finally(
+        () =>
+          busca === ultimaBusca.current && setLoading(false)
+      );
   };
 
   const carregar = (anoFiltro?: string) => {
@@ -248,7 +376,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     buscar();
-    getTrimestresCivis().then(setTrimestresCivis).catch(() => setTrimestresCivis([]));
+
+    getTrimestresCivis()
+      .then(setTrimestresCivis)
+      .catch(() => setTrimestresCivis([]));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- só na abertura
 
   const handleAnoChange = (novoAno: string) => {
@@ -256,23 +387,37 @@ export default function DashboardPage() {
     carregar(novoAno === TODOS_OS_ANOS ? undefined : novoAno);
   };
 
-  // Só meses completos (com CGR e CGF): um mês só com o CGF lançado dá um
-  // "SCG" de −R$ 99 mi que não significa nada.
-  const mesesCompletos = useMemo(() => historicoCompleto.filter((h) => h.completo), [historicoCompleto]);
+  // Só meses completos (com CGR e CGF).
+  const mesesCompletos = useMemo(
+    () => historicoCompleto.filter((h) => h.completo),
+    [historicoCompleto]
+  );
+
   const incompletos = historicoCompleto.filter((h) => !h.completo);
-  const idxUltimo = ultimoMes ? mesesCompletos.findIndex((h) => h.periodo === ultimoMes.periodo) : -1;
-  const mesAnterior = idxUltimo > 0 ? mesesCompletos[idxUltimo - 1] : undefined;
+
+  const idxUltimo = ultimoMes
+    ? mesesCompletos.findIndex(
+        (h) => h.periodo === ultimoMes.periodo
+      )
+    : -1;
+
+  const mesAnterior =
+    idxUltimo > 0 ? mesesCompletos[idxUltimo - 1] : undefined;
 
   const composicaoTrimestral = useMemo(
     () => agruparTrimestres(mesesCompletos, trimestresCivis),
     [mesesCompletos, trimestresCivis]
   );
 
-  const ultimoTrimestre = composicaoTrimestral[composicaoTrimestral.length - 1];
-  const stageColors: Record<string, string> = { cgr: COR_CGR, ret: COR_RET, rp: COR_RP, rpv: COR_RPV };
-  const maxAbsComposicao = ultimoTrimestre
-    ? Math.max(Math.abs(ultimoTrimestre.ret), Math.abs(ultimoTrimestre.rp), Math.abs(ultimoTrimestre.rpv), 1)
-    : 1;
+  const ultimoTrimestre =
+    composicaoTrimestral[composicaoTrimestral.length - 1];
+
+  const stageColors: Record<string, string> = {
+    cgr: COR_CGR,
+    ret: COR_RET,
+    rp: COR_RP,
+    rpv: COR_RPV,
+  };
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
@@ -280,43 +425,83 @@ export default function DashboardPage() {
         <PageHeader
           modulo="dashboard"
           titulo="Visão geral"
-          descricao={ultimoMes && <>Período mais recente: <span className="font-medium text-white">{ultimoMes.periodo}</span></>}
+          descricao={
+            ultimoMes && (
+              <>
+                Período mais recente:{" "}
+                <span className="font-medium text-white">
+                  {ultimoMes.periodo}
+                </span>
+              </>
+            )
+          }
           acoes={
-          <div className="flex items-center gap-2">
-            <Select
-              aria-label="Filtrar por ano"
-              value={ano}
-              onChange={(e) => handleAnoChange(e.target.value)}
-              options={[TODOS_OS_ANOS, ...anosDisponiveis].map((a) => ({ value: a, label: a }))}
-            />
-            <button
-              onClick={() => carregar(ano === TODOS_OS_ANOS ? undefined : ano)}
-              disabled={loading}
-              className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-wait"
-              title="Recarregar"
-              aria-label="Recarregar dashboard"
-            >
-              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
+            <div className="flex items-center gap-2">
+              <Select
+                aria-label="Filtrar por ano"
+                value={ano}
+                onChange={(e) => handleAnoChange(e.target.value)}
+                options={[TODOS_OS_ANOS, ...anosDisponiveis].map((a) => ({
+                  value: a,
+                  label: a,
+                }))}
+              />
+
+              <button
+                onClick={() =>
+                  carregar(
+                    ano === TODOS_OS_ANOS ? undefined : ano
+                  )
+                }
+                disabled={loading}
+                className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-lg border border-white/[0.07] bg-white/[0.03] text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white disabled:cursor-wait"
+                title="Recarregar"
+                aria-label="Recarregar dashboard"
+              >
+                <RefreshCw
+                  size={16}
+                  className={loading ? "animate-spin" : ""}
+                />
+              </button>
+            </div>
           }
         />
 
         {erro && <Alert variant="error">{erro}</Alert>}
+
         {incompletos.length > 0 && ultimoMes && (
           <Alert variant="warning">
-            {incompletos.map((h) => `${h.periodo} (falta ${h.pendencias.join(" e ")})`).join(", ")}{" "}
-            {incompletos.length > 1 ? "estão incompletos" : "está incompleto"} e fica{incompletos.length > 1 ? "m" : ""} fora dos indicadores e do gráfico do SCG.
-            Os cartões mostram {ultimoMes.periodo}, o último mês completo.
+            {incompletos
+              .map(
+                (h) =>
+                  `${h.periodo} (falta ${h.pendencias.join(" e ")})`
+              )
+              .join(", ")}{" "}
+            {incompletos.length > 1
+              ? "estão incompletos"
+              : "está incompleto"}{" "}
+            e fica{incompletos.length > 1 ? "m" : ""} fora dos
+            indicadores e do gráfico do SCG.
+            Os cartões mostram {ultimoMes.periodo}, o último mês
+            completo.
           </Alert>
         )}
 
-        {/* ── KPIs do último mês ────────────────────────────────────────── */}
+        {/* ── KPIs do último mês ─────────────────────────────────────── */}
+
         {!ultimoMes ? (
           loading ? (
-            <div role="status" className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
-              <span className="sr-only">Carregando os indicadores…</span>
-              {KPI_CAMPOS.map(({ chave }) => <EsqueletoKpi key={chave} />)}
+            <div
+              role="status"
+              className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3"
+            >
+              <span className="sr-only">
+                Carregando os indicadores…
+              </span>
+
+              {KPI_CAMPOS.map(({ chave }) => (
+                <EsqueletoKpi key={chave} />
+              ))}
             </div>
           ) : erro ? null : (
             <EmptyState
@@ -327,174 +512,470 @@ export default function DashboardPage() {
           )
         ) : (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
-            {KPI_CAMPOS.map(({ chave, label, Icon, accent }) => {
-              const valor = ultimoMes[chave] as number;
-              const anterior = mesAnterior?.[chave] as number | undefined;
-              const delta = anterior === undefined ? null : valor - anterior;
-              return (
-                <KpiTile
-                  key={chave}
-                  label={label}
-                  Icon={Icon}
-                  rawValue={valor}
-                  delta={delta}
-                  varLabel={mesAnterior?.periodo}
-                  accent={accent}
-                />
-              );
-            })}
+            {KPI_CAMPOS.map(
+              ({ chave, label, Icon, accent }) => {
+                const valor = ultimoMes[chave] as number;
+                const anterior = mesAnterior?.[chave] as
+                  | number
+                  | undefined;
+
+                const delta =
+                  anterior === undefined ? null : valor - anterior;
+
+                return (
+                  <KpiTile
+                    key={chave}
+                    label={label}
+                    Icon={Icon}
+                    rawValue={valor}
+                    delta={delta}
+                    varLabel={mesAnterior?.periodo}
+                    accent={accent}
+                  />
+                );
+              }
+            )}
           </div>
         )}
 
-        {/* ── Gráfico principal + composição ──────────────────────────────── */}
+        {/* ── Gráfico principal + composição ────────────────────────── */}
+
         <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
+          {/* Gráfico SCG mensal */}
+
           <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading
               title="SCG mensal"
               subtitle="Saldo consolidado da conta gráfica"
               right={
                 <span className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_SCG }} /> SCG
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ backgroundColor: COR_SCG }}
+                  />
+                  SCG
                 </span>
               }
             />
+
             <div className="mt-6 h-64 sm:h-80">
-              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={serieScg} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="scgFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor={COR_SCG} stopOpacity={0.28} />
-                      <stop offset="100%" stopColor={COR_SCG} stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                  <YAxis
-                    tick={AXIS_TICK}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={brlCompact}
-                    width={88}
-                    domain={["auto", "auto"]}
-                  />
-                  <Tooltip content={<TooltipBRL />} cursor={{ stroke: "var(--chart-cursor)" }} />
-                  <ReferenceLine y={0} stroke="var(--chart-ref)" strokeDasharray="4 4" />
-                  <Area
-                    type="monotone"
-                    dataKey="valor"
-                    name={GLOSSARIO.SCG.nome}
-                    stroke={COR_SCG}
-                    strokeWidth={2.5}
-                    fill="url(#scgFill)"
-                    dot={{ r: 3, fill: COR_SCG, strokeWidth: 0 }}
-                    activeDot={{ r: 5 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <GraficoOuEsqueleto
+                carregando={loading && !historicoCompleto.length}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={serieScg}
+                    margin={{
+                      top: 8,
+                      right: 8,
+                      left: 8,
+                      bottom: 0,
+                    }}
+                  >
+                    <defs>
+                      <linearGradient
+                        id="scgFill"
+                        x1="0"
+                        y1="0"
+                        x2="0"
+                        y2="1"
+                      >
+                        <stop
+                          offset="0%"
+                          stopColor={COR_SCG}
+                          stopOpacity={0.28}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={COR_SCG}
+                          stopOpacity={0}
+                        />
+                      </linearGradient>
+                    </defs>
+
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={GRID_STROKE}
+                      vertical={false}
+                    />
+
+                    <XAxis
+                      dataKey="periodo"
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+
+                    <YAxis
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={brlCompact}
+                      width={88}
+                      domain={["auto", "auto"]}
+                    />
+
+                    <Tooltip
+                      content={<TooltipBRL />}
+                      cursor={{
+                        stroke: "var(--chart-cursor)",
+                      }}
+                    />
+
+                    <ReferenceLine
+                      y={0}
+                      stroke="var(--chart-ref)"
+                      strokeDasharray="4 4"
+                    />
+
+                    <Area
+                      type="monotone"
+                      dataKey="valor"
+                      name={GLOSSARIO.SCG.nome}
+                      stroke={COR_SCG}
+                      strokeWidth={2.5}
+                      fill="url(#scgFill)"
+                      dot={{
+                        r: 3,
+                        fill: COR_SCG,
+                        strokeWidth: 0,
+                      }}
+                      activeDot={{ r: 5 }}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
               </GraficoOuEsqueleto>
             </div>
           </div>
 
+          {/* Composição do SCG com gráfico Donut */}
+
           <div className={`${PANEL} p-5 sm:p-7`}>
-            <SectionHeading title="Composição do SCG" subtitle={`SCG = RPV + RET + RP — ${ultimoTrimestre?.trimestre ?? "último trimestre"}`} />
+            <SectionHeading
+              title="Composição do SCG"
+              subtitle={`SCG = RPV + RET + RP — ${
+                ultimoTrimestre?.trimestre ?? "último trimestre"
+              }`}
+            />
+
             {!ultimoTrimestre ? (
               loading ? (
-                <EsqueletoLista linhas={4} icone={false} texto="Carregando a composição do SCG…" className="mt-7 space-y-6" />
+                <EsqueletoLista
+                  linhas={4}
+                  icone={false}
+                  texto="Carregando a composição do SCG…"
+                  className="mt-7 space-y-6"
+                />
               ) : (
-                <EmptyState label="Sem dados trimestrais ainda." className="py-12" />
+                <EmptyState
+                  label="Sem dados trimestrais ainda."
+                  className="py-12"
+                />
               )
             ) : (
               <div className="mt-7 flex flex-col gap-6">
-                <div className="space-y-5">
-                  {(["rpv", "ret", "rp"] as const).map((chave) => (
-                    <CompositionRow
-                      key={chave}
-                      label={chave.toUpperCase()}
-                      dica={tituloDe(chave.toUpperCase() as Sigla)}
-                      value={ultimoTrimestre[chave]}
-                      maxAbs={maxAbsComposicao}
-                      color={stageColors[chave]}
-                    />
-                  ))}
+                {/* Gráfico Donut */}
+
+                <div className="relative h-48 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={[
+                          {
+                            name: "RPV",
+                            value: Math.abs(ultimoTrimestre.rpv),
+                            realValue: ultimoTrimestre.rpv,
+                            color: stageColors.rpv,
+                          },
+                          {
+                            name: "RET",
+                            value: Math.abs(ultimoTrimestre.ret),
+                            realValue: ultimoTrimestre.ret,
+                            color: stageColors.ret,
+                          },
+                          {
+                            name: "RP",
+                            value: Math.abs(ultimoTrimestre.rp),
+                            realValue: ultimoTrimestre.rp,
+                            color: stageColors.rp,
+                          },
+                        ]}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {(["rpv", "ret", "rp"] as const).map(
+                          (chave) => (
+                            <Cell
+                              key={chave}
+                              fill={stageColors[chave]}
+                            />
+                          )
+                        )}
+                      </Pie>
+
+                      <Tooltip
+                        formatter={(value, name, item) => [
+                          brl(
+                            Number(
+                              (
+                                item as {
+                                  payload?: {
+                                    realValue?: number;
+                                  };
+                                }
+                              ).payload?.realValue ?? value
+                            )
+                          ),
+                          name,
+                        ]}
+                        contentStyle={{
+                          backgroundColor: "#18181b",
+                          borderColor: "#27272a",
+                          color: "#fff",
+                          borderRadius: "8px",
+                        }}
+                        itemStyle={{ color: "#fff" }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+
+                  {/* Total centralizado */}
+
+                  <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="text-xs text-zinc-400">
+                      Total
+                    </span>
+
+                    <span
+                      className={`text-sm font-bold ${
+                        ultimoTrimestre.total < 0
+                          ? "text-red-400"
+                          : "text-white"
+                      }`}
+                    >
+                      {brl(ultimoTrimestre.total)}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white/[0.03] px-4 py-4">
-                  <span className="text-sm font-medium text-zinc-400">Total SCG</span>
-                  <span className={`text-xl font-bold num sm:text-2xl ${ultimoTrimestre.total < 0 ? "text-red-400" : "text-white"}`}>
-                    {brl(ultimoTrimestre.total)}
-                  </span>
+
+                {/* Legenda */}
+
+                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                  {(["rpv", "ret", "rp"] as const).map(
+                    (chave) => (
+                      <div
+                        key={chave}
+                        className="flex flex-col items-center"
+                      >
+                        <div className="mb-1 flex items-center gap-1">
+                          <div
+                            className="h-3 w-3 rounded-full"
+                            style={{
+                              backgroundColor: stageColors[chave],
+                            }}
+                          />
+
+                          <span className="font-medium text-zinc-400">
+                            {chave.toUpperCase()}
+                          </span>
+                        </div>
+
+                        <span
+                          className={
+                            ultimoTrimestre[chave] < 0
+                              ? "text-red-400"
+                              : "text-emerald-400"
+                          }
+                        >
+                          {brl(ultimoTrimestre[chave])}
+                        </span>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             )}
           </div>
-        </div>
 
-        {/* ── Gráficos secundários ─────────────────────────────────────── */}
-        <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
-          <div className={`${PANEL} p-5 sm:p-7`}>
-            <SectionHeading title="PMPV mensal" subtitle="Preço médio ponderado por volume (R$/m³)" />
-            <div className="mt-6 h-64">
-              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={seriePmpv} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                  <YAxis
-                    tick={AXIS_TICK}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => v.toFixed(2).replace(".", ",")}
-                    width={48}
-                    domain={["dataMin - 0.1", "dataMax + 0.1"]}
-                  />
-                  <Tooltip content={<TooltipBRL casas={4} />} cursor={{ stroke: "var(--chart-cursor)" }} />
-                  <Line type="monotone" dataKey="valor" name={GLOSSARIO.PMPV.nome} stroke={COR_PMPV} strokeWidth={2.5} dot={{ r: 3, fill: COR_PMPV, strokeWidth: 0 }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ResponsiveContainer>
-              </GraficoOuEsqueleto>
+          {/* ── Gráficos secundários ─────────────────────────────────── */}
+
+          <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
+            {/* PMPV mensal */}
+
+            <div className={`${PANEL} p-5 sm:p-7`}>
+              <SectionHeading
+                title="PMPV mensal"
+                subtitle="Preço médio ponderado por volume (R$/m³)"
+              />
+
+              <div className="mt-6 h-64">
+                <GraficoOuEsqueleto
+                  carregando={loading && !historicoCompleto.length}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={seriePmpv}
+                      margin={{
+                        top: 8,
+                        right: 8,
+                        left: 8,
+                        bottom: 0,
+                      }}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={GRID_STROKE}
+                        vertical={false}
+                      />
+
+                      <XAxis
+                        dataKey="periodo"
+                        tick={AXIS_TICK}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+
+                      <YAxis
+                        tick={AXIS_TICK}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={(v) =>
+                          v.toFixed(2).replace(".", ",")
+                        }
+                        width={48}
+                        domain={["dataMin - 0.1", "dataMax + 0.1"]}
+                      />
+
+                      <Tooltip
+                        content={<TooltipBRL casas={4} />}
+                        cursor={{
+                          stroke: "var(--chart-cursor)",
+                        }}
+                      />
+
+                      <Line
+                        type="monotone"
+                        dataKey="valor"
+                        name={GLOSSARIO.PMPV.nome}
+                        stroke={COR_PMPV}
+                        strokeWidth={2.5}
+                        dot={{
+                          r: 3,
+                          fill: COR_PMPV,
+                          strokeWidth: 0,
+                        }}
+                        activeDot={{ r: 5 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </GraficoOuEsqueleto>
+              </div>
+            </div>
+
+            {/* CGR vs CGF */}
+
+            <div className={`${PANEL} p-5 sm:p-7`}>
+              <SectionHeading
+                title="CGR vs CGF por período"
+                subtitle="Comparativo mensal"
+                right={
+                  <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: COR_CGR }}
+                      />
+                      CGR
+                    </span>
+
+                    <span className="flex items-center gap-1.5">
+                      <span
+                        className="h-2 w-2 rounded-full"
+                        style={{ backgroundColor: COR_CGF }}
+                      />
+                      CGF
+                    </span>
+                  </div>
+                }
+              />
+
+              <div className="mt-6 h-64">
+                <GraficoOuEsqueleto
+                  carregando={loading && !historicoCompleto.length}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={historicoCompleto}
+                      margin={{
+                        top: 8,
+                        right: 8,
+                        left: 8,
+                        bottom: 0,
+                      }}
+                      barGap={4}
+                    >
+                      <CartesianGrid
+                        strokeDasharray="3 3"
+                        stroke={GRID_STROKE}
+                        vertical={false}
+                      />
+
+                      <XAxis
+                        dataKey="periodo"
+                        tick={AXIS_TICK}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+
+                      <YAxis
+                        tick={AXIS_TICK}
+                        tickLine={false}
+                        axisLine={false}
+                        tickFormatter={brlCompact}
+                        width={88}
+                      />
+
+                      <Tooltip
+                        content={<TooltipBRL />}
+                        cursor={{
+                          fill: "var(--chart-cursor-area)",
+                        }}
+                      />
+
+                      <Bar
+                        dataKey="cgr"
+                        name={GLOSSARIO.CGR.nome}
+                        fill={COR_CGR}
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={28}
+                      />
+
+                      <Bar
+                        dataKey="cgf"
+                        name={GLOSSARIO.CGF.nome}
+                        fill={COR_CGF}
+                        radius={[3, 3, 0, 0]}
+                        maxBarSize={28}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </GraficoOuEsqueleto>
+              </div>
             </div>
           </div>
 
-          <div className={`${PANEL} p-5 sm:p-7`}>
-            <SectionHeading
-              title="CGR vs CGF por período"
-              subtitle="Comparativo mensal"
-              right={
-                <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_CGR }} /> CGR
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: COR_CGF }} /> CGF
-                  </span>
-                </div>
-              }
-            />
-            <div className="mt-6 h-64">
-              <GraficoOuEsqueleto carregando={loading && !historicoCompleto.length}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={historicoCompleto} margin={{ top: 8, right: 8, left: 8, bottom: 0 }} barGap={4}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} vertical={false} />
-                  <XAxis dataKey="periodo" tick={AXIS_TICK} tickLine={false} axisLine={false} />
-                  <YAxis
-                    tick={AXIS_TICK}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={brlCompact}
-                    width={88}
-                  />
-                  <Tooltip content={<TooltipBRL />} cursor={{ fill: "var(--chart-cursor-area)" }} />
-                  <Bar dataKey="cgr" name={GLOSSARIO.CGR.nome} fill={COR_CGR} radius={[3, 3, 0, 0]} maxBarSize={28} />
-                  <Bar dataKey="cgf" name={GLOSSARIO.CGF.nome} fill={COR_CGF} radius={[3, 3, 0, 0]} maxBarSize={28} />
-                </BarChart>
-              </ResponsiveContainer>
-              </GraficoOuEsqueleto>
-            </div>
-          </div>
-        </div>
+          {/* ── Empresas, encargos RET e volumes ─────────────────────── */}
 
-        {/* ── Empresas, encargos RET e volumes (seguem o filtro de ano) ───── */}
-        <PaineisExtras ano={ano === TODOS_OS_ANOS ? undefined : ano} trimestresCivis={trimestresCivis} />
+          <PaineisExtras
+            ano={ano === TODOS_OS_ANOS ? undefined : ano}
+            trimestresCivis={trimestresCivis}
+          />
+        </div>
       </div>
     </div>
   );
