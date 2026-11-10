@@ -1,22 +1,38 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num, parseBRL } from "../../utils/format";
-import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, salvarTrimestreSR } from "../../api";
+import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, getHistoricoSR, getProvaRealSR, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
-import type { SRLinhaCalculada, SROrigemPR } from "../../types";
+import type { SRHistoricoTrimestre, SRLinhaCalculada, SROrigemPR } from "../../types";
 import { dicaDe } from "../../utils/glossario";
 import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
+import { CardFormula } from "../../components/ui/CardFormula";
+import { Paginacao } from "../../components/ui/Paginacao";
+import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
+import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
+import { linhaDoMes } from "../../utils/linhaDoMes";
+import { usePaginacao } from "../../utils/paginacao";
+import { rolarAteCardSeEscondido } from "../../utils/rolagem";
+import { dataHora } from "../../utils/format";
+import { KpisSR } from "./KpisSR";
+import { ProvaRealSR } from "./ProvaRealSR";
+import { rotuloDoTrimestre, trimestreDoFormulario } from "./estadoProva";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 // SR segue o trimestre civil (Jan–Mar …), não o do PMPV/PR (Nov–Jan …).
 const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
+
+/** Busca da prova real: a chave é "Jan/2026_Mar/2026#versão" (a versão sobe ao salvar, para buscar de novo).
+ * Função estável do módulo, como pede o hook. */
+const buscarProvaDoTrimestre = (chave: string) => getProvaRealSR(chave.split("#")[0]);
 
 const cor = (v: number) => (v > 0 ? "text-emerald-300" : v < 0 ? "text-red-300" : "text-zinc-300");
 
@@ -123,6 +139,41 @@ export default function SRPage() {
   useManterPeriodoNaUrl("trimestre", labels[0]);
   const trimestreLabel = `${labels[0]}_${labels[2]}`;
 
+  // Histórico de trimestres gravados e o trimestre aberto na prova real (?prova=Jan/2026_Mar/2026).
+  // Separado dos parâmetros do Painel do Ciclo (?trimestre=, ?de=ciclo&ciclo=).
+  const [params, setParams] = useSearchParams();
+  const [historico, setHistorico] = useState<SRHistoricoTrimestre[]>([]);
+  const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
+  const [escolhido, setEscolhido] = useState<string | null>(() => params.get("prova"));
+  const [versaoProva, setVersaoProva] = useState(0); // sobe ao salvar: a prova real do mesmo trimestre é buscada de novo
+  const provaRef = useRef<HTMLElement>(null);
+  const [erroHistorico, setErroHistorico] = useState<string | null>(null);
+
+  const carregarHistorico = useCallback(() => {
+    getHistoricoSR()
+      .then((h) => { setHistorico(h); setErroHistorico(null); })
+      .catch((e) => setErroHistorico(mensagemDeErro(e, "Não foi possível carregar o histórico do SR.")))
+      .finally(() => setHistoricoCarregado(true));
+  }, []);
+  useEffect(carregarHistorico, [carregarHistorico]);
+
+  // Aberto na prova real: o escolhido; senão o gravado mais recente; senão o do formulário (mostra "sem SR gravado").
+  const aberto = escolhido ?? historico[0]?.trimestre ?? (historicoCarregado ? trimestreLabel : null);
+  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#${versaoProva}`, buscarProvaDoTrimestre, aberto === null ? undefined : rotuloDoTrimestre(aberto));
+  const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.trimestre === aberto) });
+  const dProva = prova.dados && !prova.erro && prova.dados.gravado && prova.dados.linhas.length > 0 ? prova.dados : null;
+
+  // Mantém ?prova=... no endereço: recarregar ou compartilhar o link abre a mesma prova real.
+  useEffect(() => {
+    if (escolhido === null || params.get("prova") === escolhido) return;
+    setParams((p) => { p.set("prova", escolhido); return p; }, { replace: true });
+  }, [escolhido, params, setParams]);
+
+  const abrirProva = (chave: string) => {
+    setEscolhido(chave);
+    rolarAteCardSeEscondido(provaRef.current);
+  };
+
   const [linhas, setLinhas] = useState<SRLinhaCalculada[]>(() => labels.map(linhaVazia));
   const [origemPR, setOrigemPR] = useState<Record<string, SROrigemPR>>({});
   const [fonte, setFonte] = useState<"salvo" | "banco" | null>(null);
@@ -216,6 +267,10 @@ export default function SRPage() {
       setLinhas(calc.linhas);
       const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
       setFonte("salvo");
+      // A prova real abre no trimestre salvo (buscada de novo) e o histórico é recarregado.
+      setEscolhido(trimestreLabel);
+      setVersaoProva((n) => n + 1);
+      carregarHistorico();
       // O backend regrava o PR e o PV do trimestre que usa este SR.
       const pr = textoPRAutomatico(salvo.pr_automatico);
       setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
@@ -255,12 +310,14 @@ export default function SRPage() {
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
-      <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <PageHeader modulo="sr" formula="SR = (VP − VF) × PR × (1 + SELIC) + SR anterior, mês a mês no trimestre" />
+      <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
+        <PageHeader modulo="sr" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
+
+        <KpisSR chave={aberto} estado={prova} />
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
@@ -434,6 +491,80 @@ export default function SRPage() {
           </Button>
           {pendencias > 0 && <span className="text-xs text-amber-300">Há {pendencias} pendência(s) acima.</span>}
         </div>
+
+        {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+          <CardFormula className="xl:sticky xl:top-6 xl:col-span-5 xl:self-start 2xl:col-span-4"
+            descricao="Como o SR do trimestre é calculado."
+            tituloAplicada={dProva ? `Com os números de ${rotuloDoTrimestre(dProva.trimestre)}` : undefined}
+            aplicada={dProva ? [
+              ...dProva.linhas.map((l) => `${l.mes}: (${num(l.vp, 0)} − ${num(l.vf, 2)}) × ${num(l.pr, 4)} × (1 + ${num(l.selic_mensal, 4)}%) + ${num(l.sr_anterior, 2)} = ${num(l.sr_selic_recalculado, 2)}`),
+              `SR do trimestre = ${brl(dProva.total_recalculado)}`,
+            ] : undefined}
+            atualizando={prova.atualizando}
+            formula={[
+              "SR do mês = (VP − VF) × PR × (1 + SELIC) + SR anterior",
+              "SR do trimestre = soma dos 3 meses",
+            ]}
+            termos={[
+              { termo: "SR", explicacao: "Saldo Remanescente: o que ficou por recuperar no trimestre, em reais." },
+              { termo: "VP", explicacao: "Volume prospectivo do mês, em m³. Vem do PMPV." },
+              { termo: "VF", explicacao: "Volume faturado do mês, em m³. Vem do CGF." },
+              { termo: "PR", explicacao: "Parcela de Recuperação, em R$/m³. É o PR do trimestre fiscal que começa 3 meses antes (tela PR)." },
+              { termo: "SELIC", explicacao: "Juros do Banco Central, em %, acumulados do mês até o fim do trimestre." },
+              { termo: "SR anterior", explicacao: "Saldo de um trimestre anterior, somado ao mês. Fica vazio quando não há." },
+            ]}
+            regras={[
+              "O SR segue o trimestre civil (Jan a Mar, Abr a Jun…), diferente do PMPV e do PR.",
+              "Se o VP, o VF, o PR ou a SELIC mudar depois de gravado, o SR gravado fica desatualizado: recalcule no Painel do Ciclo (card SR).",
+              "O SR gravado alimenta o cálculo do PR do trimestre seguinte.",
+            ]}
+          />
+          <ProvaRealSR chave={aberto} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8"
+            onUsarNoFormulario={aberto && trimestreDoFormulario(aberto) ? () => {
+              const t = trimestreDoFormulario(aberto);
+              if (t) irPara(t.ano, t.tri);
+            } : undefined} />
+        </div>
+
+        <section className={`${PANEL} overflow-hidden`}>
+          <div className="border-b border-white/[0.07] px-5 py-4 sm:px-6">
+            <h2 className="text-base font-semibold text-white">SR gravado por trimestre</h2>
+            <p className="mt-0.5 text-xs text-zinc-500">Clique num trimestre para ver a prova real dele. O formulário de cima não muda.</p>
+          </div>
+          {erroHistorico && <Alert variant="error" className="m-4 whitespace-pre-line">{erroHistorico}</Alert>}
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[36rem] text-sm">
+              <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
+                <tr>
+                  {["Trimestre", "Total do SR", "Meses", "Gravado em"].map((h, i) => (
+                    <th key={h} scope="col" className={`px-4 py-3 font-semibold ${i ? "text-right" : "border-l-[3px] border-l-transparent text-left"}`}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.05]">
+                {!historicoCarregado && <LinhasEsqueleto colunas={4} texto="Carregando o histórico…" />}
+                {pag.itensDaPagina.map((h) => {
+                  const ativo = h.trimestre === aberto;
+                  return (
+                    <tr key={h.trimestre} aria-current={ativo ? "true" : undefined}
+                      onClick={() => abrirProva(h.trimestre)}
+                      className={linhaDoMes(ativo, true)}>
+                      <PeriodoClicavel periodo={h.trimestre} rotulo={rotuloDoTrimestre(h.trimestre)} valido ativo={ativo} onAbrir={abrirProva} />
+                      <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${cor(h.total)}`}>{brl(h.total)}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{h.qtd_meses}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-zinc-500">{dataHora(h.data_atualizacao)}</td>
+                    </tr>
+                  );
+                })}
+                {historicoCarregado && historico.length === 0 && (
+                  <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum trimestre gravado ainda.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Paginacao {...pag} onMudar={pag.setPagina} rotulo={["trimestre", "trimestres"]} />
+        </section>
       </div>
     </div>
   );

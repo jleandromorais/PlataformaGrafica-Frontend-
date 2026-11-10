@@ -820,7 +820,8 @@ export interface SRHistoricoTrimestre {
 
 /** O que as fontes (PMPV, CGF, módulo PR, Banco Central) dão hoje para um mês, e o que difere do gravado. */
 export interface ProvaRealFontesSR {
-  vp: number; vf: number; pr: number; selic_mensal: number;
+  vp: number; vf: number; pr: number;
+  selic_mensal: number | null;   // null: o Banco Central não deu a SELIC (fora do ar ou trimestre aberto)
   diferem: string[];   // nomes dos campos que diferem: "vp", "vf", "pr", "selic_mensal"
 }
 
