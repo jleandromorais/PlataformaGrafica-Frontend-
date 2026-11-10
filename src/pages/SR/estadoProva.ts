@@ -11,7 +11,7 @@ export function estadoDaProvaSR(d: ProvaRealSR): EstadoProvaSR {
 
 /** Frase curta para quem sabe pouco: o que a situação quer dizer e o que fazer. */
 export const ORIENTACAO_SR: Record<EstadoProvaSR, string> = {
-  confere: "Está certo: o SR gravado é igual à conta refeita mês a mês com os valores gravados.",
+  confere: "Está coerente: o SR gravado é igual à conta refeita mês a mês com os valores gravados. Isso confirma a conta, mas não garante que os valores (VP, VF, PR, SELIC) estejam certos: veja \"O que as fontes dizem hoje\" e compare com a sua planilha.",
   diverge: "O SR gravado é diferente da conta refeita com os valores gravados. Recalcule e grave de novo no Painel do Ciclo (card SR).",
   nao_gravado: "Este trimestre ainda não tem SR gravado. Calcule e grave no Painel do Ciclo (card SR) ou use o formulário abaixo.",
 };

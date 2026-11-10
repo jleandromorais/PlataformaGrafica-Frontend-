@@ -12,7 +12,7 @@ export function estadoDaProvaRET(d: ProvaRealRET): EstadoProvaRET {
 
 /** Frase curta para quem sabe pouco: o que a situação quer dizer e o que fazer. */
 export const ORIENTACAO_RET: Record<EstadoProvaRET, string> = {
-  confere: "Está certo: o RET gravado é igual à conta refeita com os documentos do mês.",
+  confere: "Está coerente: o RET gravado é igual à conta refeita com os documentos gravados do mês. Isso confirma a conta, mas não garante que os documentos estejam certas: compare a quantidade e o total com a sua planilha.",
   diverge: "O RET gravado é diferente da conta refeita com os documentos. Reprocesse o RET do mês no Painel do Ciclo para regravar.",
   so_total: "Este mês foi gravado só com o total, sem os documentos. Por isso não dá para refazer a conta. Para ter a prova real, processe os PDFs do mês no Painel do Ciclo.",
   nao_gravado: "Este mês ainda não foi gravado. Processe os PDFs do mês no Painel do Ciclo.",

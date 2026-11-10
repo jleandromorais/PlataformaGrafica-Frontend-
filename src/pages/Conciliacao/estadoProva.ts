@@ -14,7 +14,7 @@ export function estadoDaProvaRP(d: ProvaRealRP): EstadoProvaRP {
 
 /** Frase curta para quem sabe pouco: o que a situação quer dizer e o que fazer. */
 export const ORIENTACAO_RP: Record<EstadoProvaRP, string> = {
-  confere: "Está certo: o RP gravado é igual à conta refeita com as notas do mês.",
+  confere: "Está coerente: o RP gravado é igual à conta refeita com as notas gravadas do mês. Isso confirma a conta, mas não garante que as notas estejam certas: compare a quantidade e o total com a sua planilha.",
   diverge: "O RP gravado é diferente da conta refeita com as notas. Reprocesse o RP do mês no Painel do Ciclo para regravar.",
   so_total: "Este mês foi gravado só com o total, sem as notas. Por isso não dá para refazer a conta. Para ter a prova real, processe os PDFs do mês no Painel do Ciclo.",
   nao_gravado: "Este mês ainda não foi gravado. Processe os PDFs do mês no Painel do Ciclo.",

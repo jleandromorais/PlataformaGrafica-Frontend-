@@ -11,7 +11,7 @@ export function estadoDaProvaSCG(d: ProvaRealSCG): EstadoProvaSCG {
 
 /** Frase curta para quem sabe pouco: o que a situação quer dizer e o que fazer. */
 export const ORIENTACAO_SCG: Record<EstadoProvaSCG, string> = {
-  confere: "Está certo: o SCG gravado é igual à soma refeita com CGR, CGF, RET e RP.",
+  confere: "Está coerente: o SCG gravado é igual à soma refeita com o CGR, o CGF, o RET e o RP gravados. Isso confirma a soma, mas não garante que cada parte esteja certa: veja abaixo se cada origem confere e compare com a sua planilha.",
   diverge: "O SCG gravado é diferente da soma refeita. Veja abaixo de onde vêm os números e, na tabela “Valores”, escolha o que vale e salve de novo.",
   nao_gravado: "Este mês ainda não tem SCG gravado. Use a tabela “Valores” mais abaixo (módulos ou digitado) e salve.",
 };
