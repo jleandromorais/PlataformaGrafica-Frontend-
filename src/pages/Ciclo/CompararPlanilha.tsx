@@ -1,66 +1,43 @@
 /** Fim do Painel do Ciclo: "Comparar com a planilha" (opcional), igual à tela da Auditoria do
  * CGR. O analista escolhe a planilha da Conta Gráfica (.xlsx) e o mês do trimestre; o sistema
  * audita as notas desse mês e mostra a comparação (CGR, empresas, notas que faltam ou diferem).
- * Usa a pasta do ciclo já arrastada lá em cima; sem ela, aceita a pasta (ou .zip) do mês aqui
- * mesmo. A comparação não grava nada; só o botão "Incluir esta nota" (nota só na planilha) grava. */
+ * As notas vêm SEMPRE da pasta do ciclo trazida lá em cima, em "Importar da pasta do ciclo";
+ * sem ela, a seção só avisa e leva o usuário até lá (a pasta é escolhida num lugar só).
+ * A comparação não grava nada; só o botão "Incluir esta nota" (nota só na planilha) grava. */
 
 // ── Importações: peças prontas que este arquivo usa ───────────────────────────
 // React: useMemo guarda uma conta pronta (só refaz se algo mudar); useRef aponta para um
-// elemento da tela (aqui, os campos escondidos de escolher arquivo); useState é a "memória" da tela.
+// elemento da tela (aqui, o campo escondido de escolher a planilha); useState é a "memória" da tela.
 import { useMemo, useRef, useState } from "react";
-import { FileArchive, FileSpreadsheet, Loader2, Play, X } from "lucide-react"; // ícones
+import { FileSpreadsheet, FolderOpen, Loader2, Play, X } from "lucide-react"; // ícones
 import type { ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client"; // transforma um erro técnico em frase para o usuário
 import { Button } from "../../components/ui/Button";
-import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta"; // a área tracejada de arrastar pasta
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista"; // as barrinhas cinza de "carregando"
-import { ModalAviso } from "../../components/ui/ModalAviso"; // a janelinha de aviso
 import { brl, num } from "../../utils/format"; // brl = "R$ 1.000,00"; num = número com separador de milhar
-import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta"; // botão do seletor de pasta do sistema
-import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo, type PastaLida } from "../../utils/pasta";
-import { arquivosDaCelula, classificar, empresasDosCaminhos, envioDaAuditoria } from "../../utils/pastaCiclo";
-import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
-import { ehZip } from "../../utils/zipCiclo";
+import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo } from "../../utils/pasta";
+import { arquivosDaCelula, classificar, envioDaAuditoria } from "../../utils/pastaCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { ComparacaoPlanilha } from "../Auditoria/ComparacaoPlanilha"; // o quadro de resultado, o mesmo da tela da Auditoria
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes"; // a função que fala com o servidor
 
 // Classes de estilo do "cartão" da seção (borda fina e fundo do painel), as mesmas do resto do Painel.
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
-// O servidor aceita no máximo esta quantidade de arquivos por envio (vem de Src/api/uploads.py).
-const MAX_ARQUIVOS = 20_000;
 
 // Em que momento a seção está. Só um deles vale de cada vez:
-//   escolher     -> o usuário ainda está escolhendo planilha, mês e pasta
+//   escolher     -> o usuário ainda está escolhendo planilha e mês
 //   lendo        -> o navegador está lendo os arquivos do disco
 //   processando  -> o servidor está auditando e comparando
 //   resultado    -> deu certo, mostra o quadro de comparação
 //   erro         -> deu errado, mostra o motivo
 type Fase = "escolher" | "lendo" | "processando" | "resultado" | "erro";
 
-/** Pasta (ou .zip) do mês trazida aqui, quando a do ciclo não tem o mês ou não foi arrastada. */
-interface Envio {
-  raiz: string;                 // nome da pasta (ex.: "09 set-26 NFs"); o servidor usa para achar o mês
-  arquivos: ArquivoDaPasta[];   // cada arquivo + o caminho dele dentro da pasta
-  /** null: é um .zip — quem confere as subpastas de empresa é o servidor. */
-  empresas: { nome: string; xml: number; pdf: number }[] | null;
-}
-
 // "Set/2026" -> "Set". Usado nos botões ("Comparar Set").
 const mesCurto = (periodo: string) => periodo.split("/")[0];
 
-/** Por que NÃO dá para enviar esta pasta (ou null se está tudo certo).
- * Melhor avisar agora do que gastar minutos de leitura no servidor para falhar no fim. */
-function bloqueioDe(envio: Envio | null) {
-  if (!envio) return null;
-  if (!envio.arquivos.length) return "Esta pasta não tem nenhum XML ou PDF.";
-  // A pasta precisa ter UMA subpasta por empresa (Petrobras, TAG…); sem isso o servidor recusa.
-  if (envio.empresas && !envio.empresas.length) {
-    return "Esta pasta não tem subpastas de empresa. Traga a pasta do mês, a que contém as pastas Petrobras, TAG… com os XML e PDF dentro.";
-  }
-  if (envio.arquivos.length > MAX_ARQUIVOS) return `São ${num(envio.arquivos.length)} arquivos; o servidor aceita até ${num(MAX_ARQUIVOS)} por envio.`;
-  return null;
-}
+// Rola a página até a seção "Importar da pasta do ciclo" (o id fica no index.tsx do Painel).
+const irParaImportar = () =>
+  document.getElementById("importar-pasta")?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 // O que o Painel entrega a esta seção (as "props"):
 //   meses     -> os 3 meses do trimestre aberto, ex.: ["Jul/2026", "Ago/2026", "Set/2026"]
@@ -79,16 +56,11 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
   const [planilha, setPlanilha] = useState<File | null>(null);     // a planilha escolhida
   const [ativo, setAtivo] = useState<string | null>(null);         // o mês escolhido, ex.: "Ago/2026"
   const [fase, setFase] = useState<Fase>("escolher");              // em que momento estamos
-  const [envio, setEnvio] = useState<Envio | null>(null);          // pasta trazida à mão (plano B)
-  const [lendoPasta, setLendoPasta] = useState(false);             // true enquanto lista a pasta arrastada
   const [lidos, setLidos] = useState<{ feitos: number; total: number } | null>(null); // progresso "12 de 90"
   const [res, setRes] = useState<AuditoriaDoMes | null>(null);     // a resposta do servidor
   const [erro, setErro] = useState<string | null>(null);           // a frase de erro, se houver
-  const [aviso, setAviso] = useState<{ titulo: string; texto: string } | null>(null); // texto da janelinha de aviso
-  // Referências aos campos <input type="file"> escondidos: o botão bonito "clica" neles por baixo dos panos.
+  // Referência ao campo <input type="file"> escondido: o botão bonito "clica" nele por baixo dos panos.
   const inputPlanilha = useRef<HTMLInputElement>(null);
-  const inputZip = useRef<HTMLInputElement>(null);
-  const botaoZip = useRef<HTMLButtonElement>(null); // o foco do teclado volta para ele ao fechar o aviso
 
   // O ano do trimestre ("2026"), para completar nomes de pasta que vêm sem ano.
   const ano = Number(meses[0].split("/")[1]);
@@ -99,75 +71,38 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
     [caminhos, ano],
   );
 
-  // As notas DESTE mês que estão na pasta do ciclo. Só valem se os arquivos estão abertos no
-  // navegador (o usuário arrastou a pasta nesta visita). Depois de recarregar a página o
-  // navegador guarda só os nomes, e aí esta lista fica vazia e a seção pede a pasta de novo.
-  const doCiclo = useMemo(() => {
+  // As notas de Auditoria DESTE mês que a pasta do ciclo lista (pelos nomes).
+  const doMes = useMemo(() => {
     if (!ativo) return [];
     const { pastas, zipsSoltos } = arquivosDaCelula(reconhecidos, "auditoria", ativo);
-    const lista = [...pastas, ...zipsSoltos];
-    return lista.length && lista.every((a) => arquivos.has(a.caminho)) ? lista : [];
-  }, [ativo, reconhecidos, arquivos]);
-  const usaCiclo = doCiclo.length > 0; // true = vamos usar a pasta do ciclo; false = precisa trazer a pasta do mês
+    return [...pastas, ...zipsSoltos];
+  }, [ativo, reconhecidos]);
+  // Só valem se os arquivos estão abertos no navegador (o usuário arrastou a pasta nesta visita).
+  // Depois de recarregar a página o navegador guarda só os nomes, e aí esta lista fica vazia.
+  const doCiclo = useMemo(
+    () => (doMes.length && doMes.every((a) => arquivos.has(a.caminho)) ? doMes : []),
+    [doMes, arquivos],
+  );
 
   // ── Valores derivados (contas simples em cima da memória) ──
   const ocupado = fase === "lendo" || fase === "processando";   // há trabalho em andamento: trava os botões
   const cgrGravado = ativo ? auditoria.find((h) => h.periodo === ativo)?.cgr_gravado ?? null : null; // CGR salvo do mês
-  const bloqueio = usaCiclo ? null : bloqueioDe(envio);          // motivo de a pasta trazida à mão não servir
-  // O botão "Comparar" só liga quando tem planilha, mês, notas e nenhum problema. Evita gastar minutos à toa.
-  const pronto = !!planilha && !!ativo && (usaCiclo || (!!envio && !bloqueio)) && !lendoPasta;
+  // O botão "Comparar" só liga com planilha, mês e as notas do mês abertas na pasta do ciclo.
+  const pronto = !!planilha && !!ativo && doCiclo.length > 0 && !ocupado;
 
-  // Volta ao começo da escolha (descarta resultado, erro e pasta trazida à mão).
-  const zerar = () => { setFase("escolher"); setEnvio(null); setRes(null); setErro(null); setLidos(null); };
+  // Sem notas para comparar: por quê? Cada caso pede uma frase diferente ao usuário.
+  const semNotas = !ativo || doCiclo.length ? null
+    : !caminhos?.length
+      ? `Para comparar ${ativo}, traga a pasta do ciclo lá em cima, em Importar da pasta do ciclo (arraste a pasta ou escolha o .zip).`
+      // A pasta tem as notas do mês, mas os arquivos não estão abertos: a página foi recarregada.
+      : doMes.length
+        ? "Recarregou a página: arraste a pasta de novo lá em cima, em Importar da pasta do ciclo (o navegador não guarda os arquivos)."
+        : `A pasta do ciclo não tem notas de Auditoria de ${ativo}. Confira a pasta e traga-a de novo lá em cima, em Importar da pasta do ciclo.`;
+
+  // Volta ao começo da escolha (descarta resultado e erro).
+  const zerar = () => { setFase("escolher"); setRes(null); setErro(null); setLidos(null); };
   // Clicar num mês abre aquele mês; clicar de novo no mesmo fecha. Trocar de mês descarta o que havia.
   const abrirMes = (m: string) => { zerar(); setAtivo(ativo === m ? null : m); };
-
-  // Guarda a pasta trazida à mão e, se ela não serve, avisa na hora em janelinha.
-  const usar = (novo: Envio) => {
-    setErro(null);
-    setEnvio(novo);
-    const motivo = bloqueioDe(novo);
-    if (motivo) setAviso({ titulo: "Esta pasta não serve para comparar", texto: motivo });
-  };
-
-  // O usuário escolheu um arquivo no botão ".zip": confere se é mesmo um .zip antes de aceitar.
-  const escolherZip = (zip: File | undefined) => {
-    if (!zip) return;
-    if (!ehZip(zip)) {
-      setAviso({ titulo: "Escolha um arquivo .zip",
-        texto: `“${zip.name}” não é um .zip. Compacte a pasta de ${ativo} (botão direito › Enviar para › Pasta compactada) e escolha o .zip, ou arraste a pasta para a área tracejada.` });
-      return;
-    }
-    // Para .zip não dá para contar empresas aqui (está fechado): quem confere é o servidor (empresas: null).
-    usar({ raiz: zip.name.replace(/\.zip$/i, ""), arquivos: [{ arquivo: zip, caminho: zip.name }], empresas: null });
-  };
-
-  // O usuário SOLTOU algo na área tracejada. Pode ser uma pasta (ótimo), um .zip (ótimo)
-  // ou arquivos soltos / várias coisas (não servem: explicamos o que fazer).
-  const soltar = async (s: Soltura) => {
-    if (s.tipo === "zip" && s.zip) return escolherZip(s.zip);
-    if (s.tipo !== "pasta" || !s.pasta) {
-      setAviso(avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, `de ${ativo}`));
-      return;
-    }
-    const p = s.pasta;
-    return lerPasta(() => lerPastaSolta(p));                              // lista o que há dentro da pasta
-  };
-
-  // Pasta solta OU escolhida no seletor do sistema: o resto do caminho é o mesmo.
-  const lerPasta = async (ler: () => Promise<PastaLida>) => {
-    setLendoPasta(true);
-    try {
-      const pasta = await ler();
-      const lista = await arquivosParaEnvio(pasta, ["xml", "pdf"]);       // fica só com XML e PDF (o que a auditoria lê)
-      // raiz vazia: o seletor não diz o nome de pasta sem arquivos.
-      usar({ raiz: pasta.raiz || "escolhida", arquivos: lista, empresas: empresasDosCaminhos(lista.map((a) => a.caminho)) });
-    } catch (e) {
-      setAviso({ titulo: "Não foi possível ler a pasta", texto: e instanceof Error ? e.message : mensagemDeErro(e, "Não foi possível ler a pasta.") });
-    } finally {
-      setLendoPasta(false); // roda sempre, com erro ou sem: tira o "Lendo a pasta…" da tela
-    }
-  };
 
   // O botão "Comparar": o coração da seção. Passo a passo:
   const comparar = async () => {
@@ -175,17 +110,11 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
     setErro(null);
     setFase("lendo");
     try {
-      // 1) Junta os arquivos: da pasta do ciclo ou da pasta trazida à mão.
-      let enviar: ArquivoDaPasta[];
-      let raiz: string;
-      if (usaCiclo) {
-        // Abre do disco só os arquivos deste mês (a pasta do ciclo só tinha listado os nomes).
-        enviar = await Promise.all(doCiclo.map(async (a) => ({ arquivo: await abrirArquivo(arquivos.get(a.caminho)!), caminho: envioDaAuditoria(a).caminho })));
-        raiz = envioDaAuditoria(doCiclo[0]).raiz;
-      } else {
-        enviar = envio!.arquivos;
-        raiz = envio!.raiz;
-      }
+      // 1) Abre do disco só os arquivos deste mês (a pasta do ciclo só tinha listado os nomes).
+      const enviar: ArquivoDaPasta[] = await Promise.all(
+        doCiclo.map(async (a) => ({ arquivo: await abrirArquivo(arquivos.get(a.caminho)!), caminho: envioDaAuditoria(a).caminho })),
+      );
+      const raiz = envioDaAuditoria(doCiclo[0]).raiz;
       // 2) Copia tudo para a memória do navegador antes de enviar. Pasta em rede/OneDrive pode
       //    falhar no meio do envio; aqui, se falhar, o erro diz QUAL arquivo e o que fazer.
       const memoria = await carregarNaMemoria(enviar, (feitos, total) => setLidos({ feitos, total }));
@@ -198,7 +127,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
         setErro(`O servidor não conseguiu auditar ${ativo}: ${r.erros.join(" ")}`);
         setFase("erro");
       } else if (r.outroMes) {
-        setErro(`O nome da pasta “${raiz}” indica ${r.outroMes}, não ${ativo}. Traga a pasta das notas de ${ativo}.`);
+        setErro(`O nome da pasta “${raiz}” indica ${r.outroMes}, não ${ativo}. Confira a pasta do ciclo trazida lá em cima.`);
         setFase("erro");
       } else {
         setRes(r);
@@ -221,8 +150,9 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
         <FileSpreadsheet size={16} /> Comparar com a planilha <span className="text-xs font-normal text-zinc-500">(opcional)</span>
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-        Terminado o ciclo, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas são lidas de novo
-        {" "}e comparadas com a planilha; a comparação <b className="text-zinc-200">não grava nada</b>. Só o botão
+        Terminado o ciclo, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas do mês
+        {" "}vêm da pasta do ciclo trazida lá em cima, são lidas de novo e comparadas com a planilha; a comparação
+        {" "}<b className="text-zinc-200">não grava nada</b>. Só o botão
         {" "}<b className="text-zinc-200">Incluir esta nota</b> (nota que está só na planilha) grava a nota no CGR do mês.
       </p>
 
@@ -273,50 +203,20 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
               </span>
             </div>
 
-            {usaCiclo ? (
+            {semNotas ? (
+              // Sem as notas do mês: a pasta é escolhida num lugar só, lá em cima. Aqui só avisa e leva até lá.
+              <div className="mt-3 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200">
+                <p>{semNotas}</p>
+                <button type="button" onClick={irParaImportar}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+                  <FolderOpen size={13} aria-hidden /> Ir para Importar da pasta do ciclo
+                </button>
+              </div>
+            ) : (
               // Caminho feliz: a pasta do ciclo já tem o mês. Nada para o usuário fazer.
               <p className="mt-3 text-sm text-zinc-300">
                 Vou usar as notas de {ativo} da pasta do ciclo que você trouxe lá em cima ({num(doCiclo.length)} arquivo(s)).
               </p>
-            ) : (
-              // Plano B: pede a pasta (ou .zip) do mês aqui mesmo.
-              <div className="mt-3 space-y-3">
-                <p className="text-xs text-zinc-500">
-                  {caminhos?.length
-                    ? `A pasta do ciclo não está aberta com as notas de ${ativo}.`
-                    : "Nenhuma pasta do ciclo foi trazida."}{" "}
-                  Traga a pasta do mês aqui, a que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF.
-                </p>
-                <AreaSoltarPasta texto={`Arraste aqui a pasta de ${ativo}`} onSoltar={soltar} desabilitado={lendoPasta}>
-                  {/* Alternativas ao arrastar: escolher a pasta no seletor do sistema (o Chrome pode
-                      perguntar se quer enviar os arquivos) ou um .zip (o Chrome não pergunta nada). */}
-                  <div className="flex flex-wrap justify-center gap-2">
-                    <BotaoEscolherPasta onEscolher={(l) => lerPasta(async () => pastaDoSeletor(l))} desabilitado={lendoPasta} />
-                    <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                      className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                      <FileArchive size={16} aria-hidden /> ou o .zip da pasta
-                    </button>
-                  </div>
-                  <p className="max-w-[60ch] text-xs text-zinc-500">
-                    Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos. Arrastando ou usando o .zip, ele não pergunta.
-                  </p>
-                </AreaSoltarPasta>
-                <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
-                  onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
-                {lendoPasta && (
-                  <p className="flex items-center gap-2 text-xs text-zinc-400" aria-live="polite">
-                    <Loader2 size={13} className="animate-spin text-sky-300" aria-hidden /> Lendo a pasta…
-                  </p>
-                )}
-                {/* Resumo do que foi trazido, e o motivo escrito caso a pasta não sirva. */}
-                {envio && !lendoPasta && (
-                  <p className="text-xs text-zinc-400">
-                    {envio.empresas ? <>Pasta <b className="text-zinc-200">{envio.raiz}</b>: {num(envio.arquivos.length)} arquivo(s) em {envio.empresas.length} empresa(s).</>
-                      : <>.zip <b className="text-zinc-200">{envio.arquivos[0]?.caminho}</b> (o servidor confere as pastas das empresas).</>}
-                    {bloqueio && <span className="block text-amber-200">⚠ {bloqueio}</span>}
-                  </p>
-                )}
-              </div>
             )}
 
             {/* role="alert": leitores de tela anunciam o erro assim que ele aparece. */}
@@ -373,13 +273,6 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
           </div>
         )}
       </div>
-
-      {/* Janelinha de aviso para entradas recusadas (arquivo que não é .zip, pasta sem empresas…).
-          O botão principal já leva ao próximo passo: escolher o .zip. */}
-      <ModalAviso aberto={!!aviso} onFechar={() => setAviso(null)} variante="atencao" titulo={aviso?.titulo ?? ""} voltarFoco={botaoZip}
-        acao={{ rotulo: "Escolher o .zip da pasta", onClick: () => { setAviso(null); setEnvio(null); inputZip.current?.click(); } }}>
-        {aviso?.texto ?? ""}
-      </ModalAviso>
     </section>
   );
 }

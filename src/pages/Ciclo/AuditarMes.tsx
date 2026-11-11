@@ -16,10 +16,9 @@ import { ListaProblemas } from "../../components/ui/ListaProblemas";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { Valor } from "../../components/ui/Valor";
 import { brl, num } from "../../utils/format";
-import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta";
 import { carregarNaMemoria, type PastaLida } from "../../utils/pasta";
 import { empresasDosCaminhos } from "../../utils/pastaCiclo";
-import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
+import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes";
@@ -235,16 +234,12 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
                 <p className="max-w-[60ch] text-xs text-zinc-500">
                   A pasta do mês, que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF. Não traga a pasta de uma só empresa.
                 </p>
-                <div className="flex flex-wrap justify-center gap-2">
-                  <BotaoEscolherPasta onEscolher={(lista) => lerPasta(async () => pastaDoSeletor(lista))} desabilitado={lendoPasta} />
-                  <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                    className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                    <FileArchive size={16} aria-hidden /> ou o .zip da pasta
-                  </button>
-                </div>
-                <p className="max-w-[60ch] text-xs text-zinc-500">
-                  Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos. Arrastando ou usando o .zip, ele não pergunta.
-                </p>
+                {/* Sem "Escolher a pasta": o seletor do sistema faz o Chrome abrir um aviso que o site não controla. */}
+                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
+                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                  <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
+                </button>
+                <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
               </AreaSoltarPasta>
               {lendoPasta && (
                 <p className="flex items-center gap-2 text-xs text-zinc-400" aria-live="polite">

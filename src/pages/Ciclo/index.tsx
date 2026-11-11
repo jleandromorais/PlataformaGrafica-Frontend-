@@ -6,8 +6,7 @@ import {
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Alert } from "../../components/ui/Alert";
-import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta";
-import { avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
+import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
   getHistoricoRET, getHistoricoSCG, getPR, getPVTrimestre,
@@ -316,9 +315,6 @@ export default function CicloPage() {
     setAvisoLeitura({ variante: "atencao", ...a, acao: "zip" });
   };
 
-  // Pasta escolhida no seletor do sistema: os arquivos já vêm prontos, sem chave para lembrar.
-  const escolherPasta = (lista: FileList) => lerEntrada(async () => pastaDoSeletor(lista));
-
   const escolherZip = (f: File | undefined) => {
     if (!f) return;
     if (!ehZip(f)) {
@@ -393,8 +389,8 @@ export default function CicloPage() {
           )}
         </section>
 
-        {/* Importar da pasta */}
-        <section className={`${PANEL} p-5 sm:p-6`}>
+        {/* Importar da pasta (o id deixa o "Comparar com a planilha" rolar a página até aqui) */}
+        <section id="importar-pasta" className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
           <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Importar da pasta do ciclo</h2>
           <p className="mt-1 max-w-2xl text-sm text-zinc-400">
             Traga a pasta onde ficam as notas do ano (ex.: <b>{nomePasta}</b>). O sistema lê <b>só os nomes</b> dos arquivos,
@@ -402,18 +398,16 @@ export default function CicloPage() {
           </p>
           <div className="mt-4">
             <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
-              <div className="flex flex-wrap justify-center gap-2">
-                <BotaoEscolherPasta onEscolher={escolherPasta} desabilitado={ocupadoPasta} />
-                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
-                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                  <FileArchive size={16} aria-hidden /> ou o .zip da pasta
-                </button>
-              </div>
+              {/* Sem "Escolher a pasta" de propósito: o seletor de pasta do sistema faz o Chrome abrir
+                  o aviso "Quer carregar N ficheiros para este site?", que nenhum site consegue esconder
+                  nem estilizar. Arrastar ou usar o .zip não dispara esse aviso. */}
+              <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
+                className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
+              </button>
               <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
                 onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
-              <p className="max-w-[60ch] text-xs text-zinc-500">
-                Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos para o site. Arrastando ou usando o .zip, ele não pergunta.
-              </p>
+              <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
             </AreaSoltarPasta>
           </div>
           <ModalAviso aberto={!!avisoLeitura} onFechar={() => setAvisoLeitura(null)} voltarFoco={botaoZip}
