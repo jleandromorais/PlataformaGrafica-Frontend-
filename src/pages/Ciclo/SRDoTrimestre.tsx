@@ -11,6 +11,7 @@ import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import { ModalAviso } from "../../components/ui/ModalAviso";
+import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { propostaSRTrimestre, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -69,6 +70,8 @@ export function SRDoTrimestre({ meses, onGravado }: {
       const pr = textoPRAutomatico(salvo.pr_automatico);
       setSucesso(`SR de ${faixa} gravado. Total = ${brl(salvo.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
       setAvisoPR(pr && !pr.ok ? pr.texto : null);
+      // Só cita o PR/PV no aviso quando o back confirmou que atualizou; a pendência fica no aviso amarelo.
+      avisarSucesso(`SR de ${faixaDosMeses(meses)} gravado`, `Total = ${brl(salvo.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
       onGravado();
       await calcular(true); // a proposta passa a mostrar o gravado novo
     } catch (e) {

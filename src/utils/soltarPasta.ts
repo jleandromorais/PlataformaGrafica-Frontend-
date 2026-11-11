@@ -123,6 +123,20 @@ export async function lerPastaSolta(pasta: EntradaPasta): Promise<PastaLida> {
   return { raiz: pasta.name, arquivos: new Map([...arquivos].sort(([a], [b]) => a.localeCompare(b))) };
 }
 
+/** Pasta escolhida no seletor do sistema (<input webkitdirectory>): mesmo formato da pasta
+ * solta. Cada File traz o caminho em webkitRelativePath ("SCG-26/07 jul-26/a.xml"); a raiz
+ * sai do caminho. Lista vazia (pasta sem arquivos) → raiz "" e nenhum arquivo. */
+export function pastaDoSeletor(lista: ArrayLike<File>): PastaLida {
+  let raiz = "";
+  const arquivos = new Map<string, ArquivoDaPastaCiclo>();
+  Array.from(lista).forEach((f) => {
+    const partes = (f.webkitRelativePath || f.name).split("/");
+    if (partes.length > 1) raiz = partes[0];
+    arquivos.set(partes.length > 1 ? partes.slice(1).join("/") : f.name, f);
+  });
+  return { raiz, arquivos: new Map([...arquivos].sort(([a], [b]) => a.localeCompare(b))) };
+}
+
 /** Da pasta lida para a lista de envio (ex.: Auditoria), só com as extensões pedidas
  * (sem ponto, minúsculas). Abre cada arquivo, como o seletor comum já entrega. */
 export async function arquivosParaEnvio(pasta: PastaLida, extensoes: string[]): Promise<ArquivoDaPasta[]> {

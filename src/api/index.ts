@@ -186,6 +186,16 @@ export const getProvaRealAuditoria = (periodo: string) =>
 export const removerNotaAuditoria = (periodo: string, id: number) =>
   api.post<NotaRemovida>("/auditoria/remover-nota", { periodo, id }).then((r) => r.data);
 
+/** O que vai no pedido de incluir uma nota que só está na planilha (números da planilha + motivo). */
+export interface NotaParaIncluir {
+  empresa: string; numero: string; cgr_liquido: number;
+  valor_total?: number; volume_total?: number; linha_excel?: number; motivo: string;
+}
+
+/** GRAVA no mês uma nota que está na planilha e não veio nos arquivos; o back regrava CGR, RPV, SCG, PR e PV. */
+export const incluirNotaAuditoria = (periodo: string, nota: NotaParaIncluir) =>
+  api.post<NotaRemovida>("/auditoria/incluir-nota", { periodo, ...nota }).then((r) => r.data);
+
 // ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
 /** Lê os PDFs das pastas de receitas e despesas. Não grava nada. */
 export const processarConcilia = (receitas: ArquivoDaPasta[], despesas: ArquivoDaPasta[]) => {

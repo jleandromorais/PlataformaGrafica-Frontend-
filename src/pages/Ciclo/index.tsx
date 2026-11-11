@@ -6,7 +6,8 @@ import {
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Alert } from "../../components/ui/Alert";
-import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
+import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta";
+import { avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
   getHistoricoRET, getHistoricoSCG, getPR, getPVTrimestre,
@@ -215,8 +216,9 @@ export default function CicloPage() {
   // com o próximo passo como botão.
   const [avisoLeitura, setAvisoLeitura] = useState<AvisoPasta | null>(null);
   const [rodada, setRodada] = useState(0); // "Recomeçar o Processar": muda a key e zera o painel
-  // Um arquivo só (.zip): o Chrome não mostra aviso nenhum. Nada de seletor de pasta
-  // (showDirectoryPicker e <input webkitdirectory> mostram aviso de permissão/upload).
+  // Três jeitos de trazer a pasta: arrastar e .zip (o Chrome não pergunta nada) e o seletor
+  // de pasta (<input webkitdirectory>), que é mais fácil de achar, mas o Chrome pode
+  // perguntar "Enviar X arquivos para este site?". O seletor não dá chave: não é relida ao recarregar.
   const inputZip = useRef<HTMLInputElement>(null);
   const botaoZip = useRef<HTMLButtonElement>(null);   // o foco volta para ele ao fechar o aviso
   const [gerandoNT, setGerandoNT] = useState(false);
@@ -270,7 +272,7 @@ export default function CicloPage() {
   const prontas = lista.filter((e) => e.situacao === "ok").length;
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
-  /** Pasta nova (arrastada ou .zip): descarta a prévia antiga dela e guarda os nomes (e a chave). */
+  /** Pasta nova (arrastada, escolhida ou .zip): descarta a prévia antiga dela e guarda os nomes (e a chave). */
   const aplicarPasta = async (pasta: PastaLida, chave?: ChavePasta) => {
     await esquecer(memoriaProcessar(pasta.raiz, meses[0]));
     const nomes = [...pasta.arquivos.keys()];
@@ -293,7 +295,7 @@ export default function CicloPage() {
       const [pasta, k] = await Promise.all([ler(), chave ?? Promise.resolve(null)]);
       if (!pasta.arquivos.size) {
         setAvisoLeitura({ variante: "atencao", titulo: oQue === "o .zip" ? "O .zip está vazio" : "A pasta está vazia",
-          texto: `Não encontrei nenhum arquivo em “${pasta.raiz}”. Confira se é a pasta das notas do ano (ex.: ${nomePasta}) e tente de novo.`,
+          texto: `Não encontrei nenhum arquivo ${pasta.raiz ? `em “${pasta.raiz}”` : "na pasta escolhida"}. Confira se é a pasta das notas do ano (ex.: ${nomePasta}) e tente de novo.`,
           acao: "zip" });
         return;
       }
@@ -313,6 +315,9 @@ export default function CicloPage() {
     const a = avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, nomePasta);
     setAvisoLeitura({ variante: "atencao", ...a, acao: "zip" });
   };
+
+  // Pasta escolhida no seletor do sistema: os arquivos já vêm prontos, sem chave para lembrar.
+  const escolherPasta = (lista: FileList) => lerEntrada(async () => pastaDoSeletor(lista));
 
   const escolherZip = (f: File | undefined) => {
     if (!f) return;
@@ -397,13 +402,18 @@ export default function CicloPage() {
           </p>
           <div className="mt-4">
             <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
-              <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
-                className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-              </button>
+              <div className="flex flex-wrap justify-center gap-2">
+                <BotaoEscolherPasta onEscolher={escolherPasta} desabilitado={ocupadoPasta} />
+                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
+                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                  <FileArchive size={16} aria-hidden /> ou o .zip da pasta
+                </button>
+              </div>
               <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
                 onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
-              <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+              <p className="max-w-[60ch] text-xs text-zinc-500">
+                Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos para o site. Arrastando ou usando o .zip, ele não pergunta.
+              </p>
             </AreaSoltarPasta>
           </div>
           <ModalAviso aberto={!!avisoLeitura} onFechar={() => setAvisoLeitura(null)} voltarFoco={botaoZip}
@@ -421,8 +431,8 @@ export default function CicloPage() {
           )}
           {semArquivos && !ocupadoPasta && (
             <p className="mt-4 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200">
-              Lembrei a pasta <b>{raiz}</b> da última vez e o mapa abaixo é dela. Para processar, arraste a pasta de novo
-              (ou escolha o .zip): o navegador não guarda os arquivos depois de recarregar a página.
+              Lembrei a pasta <b>{raiz}</b> da última vez e o mapa abaixo é dela. Para processar, traga a pasta de novo
+              (arrastando, escolhendo a pasta ou o .zip): o navegador não guarda os arquivos depois de recarregar a página.
             </p>
           )}
           {mapa && !ocupadoPasta && (
@@ -437,11 +447,13 @@ export default function CicloPage() {
         </section>
 
         {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
-        <SRDoTrimestre key={meses[0]} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
+        {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
+        <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
 
         {/* Comparar o CGR de um mês contra a planilha (opcional, não grava), acima das etapas */}
         {!carregando && dados && (
-          <CompararPlanilha key={meses[0]} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria} />
+          <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
+            aoIncluirNota={() => setVersao((v) => v + 1)} />
         )}
 
         {/* Etapas */}

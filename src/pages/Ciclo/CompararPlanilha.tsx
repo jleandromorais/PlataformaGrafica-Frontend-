@@ -2,7 +2,7 @@
  * CGR. O analista escolhe a planilha da Conta Gráfica (.xlsx) e o mês do trimestre; o sistema
  * audita as notas desse mês e mostra a comparação (CGR, empresas, notas que faltam ou diferem).
  * Usa a pasta do ciclo já arrastada lá em cima; sem ela, aceita a pasta (ou .zip) do mês aqui
- * mesmo. NUNCA grava nada: é só conferência, depois do ciclo. */
+ * mesmo. A comparação não grava nada; só o botão "Incluir esta nota" (nota só na planilha) grava. */
 
 // ── Importações: peças prontas que este arquivo usa ───────────────────────────
 // React: useMemo guarda uma conta pronta (só refaz se algo mudar); useRef aponta para um
@@ -16,9 +16,10 @@ import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta"; // a áre
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista"; // as barrinhas cinza de "carregando"
 import { ModalAviso } from "../../components/ui/ModalAviso"; // a janelinha de aviso
 import { brl, num } from "../../utils/format"; // brl = "R$ 1.000,00"; num = número com separador de milhar
-import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo } from "../../utils/pasta";
+import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta"; // botão do seletor de pasta do sistema
+import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo, type PastaLida } from "../../utils/pasta";
 import { arquivosDaCelula, classificar, empresasDosCaminhos, envioDaAuditoria } from "../../utils/pastaCiclo";
-import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
+import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
 import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { ComparacaoPlanilha } from "../Auditoria/ComparacaoPlanilha"; // o quadro de resultado, o mesmo da tela da Auditoria
@@ -66,11 +67,13 @@ function bloqueioDe(envio: Envio | null) {
 //   caminhos  -> os NOMES dos arquivos da pasta do ciclo (ou null se nenhuma foi trazida)
 //   arquivos  -> os arquivos de verdade, abertos no navegador (vazio depois de recarregar a página)
 //   auditoria -> o CGR já gravado de cada mês, só para mostrar ao lado do calculado
-export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
+export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoIncluirNota }: {
   meses: string[];
   caminhos: string[] | null;
   arquivos: Map<string, ArquivoDaPastaCiclo>;
   auditoria: AuditoriaHistoricoLinha[];
+  /** Depois de "Incluir esta nota": o Painel recarrega as etapas (o CGR gravado do mês mudou). */
+  aoIncluirNota?: () => void;
 }) {
   // ── A memória da seção (cada useState guarda um valor e uma função para trocá-lo) ──
   const [planilha, setPlanilha] = useState<File | null>(null);     // a planilha escolhida
@@ -147,11 +150,18 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
       setAviso(avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, `de ${ativo}`));
       return;
     }
+    const p = s.pasta;
+    return lerPasta(() => lerPastaSolta(p));                              // lista o que há dentro da pasta
+  };
+
+  // Pasta solta OU escolhida no seletor do sistema: o resto do caminho é o mesmo.
+  const lerPasta = async (ler: () => Promise<PastaLida>) => {
     setLendoPasta(true);
     try {
-      const pasta = await lerPastaSolta(s.pasta);                         // lista o que há dentro da pasta
+      const pasta = await ler();
       const lista = await arquivosParaEnvio(pasta, ["xml", "pdf"]);       // fica só com XML e PDF (o que a auditoria lê)
-      usar({ raiz: pasta.raiz, arquivos: lista, empresas: empresasDosCaminhos(lista.map((a) => a.caminho)) });
+      // raiz vazia: o seletor não diz o nome de pasta sem arquivos.
+      usar({ raiz: pasta.raiz || "escolhida", arquivos: lista, empresas: empresasDosCaminhos(lista.map((a) => a.caminho)) });
     } catch (e) {
       setAviso({ titulo: "Não foi possível ler a pasta", texto: e instanceof Error ? e.message : mensagemDeErro(e, "Não foi possível ler a pasta.") });
     } finally {
@@ -212,7 +222,8 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
         Terminado o ciclo, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas são lidas de novo
-        {" "}e comparadas com a planilha; <b className="text-zinc-200">nada é gravado</b>.
+        {" "}e comparadas com a planilha; a comparação <b className="text-zinc-200">não grava nada</b>. Só o botão
+        {" "}<b className="text-zinc-200">Incluir esta nota</b> (nota que está só na planilha) grava a nota no CGR do mês.
       </p>
 
       <div className="mt-4 space-y-4">
@@ -277,12 +288,18 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
                   Traga a pasta do mês aqui, a que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF.
                 </p>
                 <AreaSoltarPasta texto={`Arraste aqui a pasta de ${ativo}`} onSoltar={soltar} desabilitado={lendoPasta}>
-                  {/* Alternativa ao arrastar: escolher um .zip. Com .zip o Chrome não mostra aviso de permissão. */}
-                  <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                    className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                    <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-                  </button>
-                  <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+                  {/* Alternativas ao arrastar: escolher a pasta no seletor do sistema (o Chrome pode
+                      perguntar se quer enviar os arquivos) ou um .zip (o Chrome não pergunta nada). */}
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <BotaoEscolherPasta onEscolher={(l) => lerPasta(async () => pastaDoSeletor(l))} desabilitado={lendoPasta} />
+                    <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
+                      className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                      <FileArchive size={16} aria-hidden /> ou o .zip da pasta
+                    </button>
+                  </div>
+                  <p className="max-w-[60ch] text-xs text-zinc-500">
+                    Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos. Arrastando ou usando o .zip, ele não pergunta.
+                  </p>
                 </AreaSoltarPasta>
                 <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
                   onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
@@ -340,13 +357,13 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria }: {
             )}
             {res.comparacao ? (
               // O quadro "Tudo confere / Há divergências" é o mesmo componente da tela da Auditoria.
-              <ComparacaoPlanilha comparacao={res.comparacao} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
+              <ComparacaoPlanilha comparacao={res.comparacao} aoIncluirNota={aoIncluirNota} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
             ) : (
               // Sem comparação: planilha ilegível ou sem aba do mês. Mostra o motivo que o servidor deu.
               <p className="text-sm text-amber-200">{res.planilhaIlegivel ?? res.avisoComparacao ?? "A planilha não pôde ser comparada."}</p>
             )}
             <p className="text-xs text-zinc-500">
-              Esta comparação não grava nada. Se houver divergência com a planilha, o ciclo gravado continua com ela até ser corrigido:
+              Esta comparação não grava nada (só o botão “Incluir esta nota” grava). Se houver divergência com a planilha, o ciclo gravado continua com ela até ser corrigido:
               cabe ao analista analisar os dados antes de gravar.
             </p>
             <div className="flex flex-wrap gap-2">

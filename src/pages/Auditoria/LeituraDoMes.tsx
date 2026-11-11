@@ -326,7 +326,8 @@ export function LeituraDoMes() {
             </section>
 
             {resultado && (resultado.comparacao ? (
-              <ComparacaoPlanilha comparacao={resultado.comparacao} className={`${PANEL} p-5 sm:p-6`} />
+              <ComparacaoPlanilha comparacao={resultado.comparacao} className={`${PANEL} p-5 sm:p-6`}
+                aoIncluirNota={() => { getHistoricoAuditoria().then(setHistorico).catch(() => {}); }} />
             ) : (
               <p className="text-sm text-zinc-500">{resultado.aviso_comparacao}</p>
             ))}

@@ -11,6 +11,7 @@ import {
 } from "../../api";
 import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
+import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { Alert } from "../../components/ui/Alert";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -96,7 +97,8 @@ const chaveDe = (c: Celula) => `${c.etapa}|${c.periodo}`;
 const rotuloDe = (c: Celula) => `${NOMES_ETAPA[c.etapa].split(" (")[0]} · ${c.periodo}`;
 
 const ORDEM: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
-const ROTA: Record<Etapa, string> = { auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
+const NOME_CURTO: Record<Etapa, string> = { auditoria: "Auditoria", cgf: "CGF", ret: "RET", conciliacao: "RP" };
+const ROTA: Record<Etapa, string> ={ auditoria: "/auditoria", cgf: "/cgf", ret: "/ret", conciliacao: "/conciliacao" };
 
 const ICONE: Partial<Record<Estado, ReactNode>> = {
   processando: <Loader2 size={15} className="animate-spin text-sky-300" aria-label="Processando" />,
@@ -269,6 +271,8 @@ export function ProcessarTrimestre({
     setGravadasComDivergencia(divergentes.map(chaveDe));
     parar.current = false;
     setFase("gravando");
+    const gravadasAgora: Celula[] = []; // para o aviso de "deu certo" dizer só o que gravou mesmo
+    let falhas = 0;
     for (const c of celulas.filter((x) => x.escolhida && x.estado === "processada")) {
       if (parar.current) break;
       atualizar(c, { estado: "gravando" });
@@ -290,12 +294,23 @@ export function ProcessarTrimestre({
           const s = await salvarConcilia(c.periodo, c.concilia.itens);
           atualizar(c, { estado: "gravada", valor: s.rp });
         }
+        gravadasAgora.push(c);
       } catch (e) {
+        falhas += 1;
         atualizar(c, { estado: "erro", motivo: mensagemDeErro(e, `Não foi possível gravar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`) });
       }
     }
     setFase("fim");
     onGravado();
+    if (gravadasAgora.length) {
+      const etapas = ORDEM.filter((e) => gravadasAgora.some((c) => c.etapa === e)).map((e) => NOME_CURTO[e]);
+      const lista = etapas.length > 1 ? `${etapas.slice(0, -1).join(", ")} e ${etapas[etapas.length - 1]}` : etapas[0];
+      avisarSucesso(
+        falhas ? `Ciclo de ${faixaDosMeses(meses)} gravado em parte` : `Ciclo de ${faixaDosMeses(meses)} processado`,
+        `Gravados: ${lista} (${gravadasAgora.length} etapa(s)-mês). O PR e o PV que dependem deles são atualizados pelo servidor.`
+          + (falhas ? ` ${falhas} etapa(s)-mês não gravaram: veja na tabela.` : ""),
+      );
+    }
   }
 
   const aProcessar = celulas.filter((c) => c.escolhida && c.estado === "pronta").length;

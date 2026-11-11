@@ -1,11 +1,13 @@
 /** "Prova real" do CGR de um mês: a conta aberta com os números gravados, por empresa,
  * e o selo "confere" quando a soma das notas bate com o CGR gravado. Só lê: nada aqui
  * calcula o CGR, quem refaz a soma é o backend. A busca fica na página (useProvaReal). */
-import type { Ref } from "react";
+import { useState, type Ref } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@heroui/react";
 import { ArrowUpRight, ClipboardCheck } from "lucide-react";
 import { removerNotaAuditoria } from "../../api";
+import { mensagemDeErro } from "../../api/client";
+import type { NotaDigitadaAuditoria } from "../../types";
 import { AvisoPossivelDuplicata } from "../../components/ui/AvisoPossivelDuplicata";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
@@ -50,6 +52,9 @@ export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }:
         {d && !erro && (
           <AvisoPossivelDuplicata grupos={d.possiveis_duplicatas_valor} periodo={periodo} totalDoMes="CGR" className="mt-4"
             aoTirar={removerNotaAuditoria} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
+        )}
+        {d && !erro && periodo && (
+          <NotasDigitadas notas={d.notas_digitadas} periodo={periodo} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
         )}
 
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês auditado ainda. Audite um mês no Painel do Ciclo.</p>}
@@ -161,6 +166,74 @@ export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }:
         </Card.Footer>
       )}
     </Card>
+  );
+}
+
+const BOTAO = "rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
+
+/** Notas incluídas à mão a partir da planilha ("Incluir esta nota"), com o motivo e o botão
+ * "Tirar do cálculo" (confirmação em duas etapas, como no aviso de possível duplicata). */
+function NotasDigitadas({ notas, periodo, aoConcluir }: {
+  notas: NotaDigitadaAuditoria[] | undefined; periodo: string; aoConcluir: () => void;
+}) {
+  const [confirmando, setConfirmando] = useState<number | null>(null);
+  const [tirando, setTirando] = useState<number | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  if (!notas?.length) return null;
+
+  const tirar = async (id: number) => {
+    setTirando(id);
+    setErro(null);
+    try {
+      await removerNotaAuditoria(periodo, id);
+      setConfirmando(null);
+      aoConcluir();
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível tirar a nota do cálculo. Tente de novo."));
+    } finally {
+      setTirando(null);
+    }
+  };
+
+  return (
+    <section aria-label="Notas digitadas" className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-200">
+      <h3 className="font-semibold">Notas digitadas ({notas.length})</h3>
+      <p className="mt-0.5 text-xs">Incluídas com o valor da planilha porque não vieram nos arquivos.</p>
+      <ul className="mt-2 space-y-2">
+        {notas.map((n) => (
+          <li key={n.id} className="flex flex-col gap-1.5">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[0.7rem] font-semibold">digitada</span>
+              <span className="text-zinc-100">{n.empresa} {n.numero}</span>
+              <b className="tabular-nums">{contabil(n.cgr_liquido)}</b>
+              {confirmando !== n.id && (
+                <button type="button" onClick={() => { setConfirmando(n.id); setErro(null); }}
+                  className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                  Tirar do cálculo
+                </button>
+              )}
+            </span>
+            <span className="text-xs text-zinc-400">Motivo: {n.motivo || "—"}</span>
+            {confirmando === n.id && (
+              <span className="rounded-md border border-amber-300/30 bg-black/20 px-3 py-2 text-xs">
+                Tirar esta nota do CGR de <b>{periodo}</b>? O CGR gravado do mês, o RPV, o SCG e o PR são recalculados.
+                <span className="mt-2 flex gap-2">
+                  <button type="button" disabled={tirando === n.id} onClick={() => void tirar(n.id)}
+                    className={`${BOTAO} border-amber-300 bg-amber-300 text-black hover:bg-amber-200`}>
+                    {tirando === n.id ? "Tirando…" : "Sim, tirar"}
+                  </button>
+                  <button type="button" disabled={tirando === n.id} onClick={() => setConfirmando(null)}
+                    className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                    Cancelar
+                  </button>
+                </span>
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+      {erro && <p role="alert" className="mt-2 text-xs text-red-300">{erro}</p>}
+    </section>
   );
 }
 

@@ -290,7 +290,32 @@ export interface ProvaRealAuditoria {
   diferenca: number | null;
   confere: boolean;
   possiveis_duplicatas_valor?: PossivelDuplicataValor[];
+  notas_digitadas?: NotaDigitadaAuditoria[];   // back antigo não manda
   data_atualizacao: string;
+}
+
+/** Nota incluída à mão a partir da planilha ("Incluir esta nota"), gravada no mês com o motivo. */
+export interface NotaDigitadaAuditoria {
+  id: number;
+  empresa: string;
+  tipo: string;
+  numero: string;
+  cgr_liquido: number;
+  motivo: string;
+}
+
+/** Nota que está na planilha e não veio nos arquivos (item de `notas_apenas_planilha`).
+ * Só o modelo "por_nota" traz `cgr_planilha`; nos outros, a nota não pode ser incluída. */
+export interface NotaSoNaPlanilha {
+  empresa?: string;
+  supridor?: string;
+  numero?: string;
+  numero_normalizado?: string;
+  linha_excel?: number;
+  periodo_linha?: string;
+  cgr_planilha?: number;
+  valor_planilha?: number;
+  dados_linha?: Record<string, unknown>;
 }
 
 /** PV gravado de um trimestre fiscal: uma linha do histórico da tela PV (GET /pv/historico). */

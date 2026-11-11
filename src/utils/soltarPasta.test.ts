@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, tipoDaSoltura,
+  arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, pastaDoSeletor, tipoDaSoltura,
   type Entrada, type EntradaArquivo, type EntradaPasta,
 } from "./soltarPasta";
 import { abrirArquivo } from "./pasta";
@@ -50,6 +50,35 @@ describe("lerPastaSolta", () => {
 
   it("pasta vazia", async () => {
     expect((await lerPastaSolta(pasta("Vazia", []))).arquivos.size).toBe(0);
+  });
+});
+
+describe("pastaDoSeletor", () => {
+  // File do seletor de pasta: o navegador preenche webkitRelativePath com a raiz na frente.
+  const doSeletor = (caminho: string) => {
+    const f = new File(["x"], caminho.split("/").pop()!);
+    Object.defineProperty(f, "webkitRelativePath", { value: caminho });
+    return f;
+  };
+
+  it("tira a raiz do caminho e ordena como a pasta solta", async () => {
+    const lida = pastaDoSeletor([
+      doSeletor("SCG-26/leia.txt"),
+      doSeletor("SCG-26/07 jul-26/Petrobras/n2.xml"),
+      doSeletor("SCG-26/07 jul-26/Petrobras/n1.xml"),
+    ]);
+    expect(lida.raiz).toBe("SCG-26");
+    expect([...lida.arquivos.keys()]).toEqual(["07 jul-26/Petrobras/n1.xml", "07 jul-26/Petrobras/n2.xml", "leia.txt"]);
+    expect((await abrirArquivo(lida.arquivos.get("leia.txt")!)).name).toBe("leia.txt");
+  });
+
+  it("serve para a lista de envio (só XML e PDF)", async () => {
+    const lida = pastaDoSeletor([doSeletor("Jul/TAG/A.XML"), doSeletor("Jul/TAG/b.pdf"), doSeletor("Jul/TAG/c.zip")]);
+    expect((await arquivosParaEnvio(lida, ["xml", "pdf"])).map((e) => e.caminho)).toEqual(["TAG/A.XML", "TAG/b.pdf"]);
+  });
+
+  it("lista vazia", () => {
+    expect(pastaDoSeletor([])).toEqual({ raiz: "", arquivos: new Map() });
   });
 });
 

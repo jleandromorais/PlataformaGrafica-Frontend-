@@ -9,6 +9,7 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
+import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
@@ -396,6 +397,7 @@ export default function PMPVPage() {
         ...(margemUsada !== null ? { margem_regulatoria: margemUsada } : {}),
       });
       setResultado(r);
+      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} calculado`, "Confira o resultado e salve a sessão para gravar.");
       if (r.avisos.length) setAviso(`Campos vazios considerados como 0:\n${r.avisos.map((a) => a.trim()).join("\n")}`);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível calcular o PMPV."));
@@ -432,6 +434,7 @@ export default function PMPVPage() {
       setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
       const pendente = pv.filter((t) => !t.ok).map((t) => t.texto).join("\n");
       if (pendente) setAviso(pendente);
+      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} salvo`, `Sessão nº ${sessao_id} gravada.${pvOk}`);
       setEscolhida(sessao_id); // a prova real abre na sessão que acabou de ser salva
       carregarHistorico();
     } catch (e) {

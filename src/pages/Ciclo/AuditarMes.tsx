@@ -1,22 +1,25 @@
 /** "Auditar <mês>" no cartão da Auditoria CGR do Painel do Ciclo: o analista arrasta a
- * pasta das notas de UM mês (ou escolhe o .zip dela), confere o resultado ali mesmo e só
- * grava se confirmar. Mesmo envio da tela da Auditoria (modo XML, todas as empresas, sem
- * planilha). Sem seletor de pasta: ele faz o Chrome mostrar aviso de permissão/upload. */
+ * pasta das notas de UM mês (ou escolhe a pasta ou o .zip dela), confere o resultado ali
+ * mesmo e só grava se confirmar. Mesmo envio da tela da Auditoria (modo XML, todas as
+ * empresas, sem planilha). O seletor de pasta pode fazer o Chrome perguntar se quer enviar
+ * os arquivos; arrastar ou .zip não perguntam. */
 import { useEffect, useRef, useState } from "react";
 import { FileArchive, Loader2, Play, Save, X } from "lucide-react";
 import { salvarAuditoria, type ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { Alert } from "../../components/ui/Alert";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
+import { avisarSucesso } from "../../components/ui/avisos";
 import { Button } from "../../components/ui/Button";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import { ListaProblemas } from "../../components/ui/ListaProblemas";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { Valor } from "../../components/ui/Valor";
 import { brl, num } from "../../utils/format";
-import { carregarNaMemoria } from "../../utils/pasta";
+import { BotaoEscolherPasta } from "../../components/ui/BotaoEscolherPasta";
+import { carregarNaMemoria, type PastaLida } from "../../utils/pasta";
 import { empresasDosCaminhos } from "../../utils/pastaCiclo";
-import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
+import { arquivosParaEnvio, avisoDaSoltura, lerPastaSolta, pastaDoSeletor, type Soltura } from "../../utils/soltarPasta";
 import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes";
@@ -115,11 +118,17 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
       setAviso(avisoDaSoltura(s.tipo === "pasta" || s.tipo === "zip" ? "nada" : s.tipo, nome));
       return;
     }
+    const p = s.pasta;
+    return lerPasta(() => lerPastaSolta(p));
+  };
+
+  /** Pasta solta ou escolhida no seletor: fica só com XML e PDF e confere as empresas. */
+  const lerPasta = async (ler: () => Promise<PastaLida>) => {
     setLendoPasta(true);
     try {
-      const pasta = await lerPastaSolta(s.pasta);
+      const pasta = await ler();
       const arquivos = await arquivosParaEnvio(pasta, ["xml", "pdf"]);
-      usar({ raiz: pasta.raiz, arquivos, empresas: empresasDosCaminhos(arquivos.map((a) => a.caminho)) });
+      usar({ raiz: pasta.raiz || "escolhida", arquivos, empresas: empresasDosCaminhos(arquivos.map((a) => a.caminho)) });
     } catch (e) {
       setAviso({ titulo: "Não foi possível ler a pasta",
         texto: e instanceof Error ? e.message : mensagemDeErro(e, "Não foi possível ler a pasta.") });
@@ -168,6 +177,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
       setRes(null);
       setEnvio(null);
       setFase("gravado");
+      avisarSucesso(`Auditoria de ${ativo} gravada`, `CGR = ${brl(s.cgr_liquido)} (${num(s.qtd_itens)} nota(s)).`);
       onGravado();
     } catch (e) {
       setErro(mensagemDeErro(e, `Não foi possível gravar ${ativo}`));
@@ -225,11 +235,16 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
                 <p className="max-w-[60ch] text-xs text-zinc-500">
                   A pasta do mês, que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF. Não traga a pasta de uma só empresa.
                 </p>
-                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
-                  <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-                </button>
-                <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <BotaoEscolherPasta onEscolher={(lista) => lerPasta(async () => pastaDoSeletor(lista))} desabilitado={lendoPasta} />
+                  <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
+                    className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                    <FileArchive size={16} aria-hidden /> ou o .zip da pasta
+                  </button>
+                </div>
+                <p className="max-w-[60ch] text-xs text-zinc-500">
+                  Ao escolher a pasta, o Chrome pode perguntar se quer enviar os arquivos. Arrastando ou usando o .zip, ele não pergunta.
+                </p>
               </AreaSoltarPasta>
               {lendoPasta && (
                 <p className="flex items-center gap-2 text-xs text-zinc-400" aria-live="polite">
