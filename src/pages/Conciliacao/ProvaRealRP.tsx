@@ -158,12 +158,17 @@ export function ProvaRealRP({ periodo, estado, cardRef, aoMudar, className = "" 
                   </thead>
                   <tbody className="divide-y divide-white/[0.05]">
                     {itens.map((i, idx) => (
-                      <tr key={`${i.arquivo}-${idx}`} className={i.repetida || itemNaoLido(i) ? "bg-amber-400/[0.08]" : ""}>
+                      <tr key={`${i.arquivo}-${idx}`} className={i.repetida || i.possivel_duplicata || itemNaoLido(i) ? "bg-amber-400/[0.08]" : ""}>
                         <th scope="row" className="max-w-[16rem] px-3 py-2 text-left font-medium text-zinc-100" title={i.arquivo}>
                           <span className="block truncate">{i.nome}</span>
                           {i.repetida && (
                             <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-amber-200">
                               <AlertTriangle size={10} aria-hidden /> repetida
+                            </span>
+                          )}
+                          {i.possivel_duplicata && !i.repetida && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 rounded-full border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[0.65rem] font-semibold text-amber-200">
+                              <AlertTriangle size={10} aria-hidden /> possível duplicata
                             </span>
                           )}
                           {itemNaoLido(i) && (

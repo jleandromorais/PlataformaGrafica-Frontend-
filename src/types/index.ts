@@ -769,6 +769,7 @@ export interface ProvaRealItemRP {
   liquido: number;
   status: string;
   repetida: boolean;                             // o mesmo número aparece mais de uma vez no mês
+  possivel_duplicata?: boolean;                  // está num grupo de notas com o mesmo valor
 }
 
 /** Uma nota que aparece mais de uma vez no mês (provável versão original + atualizada). */

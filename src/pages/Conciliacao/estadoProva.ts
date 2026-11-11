@@ -25,7 +25,8 @@ export type FiltroItens = "todas" | "repetidas" | "receitas" | "despesas";
 /** Notas que entram na lista para cada filtro (a ordem do backend, do maior valor ao menor, é mantida). */
 export function filtrarItens(itens: ProvaRealItemRP[], filtro: FiltroItens): ProvaRealItemRP[] {
   switch (filtro) {
-    case "repetidas": return itens.filter((i) => i.repetida);
+    // Repetida pelo número da nota ou possível duplicata (mesmo valor): as duas merecem uma olhada.
+    case "repetidas": return itens.filter((i) => i.repetida || i.possivel_duplicata);
     case "receitas": return itens.filter((i) => i.lado === "receita");
     case "despesas": return itens.filter((i) => i.lado === "despesa");
     default: return itens;

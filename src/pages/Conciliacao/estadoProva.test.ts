@@ -45,6 +45,11 @@ describe("filtrarItens", () => {
   it("todas mantém tudo, na ordem", () => {
     expect(filtrarItens(itens, "todas").map((i) => i.numero)).toEqual(["1", "2", "3"]);
   });
+  it("só repetidas inclui a possível duplicata (mesmo valor)", () => {
+    const lista = [item({ numero: "1" }), item({ numero: "2", possivel_duplicata: true }), item({ numero: "3", repetida: true })];
+    expect(filtrarItens(lista, "repetidas").map((i) => i.numero)).toEqual(["2", "3"]);
+  });
+
   it("só repetidas", () => {
     expect(filtrarItens(itens, "repetidas").map((i) => i.numero)).toEqual(["2"]);
   });
