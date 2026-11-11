@@ -801,181 +801,181 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
+        </div>
 
-          {/* ── Gráficos secundários ─────────────────────────────────── */}
+        {/* ── Gráficos secundários ─────────────────────────────────── */}
 
-          <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
-            {/* PMPV mensal */}
+        <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
+          {/* PMPV mensal */}
 
-            <div className={`${PANEL} p-5 sm:p-7`}>
-              <SectionHeading
-                title="PMPV mensal"
-                subtitle="Preço médio ponderado por volume (R$/m³)"
-              />
+          <div className={`${PANEL} p-5 sm:p-7`}>
+            <SectionHeading
+              title="PMPV mensal"
+              subtitle="Preço médio ponderado por volume (R$/m³)"
+            />
 
-              <div className="mt-6 h-64">
-                <GraficoOuEsqueleto
-                  carregando={loading && !historicoCompleto.length}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={seriePmpv}
-                      margin={{
-                        top: 8,
-                        right: 8,
-                        left: 8,
-                        bottom: 0,
+            <div className="mt-6 h-64">
+              <GraficoOuEsqueleto
+                carregando={loading && !historicoCompleto.length}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart
+                    data={seriePmpv}
+                    margin={{
+                      top: 8,
+                      right: 8,
+                      left: 8,
+                      bottom: 0,
+                    }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={GRID_STROKE}
+                      vertical={false}
+                    />
+
+                    <XAxis
+                      dataKey="periodo"
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+
+                    <YAxis
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(v) =>
+                        v.toFixed(2).replace(".", ",")
+                      }
+                      width={48}
+                      domain={["dataMin - 0.1", "dataMax + 0.1"]}
+                    />
+
+                    <Tooltip
+                      content={<TooltipBRL casas={4} />}
+                      cursor={{
+                        stroke: "var(--chart-cursor)",
                       }}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke={GRID_STROKE}
-                        vertical={false}
-                      />
+                    />
 
-                      <XAxis
-                        dataKey="periodo"
-                        tick={AXIS_TICK}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-
-                      <YAxis
-                        tick={AXIS_TICK}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={(v) =>
-                          v.toFixed(2).replace(".", ",")
-                        }
-                        width={48}
-                        domain={["dataMin - 0.1", "dataMax + 0.1"]}
-                      />
-
-                      <Tooltip
-                        content={<TooltipBRL casas={4} />}
-                        cursor={{
-                          stroke: "var(--chart-cursor)",
-                        }}
-                      />
-
-                      <Line
-                        type="monotone"
-                        dataKey="valor"
-                        name={GLOSSARIO.PMPV.nome}
-                        stroke={COR_PMPV}
-                        strokeWidth={2.5}
-                        dot={{
-                          r: 3,
-                          fill: COR_PMPV,
-                          strokeWidth: 0,
-                        }}
-                        activeDot={{ r: 5 }}
-                      />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </GraficoOuEsqueleto>
-              </div>
-            </div>
-
-            {/* CGR vs CGF */}
-
-            <div className={`${PANEL} p-5 sm:p-7`}>
-              <SectionHeading
-                title="CGR vs CGF por período"
-                subtitle="Comparativo mensal"
-                right={
-                  <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: COR_CGR }}
-                      />
-                      CGR
-                    </span>
-
-                    <span className="flex items-center gap-1.5">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: COR_CGF }}
-                      />
-                      CGF
-                    </span>
-                  </div>
-                }
-              />
-
-              <div className="mt-6 h-64">
-                <GraficoOuEsqueleto
-                  carregando={loading && !historicoCompleto.length}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={historicoCompleto}
-                      margin={{
-                        top: 8,
-                        right: 8,
-                        left: 8,
-                        bottom: 0,
+                    <Line
+                      type="monotone"
+                      dataKey="valor"
+                      name={GLOSSARIO.PMPV.nome}
+                      stroke={COR_PMPV}
+                      strokeWidth={2.5}
+                      dot={{
+                        r: 3,
+                        fill: COR_PMPV,
+                        strokeWidth: 0,
                       }}
-                      barGap={4}
-                    >
-                      <CartesianGrid
-                        strokeDasharray="3 3"
-                        stroke={GRID_STROKE}
-                        vertical={false}
-                      />
-
-                      <XAxis
-                        dataKey="periodo"
-                        tick={AXIS_TICK}
-                        tickLine={false}
-                        axisLine={false}
-                      />
-
-                      <YAxis
-                        tick={AXIS_TICK}
-                        tickLine={false}
-                        axisLine={false}
-                        tickFormatter={brlCompact}
-                        width={88}
-                      />
-
-                      <Tooltip
-                        content={<TooltipBRL />}
-                        cursor={{
-                          fill: "var(--chart-cursor-area)",
-                        }}
-                      />
-
-                      <Bar
-                        dataKey="cgr"
-                        name={GLOSSARIO.CGR.nome}
-                        fill={COR_CGR}
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={28}
-                      />
-
-                      <Bar
-                        dataKey="cgf"
-                        name={GLOSSARIO.CGF.nome}
-                        fill={COR_CGF}
-                        radius={[3, 3, 0, 0]}
-                        maxBarSize={28}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </GraficoOuEsqueleto>
-              </div>
+                      activeDot={{ r: 5 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </GraficoOuEsqueleto>
             </div>
           </div>
 
-          {/* ── Empresas, encargos RET e volumes ─────────────────────── */}
+          {/* CGR vs CGF */}
 
-          <PaineisExtras
-            ano={ano === TODOS_OS_ANOS ? undefined : ano}
-            trimestresCivis={trimestresCivis}
-          />
+          <div className={`${PANEL} p-5 sm:p-7`}>
+            <SectionHeading
+              title="CGR vs CGF por período"
+              subtitle="Comparativo mensal"
+              right={
+                <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: COR_CGR }}
+                    />
+                    CGR
+                  </span>
+
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: COR_CGF }}
+                    />
+                    CGF
+                  </span>
+                </div>
+              }
+            />
+
+            <div className="mt-6 h-64">
+              <GraficoOuEsqueleto
+                carregando={loading && !historicoCompleto.length}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={historicoCompleto}
+                    margin={{
+                      top: 8,
+                      right: 8,
+                      left: 8,
+                      bottom: 0,
+                    }}
+                    barGap={4}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke={GRID_STROKE}
+                      vertical={false}
+                    />
+
+                    <XAxis
+                      dataKey="periodo"
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+
+                    <YAxis
+                      tick={AXIS_TICK}
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={brlCompact}
+                      width={88}
+                    />
+
+                    <Tooltip
+                      content={<TooltipBRL />}
+                      cursor={{
+                        fill: "var(--chart-cursor-area)",
+                      }}
+                    />
+
+                    <Bar
+                      dataKey="cgr"
+                      name={GLOSSARIO.CGR.nome}
+                      fill={COR_CGR}
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={28}
+                    />
+
+                    <Bar
+                      dataKey="cgf"
+                      name={GLOSSARIO.CGF.nome}
+                      fill={COR_CGF}
+                      radius={[3, 3, 0, 0]}
+                      maxBarSize={28}
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </GraficoOuEsqueleto>
+            </div>
+          </div>
         </div>
+
+        {/* ── Empresas, encargos RET e volumes ─────────────────────── */}
+
+        <PaineisExtras
+          ano={ano === TODOS_OS_ANOS ? undefined : ano}
+          trimestresCivis={trimestresCivis}
+        />
       </div>
     </div>
   );
