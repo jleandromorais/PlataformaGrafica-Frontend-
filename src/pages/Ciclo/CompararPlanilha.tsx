@@ -1,4 +1,4 @@
-/** Fim do Painel do Ciclo: "Comparar com a planilha" (opcional), igual à tela da Auditoria do
+/** Painel do Ciclo, logo depois da pasta e antes do SR: "Comparar com a planilha" (opcional), igual à tela da Auditoria do
  * CGR. O analista escolhe a planilha da Conta Gráfica (.xlsx) e o mês do trimestre; o sistema
  * audita as notas desse mês e mostra a comparação (CGR, empresas, notas que faltam ou diferem).
  * As notas vêm SEMPRE da pasta do ciclo trazida lá em cima, em "Importar da pasta do ciclo";
@@ -168,7 +168,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
         <FileSpreadsheet size={16} /> Comparar com a planilha <span className="text-xs font-normal text-zinc-500">(opcional)</span>
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-        Terminado o ciclo, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas do mês
+        Antes de seguir para o SR, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas do mês
         {" "}vêm da pasta do ciclo trazida lá em cima, são lidas de novo e comparadas com a planilha; a comparação
         {" "}<b className="text-zinc-200">não grava nada</b>. Só o botão
         {" "}<b className="text-zinc-200">Incluir esta nota</b> (nota que está só na planilha) grava a nota no CGR do mês.

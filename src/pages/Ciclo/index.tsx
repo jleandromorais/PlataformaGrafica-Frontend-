@@ -476,15 +476,15 @@ export default function CicloPage() {
           )}
         </section>
 
-        {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
+        {/* Auditoria antes do SR (ordem do ciclo): comparar o CGR de um mês contra a planilha (opcional, não grava) */}
         {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
-        <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
-
-        {/* Comparar o CGR de um mês contra a planilha (opcional, não grava), acima das etapas */}
         {!carregando && dados && (
           <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
             aoIncluirNota={() => setVersao((v) => v + 1)} />
         )}
+
+        {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
+        <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
 
         {/* Etapas */}
         <section className={`${PANEL} overflow-hidden`}>
