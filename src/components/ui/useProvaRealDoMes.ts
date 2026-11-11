@@ -14,6 +14,8 @@ export interface EstadoProva<T> {
   carregando: boolean;
   /** Trocou de mês e os dados na tela ainda são do mês anterior (a tela esmaece). */
   atualizando: boolean;
+  /** Busca de novo o mesmo mês (depois de tirar uma nota do cálculo, por exemplo). */
+  recarregar?: () => void;
 }
 
 /** `buscar` precisa ser uma função estável (as de src/api são): ela entra nas dependências do efeito.
@@ -22,6 +24,8 @@ export interface EstadoProva<T> {
 export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: string) => Promise<T>, rotulo?: string): EstadoProva<T> {
   // A última resposta, marcada com o período a que pertence (dados ou erro).
   const [resposta, setResposta] = useState<{ periodo: string; dados?: T; erro?: string } | null>(null);
+  // Sobe a cada pedido de "recarregar": entra nas dependências do efeito e refaz a busca do mesmo mês.
+  const [versao, setVersao] = useState(0);
 
   useEffect(() => {
     if (!periodo) return;
@@ -30,7 +34,7 @@ export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: s
       .then((dados) => { if (vigente) setResposta({ periodo, dados }); })
       .catch((e) => { if (vigente) setResposta({ periodo, erro: mensagemDeErro(e, `Não foi possível montar a prova real de ${rotulo ?? periodo}.`) }); });
     return () => { vigente = false; };
-  }, [periodo, buscar, rotulo]);
+  }, [periodo, buscar, rotulo, versao]);
 
   const daVez = !!periodo && resposta?.periodo === periodo;
   const esperando = !!periodo && !daVez;
@@ -40,5 +44,6 @@ export function useProvaRealDoMes<T>(periodo: string | null, buscar: (periodo: s
     erro: daVez ? resposta?.erro ?? null : null,
     carregando: esperando && !dados,
     atualizando: esperando && !!dados,
+    recarregar: () => setVersao((v) => v + 1),
   };
 }

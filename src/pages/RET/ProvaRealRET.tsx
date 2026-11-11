@@ -5,6 +5,8 @@ import type { Ref } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@heroui/react";
 import { ArrowUpRight, ClipboardCheck } from "lucide-react";
+import { removerDocumentoRET } from "../../api";
+import { AvisoPossivelDuplicata } from "../../components/ui/AvisoPossivelDuplicata";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
@@ -20,9 +22,11 @@ const COR_TIPO: Record<string, string> = {
   EC: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
 };
 
-export function ProvaRealRET({ periodo, estado, cardRef, className = "" }: {
+export function ProvaRealRET({ periodo, estado, cardRef, aoMudar, className = "" }: {
   periodo: string | null;
   estado: EstadoProva<ProvaRealRET>;
+  /** A página recarrega o histórico depois que um documento é tirado do cálculo (o RET gravado muda). */
+  aoMudar?: () => void;
   /** Para a página rolar até o card ao escolher um mês na tabela (telas estreitas). */
   cardRef?: Ref<HTMLElement>;
   className?: string;
@@ -55,6 +59,11 @@ export function ProvaRealRET({ periodo, estado, cardRef, className = "" }: {
 
       {/* Ao trocar de mês, o conteúdo do mês anterior fica esmaecido até chegar o novo (não pisca). */}
       <Card.Content className={`gap-0 transition-opacity ${atualizando ? "opacity-50" : ""}`}>
+        {d && !erro && (
+          <AvisoPossivelDuplicata grupos={d.possiveis_duplicatas_valor} periodo={periodo} totalDoMes="RET" className="mt-4"
+            aoTirar={removerDocumentoRET} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
+        )}
+
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês gravado ainda. Processe o RET de um mês no Painel do Ciclo.</p>}
         {periodo && erro && <p role="alert" className="mt-4 text-sm text-red-300">{erro}</p>}
         {carregando && <EsqueletoBlocos blocos={["h-44", "h-24"]} texto="Montando a prova real…" />}

@@ -5,6 +5,8 @@ import type { Ref } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@heroui/react";
 import { ArrowUpRight, ClipboardCheck } from "lucide-react";
+import { removerNotaAuditoria } from "../../api";
+import { AvisoPossivelDuplicata } from "../../components/ui/AvisoPossivelDuplicata";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -12,9 +14,11 @@ import { brl, dataHora, num } from "../../utils/format";
 import { contabil, participacao, textoParticipacao } from "./formatoProva";
 import type { EstadoProvaReal } from "./useProvaReal";
 
-export function ProvaReal({ periodo, estado, cardRef, className = "" }: {
+export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }: {
   periodo: string | null;
   estado: EstadoProvaReal;
+  /** A página recarrega o histórico depois que uma nota é tirada do cálculo (o CGR gravado muda). */
+  aoMudar?: () => void;
   /** Para a página rolar até o card ao escolher um mês na tabela (telas estreitas). */
   cardRef?: Ref<HTMLElement>;
   className?: string;
@@ -43,6 +47,11 @@ export function ProvaReal({ periodo, estado, cardRef, className = "" }: {
 
       {/* Ao trocar de mês, o conteúdo do mês anterior fica esmaecido até chegar o novo (não pisca). */}
       <Card.Content className={`gap-0 transition-opacity ${atualizando ? "opacity-50" : ""}`}>
+        {d && !erro && (
+          <AvisoPossivelDuplicata grupos={d.possiveis_duplicatas_valor} periodo={periodo} totalDoMes="CGR" className="mt-4"
+            aoTirar={removerNotaAuditoria} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
+        )}
+
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês auditado ainda. Audite um mês no Painel do Ciclo.</p>}
         {periodo && erro && <p role="alert" className="mt-4 text-sm text-red-300">{erro}</p>}
         {carregando && <EsqueletoBlocos blocos={["h-5", "h-5", "h-5", "h-5", "h-24"]} texto="Montando a prova real…" />}

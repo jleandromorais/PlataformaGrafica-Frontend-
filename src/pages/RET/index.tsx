@@ -34,6 +34,9 @@ export default function RETPage() {
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [erro, setErro] = useState<string | null>(null);
 
+  // Sobe quando um documento é tirado do cálculo: o histórico (RET gravado por mês) é buscado de novo.
+  const [versaoHistorico, setVersaoHistorico] = useState(0);
+
   useEffect(() => {
     getHistoricoRET()
       .then((h) => {
@@ -43,7 +46,7 @@ export default function RETPage() {
       })
       .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico do RET.")))
       .finally(() => setHistoricoCarregado(true));
-  }, []);
+  }, [versaoHistorico]);
 
   useManterPeriodoNaUrl("periodo", escolhido ?? "");
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === escolhido) });
@@ -97,7 +100,7 @@ export default function RETPage() {
               "O RET gravado do mês alimenta o SCG (SCG = RPV + RET + RP).",
             ]}
           />
-          <ProvaRealRET periodo={escolhido} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8" />
+          <ProvaRealRET periodo={escolhido} estado={prova} cardRef={provaRef} aoMudar={() => setVersaoHistorico((v) => v + 1)} className="xl:col-span-7 2xl:col-span-8" />
         </div>
 
         <section className={`${PANEL} overflow-hidden`}>

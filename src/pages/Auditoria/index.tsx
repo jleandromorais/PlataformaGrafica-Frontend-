@@ -33,6 +33,9 @@ export default function AuditoriaPage() {
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [erro, setErro] = useState<string | null>(null);
 
+  // Sobe quando uma nota é tirada do cálculo: o histórico (CGR gravado por mês) é buscado de novo.
+  const [versaoHistorico, setVersaoHistorico] = useState(0);
+
   useEffect(() => {
     getHistoricoAuditoria()
       .then((h) => {
@@ -42,7 +45,7 @@ export default function AuditoriaPage() {
       })
       .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Auditoria CGR.")))
       .finally(() => setHistoricoCarregado(true));
-  }, []);
+  }, [versaoHistorico]);
 
   useManterPeriodoNaUrl("periodo", escolhido ?? "");
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === escolhido) });
@@ -96,7 +99,7 @@ export default function AuditoriaPage() {
               "O CGR gravado alimenta o RPV do mês (RPV = CGR − CGF).",
             ]}
           />
-          <ProvaReal periodo={escolhido} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8" />
+          <ProvaReal periodo={escolhido} estado={prova} cardRef={provaRef} aoMudar={() => setVersaoHistorico((v) => v + 1)} className="xl:col-span-7 2xl:col-span-8" />
         </div>
 
         <section className={`${PANEL} overflow-hidden`}>

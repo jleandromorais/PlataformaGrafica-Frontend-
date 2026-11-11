@@ -6,6 +6,8 @@ import { useState, type Ref } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@heroui/react";
 import { AlertTriangle, ArrowUpRight, ClipboardCheck } from "lucide-react";
+import { removerNotaRP } from "../../api";
+import { AvisoPossivelDuplicata } from "../../components/ui/AvisoPossivelDuplicata";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
@@ -24,9 +26,11 @@ const COR_TIPO: Record<string, string> = {
   TOP: "border-emerald-500/25 bg-emerald-500/10 text-emerald-300",
 };
 
-export function ProvaRealRP({ periodo, estado, cardRef, className = "" }: {
+export function ProvaRealRP({ periodo, estado, cardRef, aoMudar, className = "" }: {
   periodo: string | null;
   estado: EstadoProva<ProvaRealRP>;
+  /** A página recarrega o histórico depois que uma nota é tirada do cálculo (o RP gravado muda). */
+  aoMudar?: () => void;
   /** Para a página rolar até o card ao escolher um mês na tabela (telas estreitas). */
   cardRef?: Ref<HTMLElement>;
   className?: string;
@@ -81,6 +85,11 @@ export function ProvaRealRP({ periodo, estado, cardRef, className = "" }: {
             </ul>
             <p className="mt-2 text-xs">{ORIENTACAO_REPETIDA}</p>
           </div>
+        )}
+
+        {d && !erro && (
+          <AvisoPossivelDuplicata grupos={d.possiveis_duplicatas_valor} periodo={periodo} totalDoMes="RP" className="mt-4"
+            aoTirar={removerNotaRP} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
         )}
 
         {!periodo && <p className="mt-6 text-sm text-zinc-500">Nenhum mês gravado ainda. Processe o RP de um mês no Painel do Ciclo.</p>}

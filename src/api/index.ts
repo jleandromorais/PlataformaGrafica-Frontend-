@@ -182,6 +182,10 @@ export const getHistoricoAuditoria = () =>
 export const getProvaRealAuditoria = (periodo: string) =>
   api.get<ProvaRealAuditoria>("/auditoria/prova-real", { params: { periodo } }).then((r) => r.data);
 
+/** Tira UMA nota gravada do mês (aviso "Possível duplicata") e regrava o CGR sem ela; RPV, SCG e PR se atualizam junto. */
+export const removerNotaAuditoria = (periodo: string, id: number) =>
+  api.post<NotaRemovida>("/auditoria/remover-nota", { periodo, id }).then((r) => r.data);
+
 // ─── CONCILIAÇÃO (RP) ────────────────────────────────────────────────────────
 /** Lê os PDFs das pastas de receitas e despesas. Não grava nada. */
 export const processarConcilia = (receitas: ArquivoDaPasta[], despesas: ArquivoDaPasta[]) => {
@@ -206,6 +210,13 @@ export const baixarRelatorioConcilia = (periodo: string, itens: ConciliaItem[]) 
 /** A conta do RP gravado do mês, aberta (notas, receitas, despesas e possíveis notas repetidas). Não grava nada. */
 export const getProvaRealRP = (periodo: string) =>
   api.get<ProvaRealRP>("/conciliacao/prova-real", { params: { periodo } }).then((r) => r.data);
+
+/** O que a API devolve ao tirar uma nota do cálculo: o RP/RET/CGR novo do mês e quantas notas ficaram. */
+export interface NotaRemovida { periodo: string; valor_gravado: number; qtd_itens: number }
+
+/** Tira UMA nota gravada do mês (aviso "Possível duplicata") e regrava o RP sem ela; o SCG e o PR se atualizam junto. */
+export const removerNotaRP = (periodo: string, id: number) =>
+  api.post<NotaRemovida>("/conciliacao/remover-nota", { periodo, id }).then((r) => r.data);
 
 export const getHistoricoConcilia = () =>
   api.get<ConciliaHistoricoLinha[]>("/conciliacao/historico").then((r) => r.data);
@@ -233,6 +244,10 @@ export const salvarRET = (documentos: RETDocumento[], periodoPadrao: string) =>
 /** A conta do RET gravado do mês, aberta (EAT × (1 − PIS/COFINS) + EC). Não grava nada. */
 export const getProvaRealRET = (periodo: string) =>
   api.get<ProvaRealRET>("/ret/prova-real", { params: { periodo } }).then((r) => r.data);
+
+/** Tira UM documento gravado do mês (aviso "Possível duplicata") e regrava o RET sem ele; o SCG e o PR se atualizam junto. */
+export const removerDocumentoRET = (periodo: string, id: number) =>
+  api.post<NotaRemovida>("/ret/remover-documento", { periodo, id }).then((r) => r.data);
 
 export const getHistoricoRET = () =>
   api.get<RETHistoricoLinha[]>("/ret/historico").then((r) => r.data);

@@ -35,6 +35,9 @@ export default function ConciliacaoPage() {
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [erro, setErro] = useState<string | null>(null);
 
+  // Sobe quando uma nota é tirada do cálculo: o histórico (RP gravado por mês) é buscado de novo.
+  const [versaoHistorico, setVersaoHistorico] = useState(0);
+
   useEffect(() => {
     getHistoricoConcilia()
       .then((h) => {
@@ -44,7 +47,7 @@ export default function ConciliacaoPage() {
       })
       .catch((e) => setErro(mensagemDeErro(e, "Não foi possível carregar o histórico da Conciliação (RP).")))
       .finally(() => setHistoricoCarregado(true));
-  }, []);
+  }, [versaoHistorico]);
 
   useManterPeriodoNaUrl("periodo", escolhido ?? "");
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.periodo === escolhido) });
@@ -105,7 +108,7 @@ export default function ConciliacaoPage() {
               "O RP gravado do mês alimenta o SCG (SCG = RPV + RET + RP).",
             ]}
           />
-          <ProvaRealRP periodo={escolhido} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8" />
+          <ProvaRealRP periodo={escolhido} estado={prova} cardRef={provaRef} aoMudar={() => setVersaoHistorico((v) => v + 1)} className="xl:col-span-7 2xl:col-span-8" />
         </div>
 
         <section className={`${PANEL} overflow-hidden`}>

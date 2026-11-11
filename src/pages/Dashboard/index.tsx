@@ -676,9 +676,24 @@ export default function DashboardPage() {
               <div className="mt-7 flex flex-col gap-6">
                 {/* Gráfico Donut */}
 
-                <div className="relative h-48 w-full">
+                <div className="relative h-56 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
+                      {/* Trilho de fundo: dá acabamento ao anel */}
+                      <Pie
+                        data={[{ value: 1 }]}
+                        dataKey="value"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={72}
+                        outerRadius={88}
+                        stroke="none"
+                        fill="var(--chart-grade)"
+                        isAnimationActive={false}
+                        legendType="none"
+                        tooltipType="none"
+                      />
+
                       <Pie
                         data={[
                           {
@@ -702,11 +717,16 @@ export default function DashboardPage() {
                         ]}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
+                        innerRadius={72}
+                        outerRadius={88}
+                        paddingAngle={6}
+                        cornerRadius={8}
+                        startAngle={90}
+                        endAngle={-270}
                         dataKey="value"
                         stroke="none"
+                        animationDuration={900}
+                        animationEasing="ease-out"
                       >
                         {(["rpv", "ret", "rp"] as const).map(
                           (chave) => (
@@ -734,12 +754,17 @@ export default function DashboardPage() {
                           name,
                         ]}
                         contentStyle={{
-                          backgroundColor: "#18181b",
-                          borderColor: "#27272a",
-                          color: "#fff",
-                          borderRadius: "8px",
+                          backgroundColor: "var(--chart-superficie)",
+                          border: "1px solid var(--chart-grade)",
+                          borderRadius: "10px",
+                          boxShadow:
+                            "0 8px 24px -8px rgba(0,0,0,0.35)",
+                          fontSize: "12px",
                         }}
-                        itemStyle={{ color: "#fff" }}
+                        itemStyle={{
+                          color: "var(--chart-rotulo-forte)",
+                          fontWeight: 600,
+                        }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -747,12 +772,12 @@ export default function DashboardPage() {
                   {/* Total centralizado */}
 
                   <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                    <span className="text-xs text-zinc-400">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-zinc-400">
                       Total
                     </span>
 
                     <span
-                      className={`text-sm font-bold ${
+                      className={`num mt-0.5 text-base font-bold ${
                         ultimoTrimestre.total < 0
                           ? "text-red-400"
                           : "text-white"
@@ -766,37 +791,49 @@ export default function DashboardPage() {
                 {/* Legenda */}
 
                 <div className="grid grid-cols-3 gap-2 text-center text-sm">
-                  {(["rpv", "ret", "rp"] as const).map(
-                    (chave) => (
+                  {(["rpv", "ret", "rp"] as const).map((chave) => {
+                    const somaAbs =
+                      Math.abs(ultimoTrimestre.rpv) +
+                      Math.abs(ultimoTrimestre.ret) +
+                      Math.abs(ultimoTrimestre.rp);
+                    const pct = somaAbs
+                      ? (Math.abs(ultimoTrimestre[chave]) / somaAbs) * 100
+                      : 0;
+
+                    return (
                       <div
                         key={chave}
-                        className="flex flex-col items-center"
+                        className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.03] px-2 py-3"
                       >
-                        <div className="mb-1 flex items-center gap-1">
-                          <div
-                            className="h-3 w-3 rounded-full"
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
                             style={{
                               backgroundColor: stageColors[chave],
                             }}
                           />
 
-                          <span className="font-medium text-zinc-400">
+                          <span className="text-xs font-semibold tracking-wide text-zinc-400">
                             {chave.toUpperCase()}
                           </span>
                         </div>
 
                         <span
-                          className={
+                          className={`num text-sm font-semibold ${
                             ultimoTrimestre[chave] < 0
                               ? "text-red-400"
                               : "text-emerald-400"
-                          }
+                          }`}
                         >
                           {brl(ultimoTrimestre[chave])}
                         </span>
+
+                        <span className="num mt-0.5 text-[11px] text-zinc-500">
+                          {pct.toFixed(0)}% do total
+                        </span>
                       </div>
-                    )
-                  )}
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -269,6 +269,15 @@ export interface ProvaRealEmpresa {
 }
 
 /** A conta do CGR gravado de um mês, aberta por empresa, com o selo "confere". */
+/** Aviso "Possível duplicata": notas do mesmo grupo com o mesmo valor (prova real de RP, RET e Auditoria). */
+export interface PossivelDuplicataValor {
+  grupo: string;      // "Receita", "EAT · Empresa X", "NF-e · Empresa Y"
+  valor: number;      // o valor que se repete
+  qtd: number;
+  notas: string[];    // nome/número de cada nota
+  ids?: number[];     // id gravado de cada nota (mesma ordem de `notas`): é o que "Tirar do cálculo" envia
+}
+
 export interface ProvaRealAuditoria {
   periodo: string;
   qtd_notas: number;
@@ -280,6 +289,7 @@ export interface ProvaRealAuditoria {
   cgr_gravado: number | null;
   diferenca: number | null;
   confere: boolean;
+  possiveis_duplicatas_valor?: PossivelDuplicataValor[];
   data_atualizacao: string;
 }
 
@@ -743,6 +753,7 @@ export interface ProvaRealRET {
   diferenca: number | null;
   confere: boolean;
   por_empresa: ProvaRealEmpresaRET[];
+  possiveis_duplicatas_valor?: PossivelDuplicataValor[];
   data_atualizacao: string;
 }
 
@@ -785,6 +796,7 @@ export interface ProvaRealRP {
   confere: boolean;
   itens: ProvaRealItemRP[];      // do maior valor ao menor
   possiveis_duplicadas: ProvaRealDuplicadaRP[];
+  possiveis_duplicatas_valor?: PossivelDuplicataValor[];
   data_atualizacao: string;
 }
 
