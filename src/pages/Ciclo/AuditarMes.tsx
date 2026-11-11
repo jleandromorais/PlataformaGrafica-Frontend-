@@ -156,6 +156,8 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
       } else {
         setRes(r);
         setFase("resultado");
+        // Lidas, ainda não gravadas (o aviso de gravar vem depois, em gravar()).
+        avisarSucesso(`Notas de ${ativo} lidas`, `${num(r.r.itens.length)} nota(s), CGR ${brl(r.r.totais.cgr_liquido)}. Confira antes de gravar.`);
       }
     } catch (e) {
       // Falha ao ler o arquivo no disco vem com o arquivo e o próximo passo; a da API, via mensagemDeErro.

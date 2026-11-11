@@ -488,7 +488,10 @@ export default function PMPVPage() {
         setErro([`Nada foi importado para ${trimestre}, ano ${ano}.`, ...r.erros, dica].filter(Boolean).join("\n"));
       }
       else if (r.erros.length) setAviso(`${importados}/3 meses importados de ${trimestre}.\n${r.erros.join("\n")}`);
-      else setSucesso(`Trimestre ${trimestre}: os 3 meses foram carregados da Memória de Cálculo.`);
+      else {
+        setSucesso(`Trimestre ${trimestre}: os 3 meses foram carregados da Memória de Cálculo.`);
+        avisarSucesso("Memória de Cálculo importada", `${faixaDosMeses(periodos)}: os 3 meses foram carregados.`);
+      }
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível importar a planilha."));
     } finally {

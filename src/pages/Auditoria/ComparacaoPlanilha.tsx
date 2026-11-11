@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AuditoriaComparacao, NotaSoNaPlanilha } from "../../types";
 import { incluirNotaAuditoria } from "../../api";
@@ -23,6 +23,9 @@ const textoDaNota = (n: Record<string, unknown>) => {
  *  - generico: só presença das notas.
  * Em qualquer um, "Mostrar diferenças" abre o porquê de cada supridor com diferença.
  * A comparação não grava nada; só o botão "Incluir esta nota" (nota que só está na planilha) grava. */
+/** As listas que um contador pode abrir. */
+type SecaoDaLista = "diferentes" | "pares" | "arquivos" | "planilha";
+
 export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: {
   comparacao: AuditoriaComparacao;
   className: string;
@@ -30,6 +33,20 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
   aoIncluirNota?: () => void;
 }) {
   const [mostrarDif, setMostrarDif] = useState(false);
+  // Clicar num contador (ex.: "Só na planilha") abre a lista dele, rola até ela e a destaca por um instante.
+  const uid = useId();
+  const idSecao = (s: SecaoDaLista) => `${uid}-${s}`;
+  const [destaque, setDestaque] = useState<SecaoDaLista | null>(null);
+  const abrirSecao = (s: SecaoDaLista) => {
+    const el = document.getElementById(idSecao(s));
+    if (!el) return;
+    if (el instanceof HTMLDetailsElement) el.open = true;   // se o analista tinha fechado a lista
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    setDestaque(s);
+    window.setTimeout(() => setDestaque((atual) => (atual === s ? null : atual)), 1800);
+  };
+  const realce = (s: SecaoDaLista) =>
+    `scroll-mt-6 rounded-lg transition-shadow duration-500 ${destaque === s ? "ring-2 ring-amber-300/70 ring-offset-4 ring-offset-transparent" : ""}`;
   const porNota = c.tipo === "por_nota";
   const porSupridor = c.tipo === "por_supridor";
   const comModelo = porNota || porSupridor;
@@ -115,24 +132,37 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       {c.notas_mes_na_planilha && (
         <div className={`mt-4 grid grid-cols-2 gap-3 text-center ${porNota && pareamento.pares.length ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
           {([
-            ["Batem", c.qtd_em_ambas - (c.divergencias_valor?.length ?? 0), "text-emerald-300"],
-            ["Valor diferente", c.divergencias_valor?.length ?? 0, algumCgrDifere ? "text-red-300" : "text-amber-300"],
-            ["Mesma nota dos dois lados", pareamento.pares.length, "text-amber-300"],
-            ["Só nos arquivos", pareamento.restoAuditoria.length, "text-amber-300"],
-            ["Só na planilha", pareamento.restoPlanilha.length, "text-amber-300"],
+            ["Batem", c.qtd_em_ambas - (c.divergencias_valor?.length ?? 0), "text-emerald-300", null],
+            ["Valor diferente", c.divergencias_valor?.length ?? 0, algumCgrDifere ? "text-red-300" : "text-amber-300", "diferentes"],
+            ["Mesma nota dos dois lados", pareamento.pares.length, "text-amber-300", "pares"],
+            ["Só nos arquivos", pareamento.restoAuditoria.length, "text-amber-300", "arquivos"],
+            ["Só na planilha", pareamento.restoPlanilha.length, "text-amber-300", "planilha"],
           ] as const)
             .filter(([r, v]) => (porNota || r !== "Valor diferente") && (v > 0 || r !== "Mesma nota dos dois lados"))
-            .map(([r, v, cor]) => (
-            <div key={r} className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">
-              <p className={`text-2xl font-bold tabular-nums ${v ? cor : "text-zinc-500"}`}>{v}</p>
-              <p className="text-xs text-zinc-400">{r}</p>
-            </div>
-          ))}
+            .map(([r, v, cor, secao]) => {
+              const conteudo = (
+                <>
+                  <p className={`text-2xl font-bold tabular-nums ${v ? cor : "text-zinc-500"}`}>{v}</p>
+                  <p className="text-xs text-zinc-400">{r}</p>
+                </>
+              );
+              // Com notas e com lista própria, o contador vira botão que leva até a lista.
+              return secao && v > 0 ? (
+                <button key={r} type="button" onClick={() => abrirSecao(secao)}
+                  aria-label={`${r}: ${v}. Mostrar quais`}
+                  className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3 transition hover:border-amber-300/40 hover:bg-amber-300/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                  {conteudo}
+                  <span className="mt-0.5 block text-[0.65rem] font-medium text-amber-200/80">ver quais ↓</span>
+                </button>
+              ) : (
+                <div key={r} className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">{conteudo}</div>
+              );
+            })}
         </div>
       )}
 
       {pareamento.pares.length > 0 && (
-        <details open className="mt-4 text-sm">
+        <details open id={idSecao("pares")} className={`mt-4 text-sm ${realce("pares")}`}>
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Parecem a mesma nota (número ou empresa lidos de outro jeito) ({pareamento.pares.length})
           </summary>
@@ -149,7 +179,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {pareamento.restoPlanilha.length > 0 && (
-        <details open className="mt-3 text-sm">
+        <details open id={idSecao("planilha")} className={`mt-3 text-sm ${realce("planilha")}`}>
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Notas que estão na planilha e NÃO vieram nos arquivos ({pareamento.restoPlanilha.length})
           </summary>
@@ -167,7 +197,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {pareamento.restoAuditoria.length > 0 && (
-        <details open className="mt-3 text-sm">
+        <details open id={idSecao("arquivos")} className={`mt-3 text-sm ${realce("arquivos")}`}>
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Notas que vieram nos arquivos e NÃO estão na planilha ({pareamento.restoAuditoria.length})
           </summary>
@@ -178,7 +208,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {c.divergencias_valor?.length > 0 && (
-        <details open className="mt-4 text-sm">
+        <details open id={idSecao("diferentes")} className={`mt-4 text-sm ${realce("diferentes")}`}>
           <summary className={`cursor-pointer font-medium ${algumCgrDifere ? "text-red-300 hover:text-red-200" : "text-amber-300 hover:text-amber-200"}`}>
             Notas com valores diferentes ({c.divergencias_valor.length})
           </summary>

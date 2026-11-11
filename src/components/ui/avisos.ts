@@ -1,4 +1,4 @@
-/** Avisos rápidos no canto da tela (toast da HeroUI), para dizer "deu certo" depois de gravar.
+/** Avisos rápidos no canto da tela (toast da HeroUI), para dizer "deu certo" depois de gravar ou carregar.
  * São um extra: o aviso de dentro da tela continua lá. O <Toast.Provider> fica no App.tsx. */
 import { toast } from "@heroui/react";
 
@@ -7,6 +7,11 @@ const TEMPO = 6000;
 
 export function avisarSucesso(titulo: string, descricao?: string) {
   return toast.success(titulo, { description: descricao, timeout: TEMPO });
+}
+
+/** Deu certo, mas falta algo ou há diferença: amarelo, para o analista olhar a tela. */
+export function avisarAtencao(titulo: string, descricao?: string) {
+  return toast.warning(titulo, { description: descricao, timeout: TEMPO });
 }
 
 export function avisarErro(titulo: string, descricao?: string) {

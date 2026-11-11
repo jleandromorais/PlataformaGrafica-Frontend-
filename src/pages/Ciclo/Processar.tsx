@@ -11,7 +11,7 @@ import {
 } from "../../api";
 import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
-import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
+import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { Alert } from "../../components/ui/Alert";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -254,16 +254,28 @@ export function ProcessarTrimestre({
   async function processar() {
     parar.current = false;
     setFase("processando");
-    for (const c of celulas.filter((x) => x.escolhida && x.estado === "pronta")) {
+    const pedidas = celulas.filter((x) => x.escolhida && x.estado === "pronta");
+    let feitas = 0;
+    let problemas = 0; // erro ou bloqueada: o motivo já aparece na tabela
+    for (const c of pedidas) {
       if (parar.current) break;
       atualizar(c, { estado: "processando", motivo: undefined });
       try {
-        atualizar(c, await processarUma(c));
+        const r = await processarUma(c);
+        atualizar(c, r);
+        if (r.estado === "processada") feitas += 1; else problemas += 1;
       } catch (e) {
+        problemas += 1;
         atualizar(c, { estado: "erro", motivo: mensagemDeErro(e, `Não foi possível processar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`) });
       }
     }
     setFase("revisao");
+    // UM aviso no fim, só se tudo o que foi pedido rodou ("Parar depois desta" não avisa).
+    const terminou = feitas + problemas === pedidas.length;
+    if (!terminou || !feitas) return;
+    const titulo = `Processamento de ${faixaDosMeses(meses)} pronto`;
+    if (problemas) avisarAtencao(titulo, `${feitas} etapa(s)-mês prontas; ${problemas} com problema (veja na tabela). Confira antes de gravar.`);
+    else avisarSucesso(titulo, "Confira antes de gravar.");
   }
 
   async function gravar() {

@@ -19,6 +19,8 @@ import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo } from "../..
 import { arquivosDaCelula, classificar, envioDaAuditoria } from "../../utils/pastaCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { ComparacaoPlanilha } from "../Auditoria/ComparacaoPlanilha"; // o quadro de resultado, o mesmo da tela da Auditoria
+import { TOL, parearMesmoValor, resumoDaComparacao, separarAvisos } from "../Auditoria/comparacaoResumo";
+import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos"; // avisos no canto da tela (toast)
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes"; // a função que fala com o servidor
 
 // Classes de estilo do "cartão" da seção (borda fina e fundo do painel), as mesmas do resto do Painel.
@@ -38,6 +40,21 @@ const mesCurto = (periodo: string) => periodo.split("/")[0];
 // Rola a página até a seção "Importar da pasta do ciclo" (o id fica no index.tsx do Painel).
 const irParaImportar = () =>
   document.getElementById("importar-pasta")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
+// Aviso no canto quando a comparação termina. Usa o mesmo resumo do quadro de resultado
+// (resumoDaComparacao), para o aviso e o quadro nunca discordarem.
+function avisarResultado(mes: string, r: AuditoriaDoMes) {
+  const c = r.comparacao;
+  if (!c) return; // planilha ilegível ou sem aba do mês: o motivo já aparece na tela
+  const { veredito } = separarAvisos(c.avisos);
+  const resumo = resumoDaComparacao(c, parearMesmoValor(c.notas_apenas_auditoria, c.notas_apenas_planilha), veredito);
+  if (resumo.confere) { avisarSucesso(`${mes} confere com a planilha`); return; }
+  // Diferença do CGR: notas menos a 1ª fonte da planilha (a mesma conta da frase do quadro).
+  const ref = (c.fontes_cgr ?? []).find((f) => f.valor !== null)?.valor ?? null;
+  const dif = ref !== null ? (c.cgr_auditoria ?? 0) - ref : 0;
+  avisarAtencao(`${mes} tem diferenças com a planilha`,
+    Math.abs(dif) > TOL ? `Diferença no CGR: ${brl(dif)}.` : "O CGR confere, mas há notas para conferir.");
+}
 
 // O que o Painel entrega a esta seção (as "props"):
 //   meses     -> os 3 meses do trimestre aberto, ex.: ["Jul/2026", "Ago/2026", "Set/2026"]
@@ -132,6 +149,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
       } else {
         setRes(r);
         setFase("resultado");
+        avisarResultado(ativo, r);
       }
     } catch (e) {
       // Falha ao ler o arquivo no disco já vem com frase pronta (Error comum); falha da API passa por mensagemDeErro.
@@ -162,7 +180,11 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
           <p className="mb-2 text-xs font-medium text-zinc-500">1. Planilha da Conta Gráfica</p>
           <input ref={inputPlanilha} type="file" accept=".xlsx,.xls" className="hidden" tabIndex={-1} aria-hidden
             // Trocou a planilha: o resultado antigo não vale mais. e.target.value = "" deixa escolher o mesmo arquivo de novo.
-            onChange={(e) => { setPlanilha(e.target.files?.[0] ?? null); setRes(null); if (fase === "resultado") setFase("escolher"); e.target.value = ""; }} />
+            onChange={(e) => {
+              const f = e.target.files?.[0] ?? null;
+              setPlanilha(f); setRes(null); if (fase === "resultado") setFase("escolher"); e.target.value = "";
+              if (f) avisarSucesso("Planilha carregada", f.name); // aviso no canto: o arquivo entrou
+            }} />
           {planilha ? (
             // Já escolheu: mostra o nome do arquivo e um X para remover.
             <div className="flex max-w-md items-center gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2 text-sm">

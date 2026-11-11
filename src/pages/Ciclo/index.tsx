@@ -6,6 +6,7 @@ import {
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Alert } from "../../components/ui/Alert";
+import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
@@ -74,6 +75,26 @@ async function carregar(meses: string[], mesesPR: string[]): Promise<Dados> {
     vazio<PVTrimestre | null>(getPVTrimestre(label, Number(mesesPR[0].split("/")[1])), null),
   ]);
   return { auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv };
+}
+
+/** Toast ao terminar de ler a pasta (ou o .zip): mesmos números do mapa. Só para pasta trazida
+ * agora; a pasta "lembrada" ao recarregar a página não passa por aqui. */
+function avisarPastaCarregada(raiz: string, nomes: string[], meses: string[]) {
+  const mapa = mapaDoTrimestre(nomes, meses);
+  const lidos = `${num(nomes.length)} arquivo(s) lido(s)`;
+  // Agrupa o que falta por etapa: "Auditoria CGR: Ago, Set".
+  const faltas = (["auditoria", "cgf", "ret", "conciliacao"] as Etapa[]).map((e) => {
+    const m = mapa.celulas.filter((c) => c.etapa === e && c.situacao === "falta").map((c) => c.periodo.split("/")[0]);
+    return m.length ? `${NOMES_ETAPA[e].split(" (")[0]}: ${m.join(", ")}` : null;
+  }).filter(Boolean);
+  const conferir = mapa.celulas.filter((c) => c.situacao === "atencao").length;
+  if (faltas.length) {
+    avisarAtencao(`Pasta ${raiz} carregada, mas faltam arquivos`, `${lidos}. Faltam: ${faltas.join("; ")}.`);
+  } else if (conferir) {
+    avisarAtencao(`Pasta ${raiz} carregada, com pontos para conferir`, `${lidos}; ${conferir} ponto(s) para conferir no mapa.`);
+  } else {
+    avisarSucesso(`Pasta ${raiz} carregada`, `${lidos}; ${faixaDosMeses(meses)}: tudo encontrado.`);
+  }
 }
 
 // ── Etapas do ciclo ───────────────────────────────────────────────────────────
@@ -299,6 +320,7 @@ export default function CicloPage() {
         return;
       }
       await aplicarPasta(pasta, k ?? undefined);
+      avisarPastaCarregada(pasta.raiz || nomePasta, [...pasta.arquivos.keys()], meses);
     } catch (e) {
       setAvisoLeitura({ variante: "erro", titulo: `Não foi possível ler ${oQue}`, acao: "zip",
         texto: e instanceof Error && !("isAxiosError" in e) ? e.message : mensagemDeErro(e, `Não foi possível ler ${oQue}.`) });
