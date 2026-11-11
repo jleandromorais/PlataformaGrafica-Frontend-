@@ -322,6 +322,12 @@ export const gerarMinutaNotaTecnica = (periodo: string) =>
     .post<Blob>("/nota-tecnica/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
     .then((r) => r.data);
 
+/** Relatório do trimestre (.docx) civil que contém `periodo`: resultado dos meses e incongruências. */
+export const gerarRelatorioTrimestral = (periodo: string) =>
+  api
+    .post<Blob>("/relatorio-trimestral/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+    .then((r) => r.data);
+
 // ─── PR ──────────────────────────────────────────────────────────────────────
 // PR = (SCG + ΣSR) / VP. Ver docs/specs/SPEC_PR.md.
 export const getPR = (periodo: string) =>

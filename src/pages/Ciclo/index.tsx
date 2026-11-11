@@ -9,7 +9,7 @@ import { Alert } from "../../components/ui/Alert";
 import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
-  apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
+  apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, gerarRelatorioTrimestral, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
   getHistoricoRET, getHistoricoSCG, getPR, getPVTrimestre,
 } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -242,6 +242,7 @@ export default function CicloPage() {
   const inputZip = useRef<HTMLInputElement>(null);
   const botaoZip = useRef<HTMLButtonElement>(null);   // o foco volta para ele ao fechar o aviso
   const [gerandoNT, setGerandoNT] = useState(false);
+  const [gerandoRel, setGerandoRel] = useState(false);
 
   // Ao abrir a tela: traz de volta a última pasta (os nomes, para o mapa). Se ela foi
   // arrastada e o navegador ainda dá a permissão SEM perguntar, relê os arquivos; senão,
@@ -377,6 +378,19 @@ export default function CicloPage() {
     }
   };
 
+  // Word do trimestre: resultado dos meses e o que não confere (provas reais). Não grava nada.
+  const gerarRelatorio = async () => {
+    setGerandoRel(true);
+    try {
+      salvarArquivo(await gerarRelatorioTrimestral(meses[2]),
+        `Relatorio_Trimestral_${meses[0].replace("/", "-")}_a_${meses[2].replace("/", "-")}.docx`);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório do trimestre."));
+    } finally {
+      setGerandoRel(false);
+    }
+  };
+
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
@@ -505,11 +519,15 @@ export default function CicloPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-zinc-100">Entregas</p>
-                  <p className="text-xs text-zinc-500">Minuta da Nota Técnica e Excel Final do ciclo</p>
+                  <p className="text-xs text-zinc-500">Minuta da Nota Técnica, relatório do trimestre e Excel Final do ciclo</p>
                 </div>
                 <button type="button" onClick={gerarNT} disabled={gerandoNT}
                   className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-200 hover:bg-sky-500/25 disabled:opacity-50">
                   {gerandoNT ? "Gerando…" : "Baixar minuta da NT"}
+                </button>
+                <button type="button" onClick={gerarRelatorio} disabled={gerandoRel}
+                  className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-200 hover:bg-sky-500/25 disabled:opacity-50">
+                  {gerandoRel ? "Gerando…" : "Baixar relatório do trimestre"}
                 </button>
                 <Link to="/excel-final" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Excel Final</Link>
               </li>
