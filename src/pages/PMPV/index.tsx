@@ -13,6 +13,7 @@ import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
+import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { brl, brlEntrada, dataHora, num, parseBRL } from "../../utils/format";
 import type { EmpresaLinha, PMPVHistoricoLinha, PMPVMargem, PMPVLinhaCalculo, PMPVResultado } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -48,6 +49,20 @@ interface LinhaEdit {
   qdc: string;
 }
 
+/** O que a tela lembra ao trocar de página. Não guarda o arquivo (File), só o que ele gerou. */
+interface Rascunho {
+  trimestre: string;
+  ano: number;
+  linhas: Record<Aba, LinhaEdit[]>;
+  aba: Aba;
+  margemTexto: string;
+  resultado: PMPVResultado | null;
+  prAoGuardar: number | null; // PR em que o resultado foi calculado
+}
+const CHAVE_RASCUNHO = "pmpv:rascunho";
+
+// `let` (não const) porque cresce a cada linha criada; ao restaurar um rascunho é preciso
+// empurrá-lo para cima do maior id guardado.
 let proximoId = 1;
 const linhaVazia = (empresa = ""): LinhaEdit =>
   ({ id: proximoId++, empresa, molecula: "", transporte: "", logistica: "", qdc: "" });
@@ -229,6 +244,8 @@ export default function PMPVPage() {
   /** PR salvo no banco (tela PR) para o trimestre/ano escolhidos; null = ainda não há. Não é editável. */
   const [prSalvo, setPrSalvo] = useState<number | null>(null);
   const buscaPR = useRef(0);
+  const prBase = useRef<{ valor: number | null } | null>(null); // PR de quando o rascunho foi guardado (só até a 1ª carga do PR)
+  const rascunhoLido = useRef(false); // antes de ler o rascunho, não se guarda nada (senão o padrão vazio o sobrescreve)
   const [linhas, setLinhas] = useState<Record<Aba, LinhaEdit[]>>(() => ({
     "Mês 1": linhasPadrao(), "Mês 2": linhasPadrao(), "Mês 3": linhasPadrao(),
   }));
@@ -277,16 +294,41 @@ export default function PMPVPage() {
     rolarAteCardSeEscondido(provaRef.current);
   };
 
+  // Ao abrir a tela: 1º devolve o rascunho guardado no navegador (se houver); 2º carrega os
+  // trimestres. O trimestre guardado só é aplicado depois da lista chegar, para não valer um
+  // nome que não existe mais. `lembrar` nunca dá erro (sem rascunho = undefined).
   useEffect(() => {
-    getTrimestresFiscais()
-      .then((t) => {
-        setTrimestres(t);
-        setTrimestre(trimestreDoMesAtual(t));
+    lembrar<Rascunho>(CHAVE_RASCUNHO)
+      .then((r) => {
+        const valido = r && r.linhas && ABAS.every((a) => Array.isArray(r.linhas[a])) ? r : undefined;
+        if (valido) {
+          // Os ids novos precisam ficar acima dos restaurados, senão duas linhas teriam o mesmo id.
+          const maiorId = ABAS.flatMap((a) => valido.linhas[a]).reduce((m, l) => Math.max(m, l.id), 0);
+          proximoId = Math.max(proximoId, maiorId + 1);
+          setLinhas(valido.linhas);
+          if (ABAS.includes(valido.aba)) setAba(valido.aba);
+          if (Number.isFinite(valido.ano)) setAno(valido.ano);
+          setMargemTexto(valido.margemTexto ?? "");
+          setResultado(valido.resultado ?? null);
+          prBase.current = { valor: valido.prAoGuardar ?? null };
+        }
+        rascunhoLido.current = true;
+        return valido;
       })
-      .catch((e) => {
-        setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais."));
-        setFalhouTrimestres(true);
-      });
+      .then((valido) => getTrimestresFiscais()
+        .then((t) => {
+          setTrimestres(t);
+          const guardado = valido && t.some((x) => x.label === valido.trimestre) ? valido.trimestre : null;
+          if (valido && !guardado) {   // o trimestre guardado não existe mais: o resultado não vale
+            setResultado(null);
+            prBase.current = null;
+          }
+          setTrimestre(guardado ?? trimestreDoMesAtual(t));
+        })
+        .catch((e) => {
+          setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais."));
+          setFalhouTrimestres(true);
+        }));
   }, []);
 
   // Busca a margem do ano quando ele muda. Só vale a resposta do ano atual (anti-corrida).
@@ -318,8 +360,12 @@ export default function PMPVPage() {
       .then((d) => {
         if (busca !== buscaPR.current) return; // o usuário já trocou de trimestre
         const pr = Number(d.pr) || null;
+        // Na 1ª carga depois de restaurar o rascunho, o "antes" é o PR de quando ele foi guardado
+        // (a tela começa com prSalvo null, o que apagaria o resultado restaurado à toa).
+        const base = prBase.current;
+        prBase.current = null;
         setPrSalvo((atual) => {
-          if (atual !== pr) {   // o PR mudou: o resultado calculado ficou velho
+          if ((base ? base.valor : atual) !== pr) {   // o PR mudou: o resultado calculado ficou velho
             setResultado(null);
             setSucesso(null);
           }
@@ -344,6 +390,16 @@ export default function PMPVPage() {
       document.removeEventListener("visibilitychange", aoVoltar);
     };
   }, [atualizarPR]);
+
+  // Guarda o rascunho 0,4 s depois da última mudança (debounce: espera a pessoa parar de digitar).
+  // Só guarda com o PR do trimestre já carregado, para o `prAoGuardar` ser verdadeiro.
+  useEffect(() => {
+    if (!rascunhoLido.current || !trimestre || carregadoPara !== `${trimestre}/${ano}`) return;
+    const t = setTimeout(() => {
+      guardar(CHAVE_RASCUNHO, { trimestre, ano, linhas, aba, margemTexto, resultado, prAoGuardar: prSalvo } satisfies Rascunho);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [trimestre, ano, linhas, aba, margemTexto, resultado, prSalvo, carregadoPara]);
 
   const mesesTri = useMemo(() => trimestres.find((t) => t.label === trimestre)?.meses ?? [], [trimestres, trimestre]);
   const periodos = useMemo(() => periodosDe(mesesTri, ano), [mesesTri, ano]);
@@ -435,6 +491,7 @@ export default function PMPVPage() {
       const pendente = pv.filter((t) => !t.ok).map((t) => t.texto).join("\n");
       if (pendente) setAviso(pendente);
       avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} salvo`, `Sessão nº ${sessao_id} gravada.${pvOk}`);
+      esquecer(CHAVE_RASCUNHO); // gravado de verdade: não há mais rascunho a retomar
       setEscolhida(sessao_id); // a prova real abre na sessão que acabou de ser salva
       carregarHistorico();
     } catch (e) {
