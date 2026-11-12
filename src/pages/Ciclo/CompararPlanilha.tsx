@@ -52,8 +52,8 @@ function avisarResultado(mes: string, r: AuditoriaDoMes) {
   // Diferença do CGR: notas menos a 1ª fonte da planilha (a mesma conta da frase do quadro).
   const ref = (c.fontes_cgr ?? []).find((f) => f.valor !== null)?.valor ?? null;
   const dif = ref !== null ? (c.cgr_auditoria ?? 0) - ref : 0;
-  avisarAtencao(`${mes} tem diferenças com a planilha`,
-    Math.abs(dif) > TOL ? `Diferença no CGR: ${brl(dif)}.` : "O CGR confere, mas há notas para conferir.");
+  avisarAtencao(`${mes}: ${resumo.itens.length} ${resumo.itens.length === 1 ? "ponto" : "pontos"} para conferir`,
+    Math.abs(dif) > TOL ? `As notas somam ${brl(Math.abs(dif))} a ${dif < 0 ? "menos" : "mais"} que a planilha. Nada foi gravado.` : "O total confere, mas há notas para olhar. Nada foi gravado.");
 }
 
 // O que o Painel entrega a esta seção (as "props"):

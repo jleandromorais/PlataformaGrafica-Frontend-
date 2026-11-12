@@ -60,6 +60,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
   const pareamento = parearMesmoValor(c.notas_apenas_auditoria, c.notas_apenas_planilha);
   const { veredito, leitura } = separarAvisos(c.avisos);
   const resumo = resumoDaComparacao(c, pareamento, veredito);
+  const pontos = resumo.itens.length;
   const algumCgrDifere = c.divergencias_valor.some(cgrDifere);
 
   return (
@@ -69,13 +70,14 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
         {comModelo && (
           <Conferencia
             confere={!temDivergencia}
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${temDivergencia ? "bg-red-400/10" : "bg-emerald-400/10"}`}
+            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${!temDivergencia ? "bg-emerald-400/10" : divergeTotal ? "bg-red-400/10" : "bg-amber-400/10"}`}
           >
-            {temDivergencia ? "Há divergências" : "Tudo confere"}
+            {temDivergencia ? `${pontos} ${pontos === 1 ? "ponto" : "pontos"} para conferir` : "Tudo confere"}
           </Conferencia>
         )}
       </div>
       <p className="mt-0.5 text-sm text-zinc-400">
+        Nada foi gravado: isto é só uma conferência.{" "}
         {comModelo ? `${c.modelo_rotulo} · ` : "Aba usada: "}
         {c.abas_do_periodo.join(", ") || <span className="text-amber-300">nenhuma aba corresponde ao mês</span>}
       </p>
@@ -92,7 +94,9 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
           )}
         {resumo.itens.length > 0 && (
           <ul className="mt-2 list-disc space-y-1 pl-5 text-zinc-300">
-            {resumo.itens.map((t) => <li key={t}>{t}</li>)}
+            {resumo.itens.map((i) => (
+              <li key={i.texto} className={i.gravidade === "dinheiro" ? "marker:text-red-400" : "marker:text-amber-400"}>{i.texto}</li>
+            ))}
           </ul>
         )}
       </div>
@@ -104,7 +108,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
               <tr className="text-left text-xs text-zinc-500">
                 <th className="pb-2 font-medium">CGR</th>
                 <th className="pb-2 text-right font-medium">Valor</th>
-                <th className="pb-2 text-right font-medium">Auditoria − planilha</th>
+                <th className="pb-2 text-right font-medium">Diferença (notas − planilha)</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">

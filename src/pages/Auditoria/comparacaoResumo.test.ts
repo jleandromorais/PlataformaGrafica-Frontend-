@@ -74,27 +74,27 @@ describe("resumoDaComparacao", () => {
     const c = { ...base, cgr_auditoria: 9500, notas_apenas_planilha: [outraDaPlanilha] };
     const r = resumoDaComparacao(c, parearMesmoValor([], c.notas_apenas_planilha), null);
     expect(r.confere).toBe(false);
-    expect(so(r.frase)).toBe("O CGR das notas está R$ 500,00 abaixo da planilha.");
-    expect(r.itens.map(so)).toEqual(["Empresa B: 1 nota está na planilha e não veio nos arquivos (R$ 500,00)."]);
+    expect(so(r.frase)).toBe("As notas somam R$ 500,00 a menos que a planilha.");
+    expect(r.itens.map((i) => so(i.texto))).toEqual(["Falta 1 nota da Empresa B na pasta (R$ 500,00). Ela está na planilha."]);
   });
 
   it("avisa a parte da diferença que as notas não explicam", () => {
     const c = { ...base, cgr_auditoria: 9000, notas_apenas_planilha: [outraDaPlanilha] };
     const r = resumoDaComparacao(c, parearMesmoValor([], c.notas_apenas_planilha), null);
-    expect(so(r.itens[1])).toContain("R$ 500,00 da diferença não aparece");
+    expect(so(r.itens[1].texto)).toContain("R$ 500,00 não se explicam pelas notas");
   });
 
   it("só o volume diferente não é divergência de CGR", () => {
     const c = { ...base, divergencias_valor: [div(0)] };
     const r = resumoDaComparacao(c, parearMesmoValor([], []), null);
     expect(r.confere).toBe(false);
-    expect(r.frase).toBe("O CGR das notas confere com a planilha, mas há notas para conferir.");
-    expect(r.itens).toEqual(["1 nota só com volume ou alíquota diferente; o CGR é igual e não muda o total."]);
+    expect(r.frase).toBe("O total das notas confere com a planilha, mas há notas para conferir.");
+    expect(r.itens).toEqual([{ texto: "1 nota com o mesmo valor nos dois lados; só o volume ou a alíquota foi escrito diferente. Não muda o total.", gravidade: "conferir" }]);
   });
 
   it("conta a mesma nota dos dois lados", () => {
     const p = parearMesmoValor([soNosArquivos], [soNaPlanilha]);
     const r = resumoDaComparacao({ ...base, notas_apenas_auditoria: [soNosArquivos], notas_apenas_planilha: [soNaPlanilha] }, p, null);
-    expect(r.itens[0]).toContain("1 nota parece estar nos dois lados");
+    expect(r.itens[0].texto).toContain("1 nota parece ser a mesma dos dois lados");
   });
 });

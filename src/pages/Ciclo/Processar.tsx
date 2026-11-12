@@ -551,7 +551,7 @@ export function OndeDifere({ d, total }: { d: AuditoriaDiferencas; total: number
   const comNotas = d.tem_notas_gravadas;
   return (
     <span className="mt-1 block text-xs">
-      <span className="block font-semibold text-amber-200">Diferença de {brl(total)} para o gravado. Onde está:</span>
+      <span className="block font-semibold text-amber-200">Lendo de novo, o CGR ficou {brl(total)} diferente do que está gravado. Veja onde:</span>
       {d.resumo.map((l) => <span key={l} className="block max-w-[72ch] text-amber-200">{l}</span>)}
       {d.notas.length > 0 && (
         <details className="mt-1">

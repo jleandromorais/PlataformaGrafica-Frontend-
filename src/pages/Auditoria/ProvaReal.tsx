@@ -8,7 +8,6 @@ import { ArrowUpRight, ClipboardCheck } from "lucide-react";
 import { removerNotaAuditoria } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { NotaDigitadaAuditoria } from "../../types";
-import { AvisoPossivelDuplicata } from "../../components/ui/AvisoPossivelDuplicata";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CARD_PAINEL } from "../../components/ui/estilosCard";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -49,10 +48,6 @@ export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }:
 
       {/* Ao trocar de mês, o conteúdo do mês anterior fica esmaecido até chegar o novo (não pisca). */}
       <Card.Content className={`gap-0 transition-opacity ${atualizando ? "opacity-50" : ""}`}>
-        {d && !erro && (
-          <AvisoPossivelDuplicata grupos={d.possiveis_duplicatas_valor} periodo={periodo} totalDoMes="CGR" className="mt-4"
-            aoTirar={removerNotaAuditoria} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
-        )}
         {d && !erro && periodo && (
           <NotasDigitadas notas={d.notas_digitadas} periodo={periodo} aoConcluir={() => { estado.recarregar?.(); aoMudar?.(); }} />
         )}

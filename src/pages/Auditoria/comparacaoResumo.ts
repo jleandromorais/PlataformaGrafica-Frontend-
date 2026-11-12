@@ -57,24 +57,31 @@ export function separarAvisos(avisos: string[]): { veredito: string | null; leit
   return { veredito: avisos.find(ehVeredito) ?? null, leitura: avisos.filter((a) => !ehVeredito(a)) };
 }
 
-const notas = (n: number) => (n === 1 ? "1 nota" : `${n} notas`);
 
-/** Agrupa por empresa: "TAG: 1 nota está na planilha e não veio nos arquivos (R$ 1.000,00)". */
-function porEmpresa(lista: Nota[], umaNota: string, variasNotas: string): string[] {
+/** Agrupa por empresa: "Falta 1 nota da TAG na pasta (R$ 1.000,00). Ela está na planilha." */
+function porEmpresa(lista: Nota[], frase: (empresa: string, qtd: number, soma: string) => string): ItemResumo[] {
   const grupos = new Map<string, Nota[]>();
   lista.forEach((n) => grupos.set(empresaDa(n), [...(grupos.get(empresaDa(n)) ?? []), n]));
   return [...grupos].map(([empresa, ns]) => {
     const valores = ns.map(cgrDaNota).filter((v): v is number => v !== undefined);
     const soma = valores.length ? ` (${brl(valores.reduce((s, v) => s + v, 0))})` : "";
-    return `${empresa}: ${notas(ns.length)} ${ns.length === 1 ? umaNota : variasNotas}${soma}.`;
+    return { texto: frase(empresa, ns.length, soma), gravidade: "dinheiro" as const };
   });
+}
+
+/** `dinheiro`: o valor não fecha (vermelho). `conferir`: vale olhar, mas não muda o total (âmbar). */
+export interface ItemResumo {
+  texto: string;
+  gravidade: "dinheiro" | "conferir";
 }
 
 export interface Resumo {
   confere: boolean;
   frase: string;
-  itens: string[];
+  itens: ItemResumo[];
 }
+
+const nota = (n: number) => (n === 1 ? "1 nota" : `${n} notas`);
 
 /** A frase do topo (veredito e diferença) e as causas, em linguagem simples. */
 export function resumoDaComparacao(c: AuditoriaComparacao, p: Pareamento, veredito: string | null): Resumo {
@@ -87,13 +94,24 @@ export function resumoDaComparacao(c: AuditoriaComparacao, p: Pareamento, veredi
   const soVolume = c.divergencias_valor.filter((d) => !cgrDifere(d));
   const supridores = c.tipo === "por_supridor" ? c.por_empresa.filter((e) => !e.confere) : [];
 
-  const itens = [
-    ...porEmpresa(p.restoPlanilha, "está na planilha e não veio nos arquivos", "estão na planilha e não vieram nos arquivos"),
-    ...porEmpresa(p.restoAuditoria, "veio nos arquivos e não está na planilha", "vieram nos arquivos e não estão na planilha"),
-    ...(p.pares.length ? [`${notas(p.pares.length)} ${p.pares.length === 1 ? "parece estar" : "parecem estar"} nos dois lados com número ou empresa lidos de outro jeito (o valor é o mesmo).`] : []),
-    ...(divCgr.length ? [`${notas(divCgr.length)} com CGR diferente da planilha (${brl(divCgr.reduce((s, d) => s + d.diferenca_cgr, 0))} no total).`] : []),
-    ...(soVolume.length ? [`${notas(soVolume.length)} só com volume ou alíquota diferente; o CGR é igual e não muda o total.`] : []),
-    ...supridores.map((e) => `${e.empresa}: diferença de ${brl(e.diferenca)}.`),
+  const itens: ItemResumo[] = [
+    ...porEmpresa(p.restoPlanilha, (e, n, soma) =>
+      `${n === 1 ? "Falta 1 nota" : `Faltam ${n} notas`} da ${e} na pasta${soma}. ${n === 1 ? "Ela está" : "Elas estão"} na planilha.`),
+    ...porEmpresa(p.restoAuditoria, (e, n, soma) =>
+      `${nota(n)} da ${e} ${n === 1 ? "veio" : "vieram"} na pasta${soma} e ${n === 1 ? "não está" : "não estão"} na planilha.`),
+    ...(p.pares.length ? [{
+      texto: `${nota(p.pares.length)} ${p.pares.length === 1 ? "parece" : "parecem"} ser a mesma dos dois lados, com número ou empresa escritos de outro jeito. O valor é o mesmo.`,
+      gravidade: "conferir" as const,
+    }] : []),
+    ...(divCgr.length ? [{
+      texto: `${nota(divCgr.length)} com valor diferente da planilha (${brl(divCgr.reduce((s, d) => s + d.diferenca_cgr, 0))} no total).`,
+      gravidade: "dinheiro" as const,
+    }] : []),
+    ...(soVolume.length ? [{
+      texto: `${nota(soVolume.length)} com o mesmo valor nos dois lados; só o volume ou a alíquota foi escrito diferente. Não muda o total.`,
+      gravidade: "conferir" as const,
+    }] : []),
+    ...supridores.map((e) => ({ texto: `${e.empresa}: diferença de ${brl(e.diferenca)}.`, gravidade: "dinheiro" as const })),
   ];
 
   // Quanto da diferença as notas listadas explicam (notas de um lado só + diferenças por nota).
@@ -103,20 +121,23 @@ export function resumoDaComparacao(c: AuditoriaComparacao, p: Pareamento, veredi
       + divCgr.reduce((s, d) => s + d.diferenca_cgr, 0)
       + p.pares.reduce((s, par) => s + (cgrDaNota(par.auditoria) ?? 0) - (cgrDaNota(par.planilha) ?? 0), 0);
     const falta = dif - explicado;
-    if (Math.abs(falta) > 2 * TOL) itens.push(`${brl(falta)} da diferença não aparece nas notas listadas: veja a conferência por supridor.`);
+    if (Math.abs(falta) > 2 * TOL) itens.push({
+      texto: `${brl(falta)} não se explicam pelas notas. Costuma ser arredondamento ou nota lançada em outro mês. Veja por supridor.`,
+      gravidade: "dinheiro",
+    });
   }
 
   const confere = !divergeTotal && itens.length === 0;
 
   let frase: string;
   if (ref && Math.abs(dif) > TOL) {
-    frase = `O CGR das notas está ${brl(Math.abs(dif))} ${dif < 0 ? "abaixo" : "acima"} da planilha${fontes.length > 1 ? ` (${ref.rotulo})` : ""}.`;
+    frase = `As notas somam ${brl(Math.abs(dif))} a ${dif < 0 ? "menos" : "mais"} que a planilha${fontes.length > 1 ? ` (${ref.rotulo})` : ""}.`;
   } else if (confere && c.tipo === "por_supridor") {
     frase = `Tudo confere: ${c.por_empresa.length === 1 ? "o supridor bate" : `os ${c.por_empresa.length} supridores batem`} com a planilha.`;
   } else if (confere) {
     frase = `Tudo confere: ${c.qtd_em_ambas === 1 ? "a nota bate" : `as ${c.qtd_em_ambas} notas batem`} com a planilha.`;
   } else if (ref) {
-    frase = "O CGR das notas confere com a planilha, mas há notas para conferir.";
+    frase = "O total das notas confere com a planilha, mas há notas para conferir.";
   } else {
     frase = veredito ?? "Há notas para conferir.";
   }

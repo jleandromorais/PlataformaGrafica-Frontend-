@@ -26,8 +26,44 @@ Linha do tempo em uma frase: 03–06/11 montou o **Painel do Ciclo** (processar 
 09–10/11 deu a **prova real** a todas as contas; 11/11 trouxe **avisos, duplicatas e relatório**,
 e agora entra a conferência da planilha. Setembro é o primeiro teste com tudo isso junto.
 
+## Andamento de hoje (12/11/2026)
+
+**Feito no front (fase C, sem commit ainda):**
+- Selo do quadro: "Há divergências" virou "N pontos para conferir" (âmbar; vermelho só quando o total não fecha).
+- Frase do topo: "As notas somam R$ X a menos/mais que a planilha."
+- `Resumo.itens` agora é `{ texto, gravidade }` (`dinheiro` = vermelho, `conferir` = âmbar), com frases novas: "Faltam N notas da EMPRESA na pasta…", "…só o volume ou a alíquota foi escrito diferente. Não muda o total."
+- Aviso "Nada foi gravado: isto é só uma conferência." no quadro; coluna "Diferença (notas − planilha)".
+- Toast de `CompararPlanilha` no mesmo tom ("Set/2026: N pontos para conferir"); `OndeDifere` em `Processar.tsx` reescrito; texto do Comparar agora diz "Antes de seguir para o SR…".
+- Arquivos: `comparacaoResumo.ts` (+ `.test.ts`), `ComparacaoPlanilha.tsx`, `CompararPlanilha.tsx`, `Processar.tsx`.
+- Conferido: `tsc` sem erros; lint com os mesmos 21 erros de antes (nenhum novo).
+- **Não conferido:** `npm test` falha em todos os 13 arquivos, também sem as mudanças ("Cannot read properties of undefined (reading 'config')"). Problema de ambiente do vitest a investigar; os testes de `comparacaoResumo.test.ts` foram atualizados mas não rodaram.
+
+**Também feito hoje (sem commit):** o aviso "Possível duplicata" saiu da tela Auditoria CGR (`src/pages/Auditoria/ProvaReal.tsx`), a pedido do Leandro, porque o Painel do Ciclo já trata isso. RP e RET continuam com o aviso. A confirmar: o Painel não usa `AvisoPossivelDuplicata` em `Processar.tsx`; ver se há outro jeito de tratar duplicatas lá.
+
+**Foco do dia (plano aprovado): PMPV persistente + SCG/SR automáticos.** Detalhes em `C:\Users\jose.demorais\.claude\plans\unified-forging-graham.md`.
+
+| Item | O quê | Quem | Estado |
+|---|---|---|---|
+| A | Back: salvar CGR/CGF/RET/RP grava a coluna `scg` (`recalcular_scg`) + reparo do histórico | Luiz | em andamento |
+| B | Back: SR do trimestre recalculado depois do SCG; com pendência nada é gravado | Luiz | em andamento |
+| C | Front: tela SCG (botão "Salvar" destrava quando o `scg` cru difere; card mostra "não gravado" em vez de R$ 0,00) | Jose | em andamento |
+| D | Front: PMPV lembra linhas e resultado ao trocar de página (IndexedDB, `src/utils/lembrar.ts`) | Jose | em andamento |
+
+Diagnóstico (lido no código, ainda **não confirmado no banco**):
+- **Ago/2026 com SCG 0,00:** a coluna `scg` crua nunca foi gravada. Só a tela SCG a grava; os outros módulos gravam só o RPV. A tabela mostra −R$ 511.536,40 porque recalcula na leitura.
+- **Jul/2026 −R$ 996.608,54 gravado × −R$ 1.477.928,41 calculado:** CGF e RET são iguais nos dois lados; a diferença (R$ 481.319,87) está no CGR ou no RP (RP calculado −R$ 1.644.014,95). Fechar com uma consulta à coluna crua do banco antes de rodar o reparo.
+- **Set/2026 "Nada a salvar":** a tela só compara os 4 campos já recalculados, nunca a coluna crua.
+
+Antes de rodar o reparo em produção: confirmar com o Leandro, porque ele muda números gravados.
+
+**Atenção — código fora do Git:** o Leandro diz que a fase C já está na Vercel, mas ela **não está no GitHub** (front em `8371a64`, back em `8c86d00`, fetch e pull sem novidades). Antes de commitar a versão desta máquina, achar a original (outro computador, ou deploy por CLI) e dar push, para não haver conflito.
+
+**Bloqueado:**
+- Fase B (rota `/auditoria/planilha/conferir` e `notas_em_ambas`): não existe no back deste computador, apesar de o plano marcar "feita". Sem ela não dá para fazer a fase E nem o card "Batem" (fase D).
+- Seção 1 (teste de Setembro) e seção 3 (duplicatas): dependem de arquivos reais e de decisão do Leandro.
+
 ## 0. Antes de tudo (5 min)
-- [ ] Confirmar que o **back foi commitado e está no ar** (o front novo depende dele).
+- [ ] Confirmar que o **back foi commitado e está no ar** (o front novo depende dele). **12/11: não está no GitHub.**
 - [ ] Ver se o commit do front `b5537cc` (ordem Comparar → SR) já está na Vercel.
 
 ## 1. Testar **Setembro/2026** de ponta a ponta (Leandro + José)
@@ -87,8 +123,8 @@ podem ser notas diferentes com o mesmo valor.
 | Fase | O quê | Quem | Estado |
 |---|---|---|---|
 | A | Auditoria antes do SR | José | feita |
-| B | Rota `planilha/conferir` + `notas_em_ambas` | Choco | feita (falta commit) |
-| C | Mensagens de diferença amigáveis | José | próxima |
+| B | Rota `planilha/conferir` + `notas_em_ambas` | Choco | dita "feita", mas **ausente do GitHub** (12/11) |
+| C | Mensagens de diferença amigáveis | José | feita em 12/11 (falta commit e rodar `npm test`) |
 | D | Cards clicáveis, toast com "Ver diferenças", card "Batem" | José | depois de C |
 | E | Toast real da planilha + ✓/✗ nos meses | José | pode ir em paralelo com C |
 | F | Revisar textos do back | Choco | depois de C |
