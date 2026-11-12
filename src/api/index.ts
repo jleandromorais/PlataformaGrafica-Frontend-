@@ -331,7 +331,11 @@ export const gerarRelatorioTrimestral = (periodo: string, planilha?: File | null
     corpo.append("planilha", planilha);
   }
   return api
-    .post<Blob>("/relatorio-trimestral/gerar", corpo, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+    .post<Blob>("/relatorio-trimestral/gerar", corpo, {
+      params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000,
+      // O padrão do cliente é JSON: sem trocar, o axios vira o FormData em JSON e a planilha não chega.
+      ...(corpo ? { headers: { "Content-Type": "multipart/form-data" } } : {}),
+    })
     .then((r) => r.data);
 };
 
