@@ -91,6 +91,7 @@ export interface CGFVolumes {
 }
 
 export interface CGFCalcularRsResponse {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   pmpv: number;               // 0 quando não há PMPV
   pmpv_origem: "manual" | "banco" | "ausente";
@@ -109,6 +110,7 @@ export interface ProblemaArquivo {
 }
 
 export interface CGFProcessarResponse extends CGFVolumes {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo_detectado: string;
   arquivos_ignorados: string[];
   problemas: ProblemaArquivo[];
@@ -214,6 +216,7 @@ export interface AuditoriaConferenciaEmpresa {
 }
 
 export interface AuditoriaResultado {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo_detectado: string;
   qtd_xml_lidos: number;
   qtd_pdf_lidos: number;
@@ -234,6 +237,7 @@ export interface AuditoriaResultado {
 
 /** Onde o processado difere das notas gravadas no mês (POST /auditoria/diferencas). */
 export interface AuditoriaDiferencas {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   tem_notas_gravadas: boolean;
   cgr_gravado_notas: number;
   cgr_processado: number;
@@ -279,6 +283,7 @@ export interface PossivelDuplicataValor {
 }
 
 export interface ProvaRealAuditoria {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   qtd_notas: number;
   por_empresa: ProvaRealEmpresa[];
@@ -374,6 +379,7 @@ export interface ProvaRealPMPV {
 
 /** A conta do CGF gravado de um mês, aberta (GET /cgf/prova-real). */
 export interface ProvaRealCGF {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   tem_resumo: boolean;                // false: mês gravado só com o total, sem o resumo de volumes
   volume_faturado: number;
@@ -395,6 +401,7 @@ export interface ProvaRealCGF {
 
 /** A conta do RPV gravado de um mês e de onde vêm CGR e CGF (GET /rpv/prova-real). */
 export interface ProvaRealRPV {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   gravado: boolean;                   // false: nada gravado neste mês
   cgr: number;
@@ -763,6 +770,7 @@ export interface ProvaRealEmpresaRET {
 
 /** A conta do RET gravado de um mês, refeita com os documentos gravados: EAT × (1 − PIS/COFINS) + EC. */
 export interface ProvaRealRET {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   tem_itens: boolean;          // false: mês gravado só com o total, sem os documentos
   qtd_documentos: number;
@@ -809,6 +817,7 @@ export interface ProvaRealDuplicadaRP {
 
 /** A conta do RP gravado de um mês, refeita com as notas gravadas: (despesas − receitas) × (1 − PIS/COFINS). */
 export interface ProvaRealRP {
+  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo: string;
   tem_itens: boolean;            // false: mês gravado só com o total, sem as notas
   qtd_itens: number;

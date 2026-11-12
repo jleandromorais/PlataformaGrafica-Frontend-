@@ -11,7 +11,7 @@ import {
 } from "../../api";
 import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
-import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
+import { avisarAtencao, avisarErro, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
 import { Alert } from "../../components/ui/Alert";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -55,6 +55,7 @@ interface Celula {
   concilia?: ConciliaResultado;
   soPdf?: string[];           // Auditoria: empresas só com PDF (lidas por OCR)
   diferencas?: AuditoriaDiferencas; // Auditoria: onde difere das notas gravadas
+  errosBack?: string[];       // frases de erro que o back devolveu (campo `erros`), já com etapa, mês e valores
 }
 
 type Fase = "previa" | "processando" | "revisao" | "gravando" | "fim";
@@ -80,18 +81,26 @@ function precisaAtencao(c: Celula) {
   return difere || c.avisos.length > 0 || !!c.diferencas || (c.etapa === "conciliacao" && !c.escolhida);
 }
 
+/** Texto "valor processado X difere do gravado Y" (diferença de mais de R$ 1), ou "" se bate. */
+function textoValorDivergente(c: Celula): string {
+  if (c.gravado === null || c.valor === undefined || Math.abs(c.valor - c.gravado) <= 1) return "";
+  return `valor processado ${brl(c.valor)} difere do gravado ${brl(c.gravado)}`;
+}
+
 /** Por que esta etapa-mês tem DIVERGÊNCIA (lista vazia: sem divergência). É o que o analista precisa
  * ler antes de gravar: o valor processado difere do já gravado, há notas ou empresas diferentes, ou o
  * processamento trouxe avisos (PDF não lido, devoluções zeradas…). Só descreve: não bloqueia nada. */
 function motivosDeDivergencia(c: Celula): string[] {
   const m: string[] = [];
-  if (c.gravado !== null && c.valor !== undefined && Math.abs(c.valor - c.gravado) > 1) {
-    m.push(`valor processado ${brl(c.valor)} difere do gravado ${brl(c.gravado)}`);
-  }
+  const v = textoValorDivergente(c);
+  if (v) m.push(v);
   if (c.diferencas) m.push("há notas ou empresas diferentes do gravado (veja “Onde está” na tabela)");
   if (c.avisos.length) m.push(c.avisos.length === 1 ? "1 aviso do processamento" : `${c.avisos.length} avisos do processamento`);
   return m;
 }
+
+/** Tira frases repetidas (o mesmo erro pode vir em mais de uma resposta). */
+const unicos = (l: string[]) => [...new Set(l)];
 
 const chaveDe = (c: Celula) => `${c.etapa}|${c.periodo}`;
 const rotuloDe = (c: Celula) => `${NOMES_ETAPA[c.etapa].split(" (")[0]} · ${c.periodo}`;
@@ -194,6 +203,7 @@ export function ProcessarTrimestre({
       ].slice(0, 3);
       return {
         estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, diferencas, escolhida: c.escolhida && !naoLidos,
+        errosBack: unicos([...(r.erros ?? []), ...(diferencas?.erros ?? [])]),
         detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
       };
     }
@@ -211,6 +221,7 @@ export function ProcessarTrimestre({
       const rs = await calcularCGFRs(c.periodo, r.volume_final, pmpv);
       return {
         estado: "processada", cgf: { r, pmpv }, valor: rs.cgf_rs ?? undefined, avisos,
+        errosBack: unicos([...(r.erros ?? []), ...(rs.erros ?? [])]),
         detalhe: `VF ${num(r.volume_final, 0)} m³ = faturado ${num(r.volume_faturado, 0)} − devoluções ${num(r.volume_devolucoes, 0)} · PMPV ${num(pmpv, 4)}`,
       };
     }
@@ -257,23 +268,40 @@ export function ProcessarTrimestre({
     const pedidas = celulas.filter((x) => x.escolhida && x.estado === "pronta");
     let feitas = 0;
     let problemas = 0; // erro ou bloqueada: o motivo já aparece na tabela
+    const linhasDeErro: string[] = []; // vira UM toast de erro no fim da rodada
     for (const c of pedidas) {
       if (parar.current) break;
       atualizar(c, { estado: "processando", motivo: undefined });
       try {
         const r = await processarUma(c);
         atualizar(c, r);
-        if (r.estado === "processada") feitas += 1; else problemas += 1;
+        const doBack = r.errosBack ?? [];
+        if (r.estado === "processada") {
+          feitas += 1;
+          // As frases do back já dizem etapa, mês e valores; sem elas, usa a diferença processado x gravado.
+          const dif = textoValorDivergente({ ...c, ...r });
+          if (doBack.length) linhasDeErro.push(...doBack);
+          else if (dif) linhasDeErro.push(`${rotuloDe(c)}: ${dif}.`);
+        } else {
+          problemas += 1;
+          // erro ou bloqueada (ex.: falta o PMPV): diz qual etapa-mês e o motivo.
+          linhasDeErro.push(`${rotuloDe(c)} (${r.estado === "bloqueada" ? "bloqueada" : "com erro"}): ${r.motivo ?? "sem detalhe"}`, ...doBack);
+        }
       } catch (e) {
         problemas += 1;
-        atualizar(c, { estado: "erro", motivo: mensagemDeErro(e, `Não foi possível processar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`) });
+        const motivo = mensagemDeErro(e, `Não foi possível processar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`);
+        atualizar(c, { estado: "erro", motivo });
+        linhasDeErro.push(`${rotuloDe(c)} (com erro): ${motivo}`);
       }
     }
+    // Um toast de erro só por rodada (não empilha um por etapa-mês).
+    if (linhasDeErro.length) avisarErro(`${faixaDosMeses(meses)}: etapa(s)-mês com erro`, unicos(linhasDeErro).join("\n"));
     setFase("revisao");
     // UM aviso no fim, só se tudo o que foi pedido rodou ("Parar depois desta" não avisa).
     const terminou = feitas + problemas === pedidas.length;
     if (!terminou || !feitas) return;
     const titulo = `Processamento de ${faixaDosMeses(meses)} pronto`;
+    if (linhasDeErro.length) return; // o toast de erro acima já cobre esta rodada
     if (problemas) avisarAtencao(titulo, `${feitas} etapa(s)-mês prontas; ${problemas} com problema (veja na tabela). Confira antes de gravar.`);
     else avisarSucesso(titulo, "Confira antes de gravar.");
   }
@@ -281,6 +309,14 @@ export function ProcessarTrimestre({
   async function gravar() {
     setConfirmar(false);
     setGravadasComDivergencia(divergentes.map(chaveDe));
+    // Gravar com valor divergente: toast de erro listando etapa, mês, processado e gravado.
+    const comValorDiferente = divergentes.filter((c) => textoValorDivergente(c));
+    if (comValorDiferente.length) {
+      avisarErro(
+        "Gravando com valor diferente do gravado",
+        comValorDiferente.map((c) => `${rotuloDe(c)}: ${textoValorDivergente(c)}`).join("\n"),
+      );
+    }
     parar.current = false;
     setFase("gravando");
     const gravadasAgora: Celula[] = []; // para o aviso de "deu certo" dizer só o que gravou mesmo
