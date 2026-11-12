@@ -239,11 +239,13 @@ export function ProcessarTrimestre({
         ...(r.ocr_disponivel ? [] : ["PDF de imagem não é lido neste servidor (sem OCR): confira o total."]),
         ...(receitas.length ? [] : ["Sem pasta de receitas neste mês."]),
         ...(despesas.length ? [] : ["Sem pasta de despesas neste mês."]),
-        ...(noRet ? [`${noRet} despesa(s) já contada(s) no RET: ficam fora do RP.`] : []),
       ];
+      // ND que já está no RET: o back já a deixa em R$ 0,00 no RP. É informação, não divergência
+      // (como aviso, travava o "Gravar" com "Há divergência" mesmo com o RP certo).
+      const infoRet = noRet ? ` · ${noRet} despesa(s) já no RET, fora do RP` : "";
       return {
         estado: "processada", concilia: r, valor: r.totais.rp, avisos, escolhida: c.escolhida && !naoLidos,
-        detalhe: `${r.itens.length} PDF(s) · receitas ${brl(r.totais.total_receitas)} · despesas ${brl(r.totais.total_despesas)}`,
+        detalhe: `${r.itens.length} PDF(s) · receitas ${brl(r.totais.total_receitas)} · despesas ${brl(r.totais.total_despesas)}${infoRet}`,
       };
     }
     // RET: envia a partir da pasta do mês, como se ela tivesse sido escolhida na tela RET.
