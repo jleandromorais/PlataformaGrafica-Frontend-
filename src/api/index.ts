@@ -322,11 +322,18 @@ export const gerarMinutaNotaTecnica = (periodo: string) =>
     .post<Blob>("/nota-tecnica/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
     .then((r) => r.data);
 
-/** Relatório do trimestre (.docx) civil que contém `periodo`: resultado dos meses e incongruências. */
-export const gerarRelatorioTrimestral = (periodo: string) =>
-  api
-    .post<Blob>("/relatorio-trimestral/gerar", null, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
+/** Relatório do trimestre (.docx) civil que contém `periodo`: resultado dos meses e incongruências.
+ *  Com `planilha`, as notas gravadas de cada mês também são comparadas com a planilha da Conta Gráfica. */
+export const gerarRelatorioTrimestral = (periodo: string, planilha?: File | null) => {
+  let corpo: FormData | null = null;
+  if (planilha) {
+    corpo = new FormData();
+    corpo.append("planilha", planilha);
+  }
+  return api
+    .post<Blob>("/relatorio-trimestral/gerar", corpo, { params: { periodo }, responseType: "blob", timeout: 5 * 60 * 1000 })
     .then((r) => r.data);
+};
 
 // ─── PR ──────────────────────────────────────────────────────────────────────
 // PR = (SCG + ΣSR) / VP. Ver docs/specs/SPEC_PR.md.

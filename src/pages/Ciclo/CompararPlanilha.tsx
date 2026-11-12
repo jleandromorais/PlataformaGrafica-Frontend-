@@ -61,16 +61,19 @@ function avisarResultado(mes: string, r: AuditoriaDoMes) {
 //   caminhos  -> os NOMES dos arquivos da pasta do ciclo (ou null se nenhuma foi trazida)
 //   arquivos  -> os arquivos de verdade, abertos no navegador (vazio depois de recarregar a página)
 //   auditoria -> o CGR já gravado de cada mês, só para mostrar ao lado do calculado
-export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoIncluirNota }: {
+export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoIncluirNota, aoTrocarPlanilha }: {
   meses: string[];
   caminhos: string[] | null;
   arquivos: Map<string, ArquivoDaPastaCiclo>;
   auditoria: AuditoriaHistoricoLinha[];
   /** Depois de "Incluir esta nota": o Painel recarrega as etapas (o CGR gravado do mês mudou). */
   aoIncluirNota?: () => void;
+  /** A planilha escolhida (ou null): o Painel usa a mesma no relatório do trimestre. */
+  aoTrocarPlanilha?: (f: File | null) => void;
 }) {
   // ── A memória da seção (cada useState guarda um valor e uma função para trocá-lo) ──
-  const [planilha, setPlanilha] = useState<File | null>(null);     // a planilha escolhida
+  const [planilha, setPlanilhaLocal] = useState<File | null>(null); // a planilha escolhida
+  const setPlanilha = (f: File | null) => { setPlanilhaLocal(f); aoTrocarPlanilha?.(f); };
   const [ativo, setAtivo] = useState<string | null>(null);         // o mês escolhido, ex.: "Ago/2026"
   const [fase, setFase] = useState<Fase>("escolher");              // em que momento estamos
   const [lidos, setLidos] = useState<{ feitos: number; total: number } | null>(null); // progresso "12 de 90"

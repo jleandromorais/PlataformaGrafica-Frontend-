@@ -243,6 +243,8 @@ export default function CicloPage() {
   const botaoZip = useRef<HTMLButtonElement>(null);   // o foco volta para ele ao fechar o aviso
   const [gerandoNT, setGerandoNT] = useState(false);
   const [gerandoRel, setGerandoRel] = useState(false);
+  // Planilha escolhida no "Comparar com a planilha": o relatório do trimestre compara as notas com ela.
+  const [planilhaRel, setPlanilhaRel] = useState<File | null>(null);
 
   // Ao abrir a tela: traz de volta a última pasta (os nomes, para o mapa). Se ela foi
   // arrastada e o navegador ainda dá a permissão SEM perguntar, relê os arquivos; senão,
@@ -382,7 +384,7 @@ export default function CicloPage() {
   const gerarRelatorio = async () => {
     setGerandoRel(true);
     try {
-      salvarArquivo(await gerarRelatorioTrimestral(meses[2]),
+      salvarArquivo(await gerarRelatorioTrimestral(meses[2], planilhaRel),
         `Relatorio_Trimestral_${meses[0].replace("/", "-")}_a_${meses[2].replace("/", "-")}.docx`);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível gerar o relatório do trimestre."));
@@ -480,7 +482,7 @@ export default function CicloPage() {
         {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
         {!carregando && dados && (
           <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
-            aoIncluirNota={() => setVersao((v) => v + 1)} />
+            aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={setPlanilhaRel} />
         )}
 
         {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
@@ -520,6 +522,11 @@ export default function CicloPage() {
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-zinc-100">Entregas</p>
                   <p className="text-xs text-zinc-500">Minuta da Nota Técnica, relatório do trimestre e Excel Final do ciclo</p>
+                  <p className={`mt-1 text-xs ${planilhaRel ? "text-emerald-400" : "text-amber-300"}`}>
+                    {planilhaRel
+                      ? `O relatório compara as notas com a planilha ${planilhaRel.name}.`
+                      : "Sem planilha, o relatório só confere o sistema com ele mesmo. Escolha a planilha em “Comparar com a planilha” para ver o que falta."}
+                  </p>
                 </div>
                 <button type="button" onClick={gerarNT} disabled={gerandoNT}
                   className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-200 hover:bg-sky-500/25 disabled:opacity-50">
