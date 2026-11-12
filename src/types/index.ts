@@ -698,6 +698,8 @@ export interface DashEmpresasResponse {
   ano_filtro: string | null;
   empresas: DashEmpresa[];
   total_cgr_liquido: number;
+  /** As mesmas contas mês a mês, em ordem cronológica (back antigo não manda). */
+  meses?: { periodo: string; empresas: DashEmpresa[] }[];
 }
 export interface DashRetMes {
   periodo: string;

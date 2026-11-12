@@ -40,7 +40,8 @@ import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import type { DashboardResponse, KpiMensal } from "../../types";
-import { PaineisExtras } from "./PaineisExtras";
+import { PaineisExtras, SeletorAgrupamento } from "./PaineisExtras";
+import { agrupar, unidadeDe, type Agrupamento } from "./agrupamento";
 import { Valor } from "../../components/ui/Valor";
 import { GLOSSARIO, tituloDe } from "../../utils/glossario";
 
@@ -411,6 +412,18 @@ export default function DashboardPage() {
 
   const ultimoTrimestre =
     composicaoTrimestral[composicaoTrimestral.length - 1];
+
+  // CGR vs CGF: mês a mês, somado por trimestre civil ou por ano.
+  const [agrupCgrCgf, setAgrupCgrCgf] = useState<Agrupamento>("mes");
+  const serieCgrCgf = useMemo(
+    () =>
+      agrupar(historicoCompleto, agrupCgrCgf, trimestresCivis, (a, b) => ({
+        ...a,
+        cgr: a.cgr + b.cgr,
+        cgf: a.cgf + b.cgf,
+      })),
+    [historicoCompleto, agrupCgrCgf, trimestresCivis]
+  );
 
   const stageColors: Record<string, string> = {
     cgr: COR_CGR,
@@ -920,9 +933,15 @@ export default function DashboardPage() {
           <div className={`${PANEL} p-5 sm:p-7`}>
             <SectionHeading
               title="CGR vs CGF por período"
-              subtitle="Comparativo mensal"
+              subtitle={`Comparativo por ${unidadeDe(agrupCgrCgf)}`}
               right={
-                <div className="flex shrink-0 items-center gap-3 text-xs text-zinc-400">
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                <SeletorAgrupamento
+                  valor={agrupCgrCgf}
+                  onChange={setAgrupCgrCgf}
+                  semTrimestres={trimestresCivis.length === 0}
+                />
+                <div className="flex items-center gap-3 text-xs text-zinc-400">
                   <span className="flex items-center gap-1.5">
                     <span
                       className="h-2 w-2 rounded-full"
@@ -939,6 +958,7 @@ export default function DashboardPage() {
                     CGF
                   </span>
                 </div>
+                </div>
               }
             />
 
@@ -948,7 +968,7 @@ export default function DashboardPage() {
               >
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={historicoCompleto}
+                    data={serieCgrCgf}
                     margin={{
                       top: 8,
                       right: 8,

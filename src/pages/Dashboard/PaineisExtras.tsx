@@ -14,6 +14,10 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { brl, brlCompact, num } from "../../utils/format";
 import { getDashEmpresas, getDashRet, getDashVolumes } from "../../api";
 import type { DashEmpresasResponse, DashRetResponse, DashVolumesResponse } from "../../types";
+import {
+  AGRUPAMENTOS, agrupar, grupoDoPeriodo, mesesComDados, unidadeDe,
+  type Agrupamento, type ComMeses, type Trimestre,
+} from "./agrupamento";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const AXIS_TICK = { fill: "var(--chart-eixo)", fontSize: 11 };
@@ -37,43 +41,8 @@ const m3Compacto = (v: number) => {
   return num(v);
 };
 
-// ─── Agrupamento Mensal / Trimestral / Anual ────────────────────────────────
-type Agrupamento = "mes" | "trimestre" | "ano";
-type Trimestre = { label: string; meses: string[] };
-type ComMeses<T> = T & { qtd_meses: number };
-
-const AGRUPAMENTOS: { valor: Agrupamento; rotulo: string; unidade: string }[] = [
-  { valor: "mes", rotulo: "Mensal", unidade: "mês" },
-  { valor: "trimestre", rotulo: "Trimestral", unidade: "trimestre" },
-  { valor: "ano", rotulo: "Anual", unidade: "ano" },
-];
-
-/** Grupo de um período "Mmm/AAAA": o próprio mês, o trimestre civil
- *  ("Jan - Mar/2026", como CGF e RET na planilha) ou o ano ("2026"). */
-function grupoDoPeriodo(periodo: string, agrupamento: Agrupamento, trimestres: Trimestre[]) {
-  if (agrupamento === "mes") return periodo;
-  const [mes, ano] = periodo.split("/");
-  if (agrupamento === "ano") return ano;
-  const tri = trimestres.find((t) => t.meses.includes(mes));
-  return tri ? `${tri.label}/${ano}` : periodo;
-}
-
-/** Soma os meses de cada grupo, na ordem em que chegam (a API já manda em ordem cronológica). */
-function agrupar<T extends { periodo: string }>(
-  meses: T[], agrupamento: Agrupamento, trimestres: Trimestre[], somar: (a: T, b: T) => T,
-): ComMeses<T>[] {
-  const grupos = new Map<string, ComMeses<T>>();
-  for (const m of meses) {
-    const periodo = grupoDoPeriodo(m.periodo, agrupamento, trimestres);
-    const atual = grupos.get(periodo);
-    grupos.set(periodo, atual
-      ? { ...somar(atual, m), periodo, qtd_meses: atual.qtd_meses + 1 }
-      : { ...m, periodo, qtd_meses: 1 });
-  }
-  return [...grupos.values()];
-}
-
-function SeletorAgrupamento({ valor, onChange, semTrimestres }: {
+// ─── Agrupamento Mensal / Trimestral / Anual (lógica em ./agrupamento) ──────
+export function SeletorAgrupamento({ valor, onChange, semTrimestres }: {
   valor: Agrupamento; onChange: (v: Agrupamento) => void; semTrimestres: boolean;
 }) {
   return (
@@ -96,8 +65,6 @@ function SeletorAgrupamento({ valor, onChange, semTrimestres }: {
   );
 }
 
-const unidadeDe = (a: Agrupamento) => AGRUPAMENTOS.find((x) => x.valor === a)!.unidade;
-const mesesComDados = (n: number) => `${n} ${n === 1 ? "mês" : "meses"}`;
 
 function useCarregar<T>(buscar: (ano?: string) => Promise<T>, ano?: string) {
   const [dados, setDados] = useState<T | null>(null);
@@ -191,21 +158,72 @@ function TabelaDados({ colunas, linhas }: { colunas: string[]; linhas: string[][
 }
 
 // ─── 1. CGR por empresa ──────────────────────────────────────────────────────
-function PainelEmpresas({ ano }: { ano?: string }) {
+type Empresa = DashEmpresasResponse["empresas"][number];
+
+/** Soma as empresas de vários meses (mesmo nome = mesma empresa), do maior CGR para o menor. */
+function somarEmpresas(meses: { empresas: Empresa[] }[]): Empresa[] {
+  const por = new Map<string, Empresa>();
+  for (const m of meses) {
+    for (const e of m.empresas) {
+      const a = por.get(e.empresa);
+      por.set(e.empresa, a ? {
+        empresa: e.empresa, notas: a.notas + e.notas, nfe: a.nfe + e.nfe, cte: a.cte + e.cte,
+        valor_total: a.valor_total + e.valor_total, icms: a.icms + e.icms,
+        pis_cofins: a.pis_cofins + e.pis_cofins, cgr_liquido: a.cgr_liquido + e.cgr_liquido,
+      } : { ...e });
+    }
+  }
+  return [...por.values()].sort((x, y) => y.cgr_liquido - x.cgr_liquido);
+}
+
+function PainelEmpresas({ ano, trimestres }: { ano?: string; trimestres: Trimestre[] }) {
   const { dados, falhou } = useCarregar<DashEmpresasResponse>(getDashEmpresas, ano);
-  const vazio = !dados || dados.empresas.length === 0;
+  const [agrupamento, setAgrupamento] = useState<Agrupamento>("mes");
+  const [escolhido, setEscolhido] = useState<string | null>(null);
+
+  // Grupos do agrupamento escolhido (mais recente primeiro) e as empresas do grupo selecionado.
+  const meses = dados?.meses ?? [];
+  const porMes = meses.length > 0;
+  const grupos = [...new Set(meses.map((m) => grupoDoPeriodo(m.periodo, agrupamento, trimestres)))].reverse();
+  const grupo = escolhido && grupos.includes(escolhido) ? escolhido : grupos[0];
+  const empresas = !dados ? [] : porMes
+    ? somarEmpresas(meses.filter((m) => grupoDoPeriodo(m.periodo, agrupamento, trimestres) === grupo))
+    : dados.empresas;
+  const total = empresas.reduce((s, e) => s + e.cgr_liquido, 0);
+  const vazio = !dados || empresas.length === 0;
+
+  const trocarAgrupamento = (a: Agrupamento) => {
+    setAgrupamento(a);
+    setEscolhido(null); // volta para o período mais recente
+  };
+
   return (
     <Painel
       titulo="CGR por empresa"
-      subtitulo={dados && !vazio ? `CGR líquido total ${brl(dados.total_cgr_liquido)}` : "CGR líquido gravado na Auditoria"}
+      subtitulo={dados && !vazio
+        ? `CGR líquido ${porMes ? `em ${grupo}` : "total"}: ${brl(total)}`
+        : "CGR líquido gravado na Auditoria"}
+      acao={porMes ? (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <SeletorAgrupamento valor={agrupamento} onChange={trocarAgrupamento} semTrimestres={trimestres.length === 0} />
+          <select
+            aria-label={`Escolher o ${unidadeDe(agrupamento)}`}
+            value={grupo}
+            onChange={(e) => setEscolhido(e.target.value)}
+            className="rounded-lg border border-white/[0.07] bg-white/[0.03] px-2.5 py-1 text-xs font-semibold text-zinc-200"
+          >
+            {grupos.map((g) => <option key={g} value={g} className="bg-panel text-zinc-100">{g}</option>)}
+          </select>
+        </div>
+      ) : undefined}
     >
       {vazio ? (
         <Vazio carregando={dados === null} falhou={falhou} />
       ) : (
         <>
-          <div className="mt-6" style={{ height: Math.max(180, dados.empresas.length * 52 + 24) }}>
+          <div className="mt-6" style={{ height: Math.max(180, empresas.length * 52 + 24) }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dados.empresas} layout="vertical" margin={{ top: 4, right: 88, left: 8, bottom: 0 }}>
+              <BarChart data={empresas} layout="vertical" margin={{ top: 4, right: 88, left: 8, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke={GRID_STROKE} horizontal={false} />
                 <XAxis type="number" hide />
                 <YAxis type="category" dataKey="empresa" tick={{ ...AXIS_TICK, fontSize: 12, fill: "var(--chart-rotulo)" }} tickLine={false} axisLine={false} width={112} />
@@ -233,7 +251,7 @@ function PainelEmpresas({ ano }: { ano?: string }) {
           </div>
           <TabelaDados
             colunas={["Empresa", "CGR líquido", "ICMS", "PIS/COFINS", "Notas"]}
-            linhas={dados.empresas.map((e) => [e.empresa, brl(e.cgr_liquido), brl(e.icms), brl(e.pis_cofins), String(e.notas)])}
+            linhas={empresas.map((e) => [e.empresa, brl(e.cgr_liquido), brl(e.icms), brl(e.pis_cofins), String(e.notas)])}
           />
         </>
       )}
@@ -404,7 +422,7 @@ function PainelVolumes({ ano, trimestres }: { ano?: string; trimestres: Trimestr
 export function PaineisExtras({ ano, trimestresCivis }: { ano?: string; trimestresCivis: Trimestre[] }) {
   return (
     <>
-      <PainelEmpresas ano={ano} />
+      <PainelEmpresas ano={ano} trimestres={trimestresCivis} />
       <div className="grid grid-cols-1 gap-4 lg:gap-5 xl:grid-cols-2">
         <PainelRet ano={ano} trimestres={trimestresCivis} />
         <PainelVolumes ano={ano} trimestres={trimestresCivis} />
