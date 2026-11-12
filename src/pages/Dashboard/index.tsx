@@ -676,7 +676,7 @@ export default function DashboardPage() {
               <div className="mt-7 flex flex-col gap-6">
                 {/* Gráfico Donut */}
 
-                <div className="relative h-56 w-full">
+                <div className="relative h-64 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       {/* Trilho de fundo: dá acabamento ao anel */}
@@ -685,8 +685,8 @@ export default function DashboardPage() {
                         dataKey="value"
                         cx="50%"
                         cy="50%"
-                        innerRadius={72}
-                        outerRadius={88}
+                        innerRadius={88}
+                        outerRadius={104}
                         stroke="none"
                         fill="var(--chart-grade)"
                         isAnimationActive={false}
@@ -717,10 +717,10 @@ export default function DashboardPage() {
                         ]}
                         cx="50%"
                         cy="50%"
-                        innerRadius={72}
-                        outerRadius={88}
-                        paddingAngle={6}
-                        cornerRadius={8}
+                        innerRadius={88}
+                        outerRadius={104}
+                        paddingAngle={3}
+                        cornerRadius={4}
                         startAngle={90}
                         endAngle={-270}
                         dataKey="value"
@@ -777,7 +777,7 @@ export default function DashboardPage() {
                     </span>
 
                     <span
-                      className={`num mt-0.5 text-base font-bold ${
+                      className={`num mt-0.5 whitespace-nowrap text-[15px] font-bold ${
                         ultimoTrimestre.total < 0
                           ? "text-red-400"
                           : "text-white"
@@ -790,7 +790,7 @@ export default function DashboardPage() {
 
                 {/* Legenda */}
 
-                <div className="grid grid-cols-3 gap-2 text-center text-sm">
+                <div className="flex flex-col gap-2 text-sm">
                   {(["rpv", "ret", "rp"] as const).map((chave) => {
                     const somaAbs =
                       Math.abs(ultimoTrimestre.rpv) +
@@ -803,9 +803,9 @@ export default function DashboardPage() {
                     return (
                       <div
                         key={chave}
-                        className="flex flex-col items-center rounded-xl border border-white/5 bg-white/[0.03] px-2 py-3"
+                        className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3"
                       >
-                        <div className="mb-1 flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5">
                           <span
                             className="h-2.5 w-2.5 rounded-full"
                             style={{
@@ -818,18 +818,18 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
+                        <span className="num text-[11px] text-zinc-500">
+                          {pct.toFixed(0)}% do total
+                        </span>
+
                         <span
-                          className={`num text-sm font-semibold ${
+                          className={`num whitespace-nowrap text-sm font-semibold ${
                             ultimoTrimestre[chave] < 0
                               ? "text-red-400"
                               : "text-emerald-400"
                           }`}
                         >
                           {brl(ultimoTrimestre[chave])}
-                        </span>
-
-                        <span className="num mt-0.5 text-[11px] text-zinc-500">
-                          {pct.toFixed(0)}% do total
                         </span>
                       </div>
                     );
