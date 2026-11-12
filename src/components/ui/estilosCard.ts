@@ -5,9 +5,9 @@
 export const CARD_PAINEL = "gap-0 rounded-xl border border-white/[0.07] bg-panel p-5 shadow-none sm:p-6";
 
 /** Card da Fórmula em vinho, para chamar a atenção. Cores em src/index.css (--color-vinho-*),
- * com versão clara e escura. */
-export const CARD_VINHO = "gap-0 rounded-xl border border-vinho-borda bg-vinho-fundo p-5 shadow-none sm:p-6";
+ * com versão clara e escura. `card-hover-vinho` liga o hover suave (só borda e fundo, index.css). */
+export const CARD_VINHO = "card-hover-vinho gap-0 rounded-xl border border-vinho-borda bg-vinho-fundo p-5 shadow-none sm:p-6";
 
 /** Card de destaque (KPI): mesmo painel neutro, mais compacto. `card-hover` liga o hover dos cards pequenos (index.css).
- * Só os cards pequenos de destaque têm hover; painéis grandes (CARD_PAINEL, CARD_VINHO) não. */
+ * Hover forte só nos cards pequenos de destaque; CARD_VINHO tem um hover mais suave; CARD_PAINEL não tem. */
 export const CARD_KPI = "card-hover gap-0 rounded-xl border border-white/[0.07] bg-panel p-4 shadow-none sm:p-5";

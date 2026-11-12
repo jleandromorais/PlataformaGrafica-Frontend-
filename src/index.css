@@ -334,8 +334,9 @@
 
 /* Hover dos CARDS PEQUENOS de destaque (KPIs): só onde a classe `card-hover` é posta
    (CARD_KPI em estilosCard.ts, StatCard, KPIs do Dashboard e do PMPV, contadores da
-   comparação com a planilha). Painéis grandes, tabelas, gráficos e o card da Fórmula
-   ficam sem hover de propósito.
+   comparação com a planilha). Painéis grandes, tabelas e gráficos ficam sem hover de
+   propósito. O card vermelho da Fórmula (CARD_VINHO) tem hover próprio e mais suave
+   (card-hover-vinho, logo abaixo): a decisão antiga de deixá-lo sem hover foi revertida.
    O Card da HeroUI v3 não tem estado de hover próprio (é uma div, sem data-hovered),
    então o efeito é CSS puro, com transição curta como a HeroUI faz nos componentes dela:
    fundo com o azul de --color-hover-card (sombra interna, que anima), borda e anel azuis,
@@ -359,6 +360,28 @@
   :root:not([data-reduce-motion="true"]) .card-hover:hover {
     transform: translateY(-3px);
   }
+}
+
+/* Hover SUAVE dos blocos vermelhos (CARD_VINHO). Só mexe em borda e fundo, sempre
+   misturando as variáveis --color-vinho-*, então vale para o tema escuro e para o claro
+   sem azul. Sem subida e sem sombra. A mistura é pequena (fundo 10%, borda 40%), por isso
+   os textos vinho mantêm o contraste AA que já tinham. Fora de @layer para vencer os
+   utilitários border-vinho-borda / bg-vinho-fundo. */
+.card-hover-vinho {
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+.card-hover-vinho:hover {
+  border-color: color-mix(in srgb, var(--color-vinho-borda) 60%, var(--color-vinho-mudo));
+  background-color: color-mix(in srgb, var(--color-vinho-fundo) 90%, var(--color-vinho-mudo));
+}
+/* Para quem pediu menos movimento: a troca de cor é instantânea, sem animação. */
+@media (prefers-reduced-motion: reduce) {
+  .card-hover-vinho {
+    transition: none;
+  }
+}
+:root[data-reduce-motion="true"] .card-hover-vinho {
+  transition: none;
 }
 
 /* Eixos dos gráficos Recharts (o <text> do SVG não recebe classe por tick). */
