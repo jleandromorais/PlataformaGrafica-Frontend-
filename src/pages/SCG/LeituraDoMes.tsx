@@ -9,7 +9,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { SeletorMes } from "../../components/ui/SeletorMes";
-import { getHistoricoSCG, getSCGComparacao, salvarSCG } from "../../api";
+import { getHistoricoSCG, getProvaRealSCG, getSCGComparacao, salvarSCG } from "../../api";
+import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
 import { mensagemDeErro } from "../../api/client";
 import { brl, brlEntrada, parseBRL } from "../../utils/format";
 import { textoPRAutomatico } from "../../utils/prAutomatico";
@@ -81,6 +82,7 @@ export function LeituraDoMes() {
   const [sucesso, setSucesso] = useState<string | null>(null);
   const [avisoPR, setAvisoPR] = useState<string | null>(null); // PR/PV não regravados ao salvar
   const ultimaBusca = useRef(0);
+  const prova = useProvaRealDoMes(anoValido(ano) ? periodo : null, getProvaRealSCG, periodo); // traz o SCG gravado cru
 
   const buscar = useCallback((p: string) => {
     const busca = ++ultimaBusca.current;
@@ -138,7 +140,13 @@ export function LeituraDoMes() {
   const rpv = validos ? v.cgr - v.cgf : 0;
   const scg = validos ? rpv + v.ret + v.rp : 0;
   const divergentes = comp?.gravado ? CAMPOS.filter(({ chave }) => difere(comp.modulos[chave], comp.gravado![chave])) : [];
-  const alterado = !!comp && validos && (!comp.gravado || CAMPOS.some(({ chave }) => difere(v[chave], comp.gravado![chave])));
+  const camposDiferem = !!comp?.gravado && validos && CAMPOS.some(({ chave }) => difere(v[chave], comp.gravado![chave]));
+  // A tabela mostra o SCG refeito na leitura, mas a coluna "scg" gravada pode estar velha. A prova real
+  // traz essa coluna crua: se ela difere do que seria salvo, salvar corrige.
+  const provaDoMes = prova.dados && !prova.erro && !prova.carregando && !prova.atualizando && prova.dados.periodo === periodo ? prova.dados : null;
+  const gravadoDesatualizado = !!comp?.gravado && validos && !!provaDoMes?.gravado
+    && (provaDoMes.scg_gravado === null || difere(provaDoMes.scg_gravado, scg));
+  const alterado = !!comp && validos && (!comp.gravado || camposDiferem || gravadoDesatualizado);
 
   const salvar = async () => {
     if (!validos) return setErro("Corrija os valores digitados antes de salvar.");
@@ -154,6 +162,7 @@ export function LeituraDoMes() {
       if (pr && !pr.ok) setAvisoPR(pr.texto);
       buscar(periodo);
       carregarHistorico();
+      prova.recarregar?.();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar o SCG."));
     } finally {
@@ -281,6 +290,8 @@ export function LeituraDoMes() {
             <p className="text-sm text-zinc-400">
               {!comp ? "" : !alterado ? (
                 <span className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-400" /> Nada a salvar: o escolhido é igual ao gravado.</span>
+              ) : comp.gravado && !camposDiferem ? (
+                <>SCG gravado desatualizado: a coluna gravada está {provaDoMes?.scg_gravado == null ? "vazia" : <>em <span className="font-medium text-zinc-200">{brl(provaDoMes.scg_gravado)}</span></>}, mas a soma dá <span className="font-medium text-zinc-200">{brl(scg)}</span>. Salvar corrige.</>
               ) : comp.gravado ? (
                 <>O SCG gravado passa de <span className="font-medium text-zinc-200">{brl(comp.gravado.scg)}</span> para <span className="font-medium text-zinc-200">{brl(scg)}</span>.</>
               ) : (

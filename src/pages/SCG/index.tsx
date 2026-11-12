@@ -156,7 +156,14 @@ export default function SCGPage() {
   const rpv = validos ? v.cgr - v.cgf : 0;
   const scg = validos ? rpv + v.ret + v.rp : 0;
   const divergentes = comp?.gravado ? CAMPOS.filter(({ chave }) => difere(comp.modulos[chave], comp.gravado![chave])) : [];
-  const alterado = !!comp && validos && (!comp.gravado || CAMPOS.some(({ chave }) => difere(v[chave], comp.gravado![chave])));
+  const camposDiferem = !!comp?.gravado && validos && CAMPOS.some(({ chave }) => difere(v[chave], comp.gravado![chave]));
+  // A tabela mostra o SCG refeito na leitura, mas a coluna "scg" gravada pode estar velha (0 ou outro valor).
+  // A prova real traz essa coluna crua: se ela difere do que seria salvo, salvar corrige. Só vale com a
+  // prova do mês que está na tela (não a do mês anterior, que fica visível enquanto o novo carrega).
+  const provaDoMes = prova.dados && !prova.erro && !prova.carregando && !prova.atualizando && prova.dados.periodo === periodo ? prova.dados : null;
+  const gravadoDesatualizado = !!comp?.gravado && validos && !!provaDoMes?.gravado
+    && (provaDoMes.scg_gravado === null || difere(provaDoMes.scg_gravado, scg));
+  const alterado = !!comp && validos && (!comp.gravado || camposDiferem || gravadoDesatualizado);
 
   const salvar = async () => {
     if (!validos) return setErro("Corrija os valores digitados antes de salvar.");
@@ -333,6 +340,8 @@ export default function SCGPage() {
             <p className="text-sm text-zinc-400">
               {!comp ? "" : !alterado ? (
                 <span className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-400" /> Nada a salvar: o escolhido é igual ao gravado.</span>
+              ) : comp.gravado && !camposDiferem ? (
+                <>SCG gravado desatualizado: a coluna gravada está {provaDoMes?.scg_gravado == null ? "vazia" : <>em <span className="font-medium text-zinc-200">{brl(provaDoMes.scg_gravado)}</span></>}, mas a soma dá <span className="font-medium text-zinc-200">{brl(scg)}</span>. Salvar corrige.</>
               ) : comp.gravado ? (
                 <>O SCG gravado passa de <span className="font-medium text-zinc-200">{brl(comp.gravado.scg)}</span> para <span className="font-medium text-zinc-200">{brl(scg)}</span>.</>
               ) : (

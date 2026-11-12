@@ -20,11 +20,14 @@ export function KpisSCG({ periodo, estado }: { periodo: string | null; estado: E
   const g = !!d && situacao !== "nao_gravado";
   const valor = (v: number) => <span className={cor(v)} title={brl(v)}>{brlResumido(v)}</span>;
 
+  // Coluna crua vazia ou 0, mas a soma dos módulos existe: "R$ 0,00" enganaria, o mês só não foi gravado.
+  const cruNaoGravado = !!d && (d.scg_gravado === null || Math.abs(d.scg_gravado) < 0.005) && Math.abs(d.scg_calculado) >= 0.005;
+
   return (
     <GradeKpis titulo={`Destaques de ${periodo}`} carregando={carregando} atualizando={atualizando} cinco>
       <Kpi icone={<Equal size={16} aria-hidden />} rotulo="SCG do mês" carregando={carregando}
-        valor={g && d.scg_gravado !== null ? valor(d.scg_gravado) : "—"}
-        detalhe={g && d.scg_gravado !== null ? contabil(d.scg_gravado) : "nada gravado"} />
+        valor={cruNaoGravado ? <span className="text-zinc-400">não gravado</span> : g && d.scg_gravado !== null ? valor(d.scg_gravado) : "—"}
+        detalhe={cruNaoGravado ? `soma dos módulos: ${contabil(d.scg_calculado)}` : g && d.scg_gravado !== null ? contabil(d.scg_gravado) : "nada gravado"} />
 
       <Kpi icone={<Minus size={16} aria-hidden />} rotulo="RPV" carregando={carregando}
         valor={g ? valor(d.rpv) : "—"} detalhe={g ? "CGR − CGF" : "nada gravado"} />
