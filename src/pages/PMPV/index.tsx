@@ -9,7 +9,7 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
-import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
+import { avisarEnviando, avisarSucesso, concluirAviso, faixaDosMeses } from "../../components/ui/avisos";
 import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, getSessaoDoTrimestrePMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
@@ -675,6 +675,9 @@ export default function PMPVPage() {
   const importar = async (arquivo: File) => {
     limparMensagens();
     setOcupado("importar");
+    // Aparece na hora: a pessoa vê que o arquivo foi enviado; vira verde/amarelo/vermelho no fim.
+    const faixa = faixaDosMeses(periodos);
+    const aviso = avisarEnviando("Enviando a Memória de Cálculo…", `${arquivo.name} · ${faixa}`);
     try {
       const r = await importarMemoriaPMPV(arquivo, periodos);
       const novas = { ...linhas };
@@ -694,14 +697,21 @@ export default function PMPVPage() {
         const sugestoes = trimestresDaPlanilha(trimestres, r.meses_encontrados ?? [], `${trimestre}, ano ${ano}`);
         const dica = sugestoes.length ? `Escolha ${sugestoes.join(" ou ")} e importe de novo.` : "";
         setErro([`Nada foi importado para ${trimestre}, ano ${ano}.`, ...r.erros, dica].filter(Boolean).join("\n"));
+        concluirAviso(aviso, "danger", `Memória de Cálculo enviada, mas sem ${faixa}`, [...r.erros, dica]);
       }
-      else if (r.erros.length) setAviso(`${importados}/3 meses importados de ${trimestre}.\n${r.erros.join("\n")}`);
+      else if (r.erros.length) {
+        setAviso(`${importados}/3 meses importados de ${trimestre}.\n${r.erros.join("\n")}`);
+        concluirAviso(aviso, "warning", `Memória de Cálculo enviada: ${importados} de 3 meses`, r.erros);
+      }
       else {
         setSucesso(`Trimestre ${trimestre}: os 3 meses foram carregados da Memória de Cálculo.`);
-        avisarSucesso("Memória de Cálculo importada", `${faixaDosMeses(periodos)}: os 3 meses foram carregados.`);
+        concluirAviso(aviso, "success", "Memória de Cálculo enviada",
+          `${arquivo.name}: os 3 meses de ${faixa} foram carregados. Confira, calcule e salve.`);
       }
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível importar a planilha."));
+      const msg = mensagemDeErro(e, "Não foi possível importar a planilha.");
+      setErro(msg);
+      concluirAviso(aviso, "danger", "Não foi possível enviar a Memória de Cálculo", msg);
     } finally {
       setOcupado(null);
       if (arquivoRef.current) arquivoRef.current.value = "";

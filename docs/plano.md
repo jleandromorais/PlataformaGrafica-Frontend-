@@ -1,3 +1,31 @@
+# Resumo da semana — 06 a 13/11/2026
+
+Fonte: `git log` do front (48 commits) e do back (29 commits) desde 06/11. Em uma frase: o sistema
+ganhou **prova real em todas as contas**, o **Painel do Ciclo** passou a conferir com a planilha e
+gerar o relatório do trimestre, a **regra do PR no SR** foi corrigida e o back foi **reorganizado**.
+
+| Dia | Front | Back |
+|---|---|---|
+| **06/11** | Pasta por arrastar ou `.zip`; auditar a CGR mês a mês no Painel; menu Dashboard → PMPV → Painel; PR do trimestre preenchido sozinho no PMPV; paginação HeroUI; `AGENTS.md` e crítica de design | PR e PV regravados ao salvar Auditoria, CGF, RET ou RP; material de estudo em `docs/estudo` |
+| **07/11** | — | Agentes Luiz e Daluz |
+| **09/11** | Fórmula + prova real + histórico clicável em Auditoria, CGF, RPV, PMPV, RET e PV; card Composição da tarifa (MB e tarifa média); SR no Painel; Comparar com a planilha no Painel | Prova real de Auditoria, CGF, RPV, PMPV e RET; margem regulatória anual e tarifa média |
+| **10/11** | Telas RP, SCG e SR com fórmula e prova real; "Está coerente"; Dashboard em círculos; texto do "Como funciona" | Prova real do RP, SCG e SR; histórico do SR |
+| **11/11** | Aviso "Possível duplicata" com "Tirar do cálculo" (RP, RET, Auditoria); toasts de sucesso; comparar só pela pasta do ciclo; botão do relatório do trimestre em Word; Comparar antes do SR | Duplicata por valor; `.zip` do mês não vira empresa "Nota Fiscal"; relatório trimestral em Word |
+| **12/11** | PMPV lembra as linhas ao trocar de página; SCG "gravado desatualizado"; textos amigáveis na Auditoria; toast único de erro no Processar; Dashboard mensal/trimestral/anual; relatório usa a planilha escolhida | Salvar módulo grava o SCG + reparo do histórico + SR automático; ano de 2 dígitos na pasta (`out-25`); **regra do PR no SR = trimestre do próprio mês**; campo `erros` nas rotas do ciclo; rota `planilha/conferir`; relatório com veredito, conferência e auditoria por empresa |
+| **13/11** | **PMPV: a tabela acompanha o trimestre** com os dados salvos no banco (`163a860`) | **Repositório organizado** (`92d9a73`): docs em `docs/`, arquivos locais em `_local/`, `backups/`, `Excel/referencia/`; **`Src/Services` por etapa** (`tarifa`, `auditoria`, `cgf`, `ret`, `rp`, `apuracao`, `comparacao`); `ARCHITECTURE.md` reescrito; rota `GET /pmpv/sessao-do-trimestre` (`96df2e3`) |
+
+**Problemas de dados achados e explicados na semana**
+- **CGF de Out–Dez/2025 diferente da NT:** PMPV errado no banco (Out 1,9501 → certo 2,1502; Nov e Dez 2,1154). Corrigido no banco local; **no servidor ainda falta corrigir o de Out/2025**.
+- **RP de Dez/2025:** falta o PDF da nota PFP de R$ 58.261,99 (linha 170 da aba "Verificação EAT - EC e PEN", "inserida a posteriori pela Copergás").
+- **SR puxando o PR do trimestre anterior:** a regra antiga (3 meses antes) estava errada; corrigida em `d917c5a`.
+- **PMPV mostrava as mesmas empresas em todo trimestre:** a tabela era por "Mês 1/2/3"; corrigido em `163a860`.
+
+**Testes:** back com **835 testes passando** (13/11). Front: `tsc`, lint e build sem erro; a tela PMPV foi testada clicando num Chrome headless isolado. O `npm test` continua quebrado (`reading 'config'`).
+
+**Ficou para a próxima semana:** conferir o deploy de `96df2e3` e `163a860`; corrigir no servidor o PMPV Out/2025, o SR Jul–Set/25 e os PRs Nov–Jan (−0,0210) e Fev–Abr (−0,0321); decidir as correções da revisão (bloquear "Salvar PR" sem SR, meses com ano nas telas PR e PV); quadro "Conferência do mês" (contagem de arquivos e alertas de valor fora do normal); abrir as telas do `.exe` depois da reorganização.
+
+---
+
 # Plano de 13/11/2026 (atualizado à tarde)
 
 Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 → 2; depois 3 e 4.

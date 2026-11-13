@@ -35,6 +35,26 @@ export function avisarErro(titulo: string, detalhes?: string | string[]) {
   return toast.danger(titulo, { description, timeout: TEMPO_ERRO });
 }
 
+/** Aviso "em andamento" (com rodinha) que fica aberto até `concluirAviso` trocar pelo resultado.
+ *  Serve para envios que demoram (ex.: subir uma planilha): a pessoa vê na hora que o arquivo foi. */
+export function avisarEnviando(titulo: string, descricao?: string): string {
+  return toast(titulo, { description: descricao, isLoading: true, timeout: 0 });
+}
+
+/** Troca o aviso "em andamento" pelo resultado, no mesmo lugar da tela. */
+export function concluirAviso(
+  id: string, tipo: "success" | "warning" | "danger", titulo: string, detalhes?: string | string[],
+) {
+  const itens = typeof detalhes === "string" ? [detalhes] : (detalhes ?? []).filter(Boolean);
+  const description = itens.length <= 1
+    ? itens[0]
+    : createElement("ul", { className: "list-disc space-y-0.5 pl-4" },
+        ...itens.slice(0, 6).map((t, i) => createElement("li", { key: i }, t)));
+  return toast.update(id, titulo, {
+    description, variant: tipo, isLoading: false, timeout: tipo === "danger" ? TEMPO_ERRO : TEMPO,
+  });
+}
+
 /** "Jul a Set/2026" (ou "Jan/2026 a Mar/2026" se mudar o ano) para o título do aviso. */
 export function faixaDosMeses(meses: string[]): string {
   if (!meses.length) return "";
