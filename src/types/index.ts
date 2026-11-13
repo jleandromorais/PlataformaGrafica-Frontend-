@@ -601,24 +601,6 @@ export interface PRApuracao {
   pendencias: string[];
 }
 
-export interface PRMesDecomposicao {
-  periodo: string;
-  scg: number;
-  sr: number;
-  vp: number;
-  parcela_pr: number;
-  vp_sem_dado: boolean;
-}
-
-export interface PRTrimestralResultado {
-  scg: number;
-  sr: number;
-  vp: number;
-  pr: number;
-  meses: PRMesDecomposicao[];
-  meses_sem_vp: string[];
-}
-
 export interface PRSrAnterior {
   periodo: string;
   sr: number;

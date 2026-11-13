@@ -264,7 +264,7 @@ export function EntradaManual() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
 
-        {erro && <Alert variant="error">{erro}</Alert>}
+        {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
 

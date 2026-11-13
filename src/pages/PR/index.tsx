@@ -150,7 +150,7 @@ export default function PRPage() {
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
         <PageHeader modulo="pr" formula="PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR, em 4 casas" />
 
-        {erro && <Alert variant="error">{erro}</Alert>}
+        {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPV && <Alert variant="warning">{avisoPV}</Alert>}
 
@@ -258,9 +258,16 @@ export default function PRPage() {
                 </p>
               )}
               <Button className="mt-4 w-full" variant="solid" icon={<Save size={16} />} loading={salvando}
-                disabled={carregando || !dados.vp} onClick={salvar}>
+                disabled={carregando || !dados.vp || dados.pendencias.length > 0} onClick={salvar}
+                aria-describedby={dados.pendencias.length > 0 ? "pr-bloqueado" : undefined}>
                 Salvar PR
               </Button>
+              {dados.pendencias.length > 0 && (
+                <p id="pr-bloqueado" className="mt-2 text-center text-xs text-amber-300">
+                  Para salvar, resolva antes {dados.pendencias.length === 1 ? "o aviso" : `os ${dados.pendencias.length} avisos`} em amarelo acima.
+                  Sem isso o PR sairia com o SR, o SCG ou o VP zerado.
+                </p>
+              )}
               <Button className="mt-2 w-full" variant="ghost" icon={<FileText size={16} />} loading={gerandoNT}
                 disabled={carregando || !dados.vp} onClick={gerarNT}>
                 Gerar minuta da Nota Técnica

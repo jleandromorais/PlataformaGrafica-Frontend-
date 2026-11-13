@@ -313,7 +313,7 @@ export default function SRPage() {
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
         <PageHeader modulo="sr" />
 
-        {erro && <Alert variant="error">{erro}</Alert>}
+        {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
 

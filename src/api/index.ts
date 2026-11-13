@@ -6,7 +6,7 @@ import type {
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP, ProvaRealSCG, ProvaRealSR, SRHistoricoTrimestre,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
-  SCGPeriodo, PRResultado, PRApuracao, PRTrimestralResultado, PRSrAnterior, DashboardResponse,
+  SCGPeriodo, PRResultado, PRApuracao, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
 } from "../types";
@@ -353,9 +353,6 @@ export const listarPeriodosPR = () =>
 
 export const listarSrAnterioresPR = () =>
   api.get<PRSrAnterior[]>("/pr/sr-anteriores").then((r) => r.data);
-
-export const buscarTrimestralPR = (periodos: string[]) =>
-  api.post<PRTrimestralResultado>("/pr/trimestral", { periodos }).then((r) => r.data);
 
 /** PR pela Nota Técnica para os 3 meses do PR (ex.: Mai–Jul/2026). */
 export const apurarPR = (periodos: string[]) =>
