@@ -472,17 +472,13 @@ export function ProcessarTrimestre({
 
       {/* Antes de gravar: divergência é dita com todas as letras, e quem decide é o analista. */}
       {fase === "revisao" && divergentes.length > 0 && (
-        <Alert variant="warning" className="mt-4">
-          <span className="block font-semibold">
-            Há divergência em {divergentes.length === 1 ? "1 etapa marcada" : `${divergentes.length} etapas marcadas`}.
-          </span>
-          <span className="mt-1 block">
+        <Alert variant="warning" className="mt-4"
+          titulo={`Há divergência em ${divergentes.length === 1 ? "1 etapa marcada" : `${divergentes.length} etapas marcadas`}.`}
+          itens={divergentes.map((c) => <><b>{rotuloDe(c)}</b>: {motivosDeDivergencia(c).join("; ")}.</>)}>
+          <p>
             Se você gravar agora, {divergentes.length === 1 ? "ela será gravada" : "elas serão gravadas"} <b>com a divergência</b>.
             Cabe ao analista analisar os dados antes de gravar: desmarque o que não estiver certo ou confira na tela da etapa.
-          </span>
-          <ul className="mt-1.5 list-disc space-y-0.5 pl-5">
-            {divergentes.map((c) => <li key={chaveDe(c)}><b>{rotuloDe(c)}</b>: {motivosDeDivergencia(c).join("; ")}.</li>)}
-          </ul>
+          </p>
         </Alert>
       )}
       {fase === "revisao" && divergentes.length === 0 && aGravar > 0 && (
@@ -490,14 +486,12 @@ export function ProcessarTrimestre({
       )}
       {/* Depois de gravar: fica dito na tela que o ciclo foi gravado com divergência. */}
       {fase === "fim" && gravadasDivergentes.length > 0 && (
-        <Alert variant="warning" className="mt-4">
-          <span className="block font-semibold">
-            {gravadasDivergentes.length === 1 ? "1 etapa foi gravada com divergência" : `${gravadasDivergentes.length} etapas foram gravadas com divergência`}.
-          </span>
-          <span className="mt-1 block">
+        <Alert variant="warning" className="mt-4"
+          titulo={`${gravadasDivergentes.length === 1 ? "1 etapa foi gravada com divergência" : `${gravadasDivergentes.length} etapas foram gravadas com divergência`}.`}>
+          <p>
             O ciclo foi gravado com divergências e o valor gravado continua assim até ser corrigido. Cabe ao analista analisar os dados e,
             se precisar, refazer a etapa: {gravadasDivergentes.map(rotuloDe).join(", ")}.
-          </span>
+          </p>
         </Alert>
       )}
 

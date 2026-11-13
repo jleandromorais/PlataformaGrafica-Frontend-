@@ -22,24 +22,3 @@ export function Card({ title, subtitle, children, className = "", accent }: Card
     </div>
   );
 }
-
-interface StatCardProps {
-  label: string;
-  value: string;
-  sub?: string;
-  color?: string;
-  icon?: ReactNode;
-}
-
-export function StatCard({ label, value, sub, color = "text-white", icon }: StatCardProps) {
-  return (
-    <div className="card-hover rounded-xl border border-white/[0.07] bg-panel p-5 flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-zinc-500">{label}</span>
-        {icon && <span className="text-zinc-600">{icon}</span>}
-      </div>
-      <span className={`text-2xl font-bold tabular-nums ${color}`}>{value}</span>
-      {sub && <span className="text-xs text-zinc-600">{sub}</span>}
-    </div>
-  );
-}

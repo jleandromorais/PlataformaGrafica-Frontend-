@@ -203,7 +203,7 @@ export default function PVPage() {
       <PageHeader modulo="pv" />
 
       {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
-      {avisos.length > 0 && <Alert variant="warning" className="whitespace-pre-line">{avisos.join("\n")}</Alert>}
+      {avisos.length > 0 && <Alert variant="warning" itens={avisos} />}
       {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
       <KpisPV chave={aberto} estado={prova} />

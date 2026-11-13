@@ -133,6 +133,14 @@ function trimestresDaPlanilha(trimestres: Trimestre[], encontrados: string[], at
   return [...sugestoes];
 }
 
+/** O aviso vem como texto com quebras de linha. Se a primeira linha termina em ":",
+ * ela é o título e as outras são os itens; senão, cada linha é um item. */
+function partesDoAviso(texto: string): { titulo?: string; itens: string[] } {
+  const linhas = texto.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (linhas.length > 1 && linhas[0].endsWith(":")) return { titulo: linhas[0], itens: linhas.slice(1) };
+  return { itens: linhas };
+}
+
 function trimestreDoMesAtual(trimestres: Trimestre[]): string {
   const atual = MESES_ABREV[new Date().getMonth()];
   return trimestres.find((t) => t.meses.includes(atual))?.label ?? trimestres[0]?.label ?? "";
@@ -740,7 +748,7 @@ export default function PMPVPage() {
         <PageHeader modulo="pmpv" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
-        {aviso && <Alert variant="warning" className="whitespace-pre-line">{aviso}</Alert>}
+        {aviso && <Alert variant="warning" {...partesDoAviso(aviso)} />}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
         {/* KPIs: os 3 primeiros mostram o resultado do cálculo em andamento; o 4º, a prova real da sessão aberta. */}

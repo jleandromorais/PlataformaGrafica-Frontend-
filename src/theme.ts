@@ -6,11 +6,12 @@
  * nunca "positivo aqui" e "nome do módulo CGF" ali.
  */
 
+// Fundo a 6% e borda a 20%: o bloco de aviso marca presença sem roubar a atenção do conteúdo.
 export const semantic = {
-  positive: { text: "text-emerald-400", border: "border-emerald-500/40", bg: "bg-emerald-500/10" },
-  negative: { text: "text-red-400", border: "border-red-500/40", bg: "bg-red-500/10" },
-  neutral: { text: "text-amber-400", border: "border-amber-500/40", bg: "bg-amber-500/10" },
-  info: { text: "text-sky-400", border: "border-sky-500/40", bg: "bg-sky-500/10" },
+  positive: { text: "text-emerald-400", border: "border-emerald-500/20", bg: "bg-emerald-500/[0.06]" },
+  negative: { text: "text-red-400", border: "border-red-500/20", bg: "bg-red-500/[0.06]" },
+  neutral: { text: "text-amber-400", border: "border-amber-500/20", bg: "bg-amber-500/[0.06]" },
+  info: { text: "text-sky-400", border: "border-sky-500/20", bg: "bg-sky-500/[0.06]" },
   action: { text: "text-white", border: "border-blue-600", bg: "bg-blue-600" },
 } as const;
 

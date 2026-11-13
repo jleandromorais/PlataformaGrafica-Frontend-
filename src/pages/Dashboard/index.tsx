@@ -35,7 +35,7 @@ import { Alert } from "../../components/ui/Alert";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
-import { EsqueletoKpi } from "../../components/ui/EsqueletoBlocos";
+import { GradeKpis, Kpi } from "../../components/ui/KpiCard";
 import { brl, brlCompact } from "../../utils/format";
 import { getDashboard, getTrimestresCivis } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -43,52 +43,23 @@ import type { DashboardResponse, KpiMensal } from "../../types";
 import { PaineisExtras, SeletorAgrupamento } from "./PaineisExtras";
 import { agrupar, unidadeDe, type Agrupamento } from "./agrupamento";
 import { Valor } from "../../components/ui/Valor";
-import { GLOSSARIO, tituloDe } from "../../utils/glossario";
+import { GLOSSARIO, type Sigla } from "../../utils/glossario";
 
 const TODOS_OS_ANOS = "Todos os anos";
 
+/** Os 6 cards do topo. `accent` é a mesma cor da etapa nos gráficos abaixo, para ligar os dois. */
 const KPI_CAMPOS: {
   chave: keyof KpiMensal;
-  label: string;
+  sigla: Sigla;
   Icon: typeof Search;
   accent: string;
 }[] = [
-  {
-    chave: "cgr",
-    label: tituloDe("CGR"),
-    Icon: Search,
-    accent: "var(--chart-azul)",
-  },
-  {
-    chave: "ret",
-    label: tituloDe("RET"),
-    Icon: Receipt,
-    accent: "var(--chart-ambar)",
-  },
-  {
-    chave: "cgf",
-    label: tituloDe("CGF"),
-    Icon: FileText,
-    accent: "var(--chart-teal)",
-  },
-  {
-    chave: "rp",
-    label: tituloDe("RP"),
-    Icon: Coins,
-    accent: "var(--chart-violeta)",
-  },
-  {
-    chave: "rpv",
-    label: tituloDe("RPV"),
-    Icon: Scale,
-    accent: "var(--chart-rosa)",
-  },
-  {
-    chave: "scg",
-    label: tituloDe("SCG"),
-    Icon: Briefcase,
-    accent: "var(--chart-verde)",
-  },
+  { chave: "cgr", sigla: "CGR", Icon: Search, accent: "var(--chart-azul)" },
+  { chave: "ret", sigla: "RET", Icon: Receipt, accent: "var(--chart-ambar)" },
+  { chave: "cgf", sigla: "CGF", Icon: FileText, accent: "var(--chart-teal)" },
+  { chave: "rp", sigla: "RP", Icon: Coins, accent: "var(--chart-violeta)" },
+  { chave: "rpv", sigla: "RPV", Icon: Scale, accent: "var(--chart-rosa)" },
+  { chave: "scg", sigla: "SCG", Icon: Briefcase, accent: "var(--chart-verde)" },
 ];
 
 // Paleta categórica validada no dashboard original (Tkinter).
@@ -227,69 +198,34 @@ function SectionHeading({
   );
 }
 
-function KpiTile({
-  label,
-  rawValue,
-  delta,
-  varLabel,
-}: {
-  label: string;
-  Icon: typeof Search;
-  rawValue: number;
-  /** Diferença em R$ para o mês completo anterior (% engana quando o valor troca de sinal). */
-  delta: number | null;
-  varLabel?: string;
-  accent: string;
-}) {
-  const isZero = rawValue === 0;
-  const isNegative = rawValue < 0;
-
+/** Valor do card: negativo em vermelho; zero apagado e sem destaque nos centavos. */
+function ValorKpi({ valor }: { valor: number }) {
+  const zero = valor === 0;
+  const cor = zero ? "text-zinc-600" : valor < 0 ? "text-red-400" : "text-white";
   return (
-    <div className={`${PANEL} card-hover p-5 sm:p-6`}>
-      <span className="text-sm font-medium text-zinc-400">
-        {label}
+    <span className={cor}>
+      <Valor valor={valor} secundaria={zero ? "" : undefined} />
+    </span>
+  );
+}
+
+/** Rodapé do card: seta e diferença em R$ para o mês completo anterior
+ * (% engana quando o valor troca de sinal). */
+function Tendencia({ delta, varLabel }: { delta: number | null; varLabel?: string }) {
+  if (delta === null) return <>Sem comparativo</>;
+  return (
+    <span className="inline-flex items-center gap-1.5 font-semibold text-zinc-300">
+      <span className="flex items-center gap-0.5 num">
+        {delta >= 0
+          ? <ArrowUpRight size={14} aria-hidden />
+          : <ArrowDownRight size={14} aria-hidden />}
+        {delta >= 0 ? "+" : ""}
+        {brlCompact(delta)}
       </span>
-
-      <p
-        className={`mt-3 whitespace-nowrap text-[1.5rem] font-bold leading-none xl:text-[1.625rem] ${
-          isZero
-            ? "text-zinc-600"
-            : isNegative
-              ? "text-red-400"
-              : "text-white"
-        }`}
-      >
-        <Valor
-          valor={rawValue}
-          secundaria={isZero ? "" : undefined}
-        />
-      </p>
-
-      {delta !== null ? (
-        <p className="mt-3 flex items-center gap-1.5 text-xs font-semibold text-zinc-300">
-          <span className="flex items-center gap-0.5 num">
-            {delta >= 0 ? (
-              <ArrowUpRight size={14} aria-hidden />
-            ) : (
-              <ArrowDownRight size={14} aria-hidden />
-            )}
-
-            {delta >= 0 ? "+" : ""}
-            {brlCompact(delta)}
-          </span>
-
-          {varLabel && (
-            <span className="font-normal text-zinc-500">
-              vs {varLabel}
-            </span>
-          )}
-        </p>
-      ) : (
-        <p className="mt-3 text-xs text-zinc-500">
-          Sem comparativo
-        </p>
+      {varLabel && (
+        <span className="font-normal text-zinc-500">vs {varLabel}</span>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -502,21 +438,8 @@ export default function DashboardPage() {
 
         {/* ── KPIs do último mês ─────────────────────────────────────── */}
 
-        {!ultimoMes ? (
-          loading ? (
-            <div
-              role="status"
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3"
-            >
-              <span className="sr-only">
-                Carregando os indicadores…
-              </span>
-
-              {KPI_CAMPOS.map(({ chave }) => (
-                <EsqueletoKpi key={chave} />
-              ))}
-            </div>
-          ) : erro ? null : (
+        {!ultimoMes && !loading ? (
+          erro ? null : (
             <EmptyState
               label="Nenhum período calculado ainda."
               hint="Os indicadores aparecem aqui depois do primeiro cálculo mensal."
@@ -524,31 +447,27 @@ export default function DashboardPage() {
             />
           )
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:gap-5 xl:grid-cols-3">
-            {KPI_CAMPOS.map(
-              ({ chave, label, Icon, accent }) => {
-                const valor = ultimoMes[chave] as number;
-                const anterior = mesAnterior?.[chave] as
-                  | number
-                  | undefined;
+          // Enquanto carrega, os cards já aparecem com sigla e nome; só o número vira esqueleto.
+          <GradeKpis titulo="Indicadores do último mês completo" carregando={!ultimoMes} atualizando={false} tres>
+            {KPI_CAMPOS.map(({ chave, sigla, Icon, accent }) => {
+              const valor = ultimoMes ? (ultimoMes[chave] as number) : 0;
+              const anterior = mesAnterior?.[chave] as number | undefined;
+              const delta = anterior === undefined ? null : valor - anterior;
 
-                const delta =
-                  anterior === undefined ? null : valor - anterior;
-
-                return (
-                  <KpiTile
-                    key={chave}
-                    label={label}
-                    Icon={Icon}
-                    rawValue={valor}
-                    delta={delta}
-                    varLabel={mesAnterior?.periodo}
-                    accent={accent}
-                  />
-                );
-              }
-            )}
-          </div>
+              return (
+                <Kpi
+                  key={chave}
+                  icone={<Icon size={16} aria-hidden />}
+                  sigla={sigla}
+                  nome={GLOSSARIO[sigla].nome}
+                  cor={accent}
+                  carregando={!ultimoMes}
+                  valor={<ValorKpi valor={valor} />}
+                  detalhe={<Tendencia delta={delta} varLabel={mesAnterior?.periodo} />}
+                />
+              );
+            })}
+          </GradeKpis>
         )}
 
         {/* ── Gráfico principal + composição ────────────────────────── */}

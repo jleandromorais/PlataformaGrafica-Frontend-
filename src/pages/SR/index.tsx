@@ -353,43 +353,35 @@ export default function SRPage() {
         </section>
 
         {pendencias > 0 && (
-          <Alert variant="warning">
-            <ul className="space-y-1">
-              {semVP.map((l) => (
-                <li key={`vp-${l.mes}`}>
-                  <b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV ou digite o volume contratado.
-                </li>
-              ))}
-              {prEstimado.map((l) => (
-                <li key={`pr-${l.mes}`}>
-                  <b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de salvar.
-                </li>
-              ))}
-              {semPR.map((l) => (
-                <li key={`sempr-${l.mes}`}><b>{l.mes}</b> sem PR.</li>
-              ))}
-              {srDuplicado.length > 0 && (
-                <li>
-                  <b>{srDuplicado.map((l) => l.mes).join(", ")}</b>: o "SR trim. anterior" é o próprio SR do mês, então ele está
-                  sendo somado duas vezes. Esse campo é só para saldo de um trimestre <b>anterior</b>.
-                  <button type="button" onClick={limparSrDuplicado}
-                    className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
-                    Apagar SR trim. anterior {srDuplicado.length > 1 ? "desses meses" : "desse mês"}
-                  </button>
-                </li>
-              )}
-              {selicDiferente.length > 0 && (
-                <li>
-                  <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC digitada é diferente da do Banco Central
-                  ({selicDiferente.map((l) => `${num(l.selic_mensal, 6)}% × ${num(selicBC[l.mes], 6)}%`).join("; ")}).
-                  <button type="button" onClick={usarSelicBC}
-                    className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
-                    Usar a SELIC do Banco Central
-                  </button>
-                </li>
-              )}
-            </ul>
-          </Alert>
+          <Alert variant="warning" titulo="Para salvar o SR, confira antes:" itens={[
+            ...semVP.map((l) => (
+              <><b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV ou digite o volume contratado.</>
+            )),
+            ...prEstimado.map((l) => (
+              <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de salvar.</>
+            )),
+            ...semPR.map((l) => <><b>{l.mes}</b> sem PR.</>),
+            srDuplicado.length > 0 && (
+              <>
+                <b>{srDuplicado.map((l) => l.mes).join(", ")}</b>: o "SR trim. anterior" é o próprio SR do mês, então ele está
+                sendo somado duas vezes. Esse campo é só para saldo de um trimestre <b>anterior</b>.
+                <button type="button" onClick={limparSrDuplicado}
+                  className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                  Apagar SR trim. anterior {srDuplicado.length > 1 ? "desses meses" : "desse mês"}
+                </button>
+              </>
+            ),
+            selicDiferente.length > 0 && (
+              <>
+                <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC digitada é diferente da do Banco Central
+                ({selicDiferente.map((l) => `${num(l.selic_mensal, 6)}% × ${num(selicBC[l.mes], 6)}%`).join("; ")}).
+                <button type="button" onClick={usarSelicBC}
+                  className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                  Usar a SELIC do Banco Central
+                </button>
+              </>
+            ),
+          ]} />
         )}
 
         {selic.estado === "erro" && (

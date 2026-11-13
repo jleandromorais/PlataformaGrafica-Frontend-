@@ -190,11 +190,7 @@ export default function PRPage() {
         </section>
 
         {dados && dados.pendencias.length > 0 && (
-          <Alert variant="warning">
-            <ul className="space-y-1">
-              {dados.pendencias.map((p) => <li key={p}>{p}</li>)}
-            </ul>
-          </Alert>
+          <Alert variant="warning" titulo="Para salvar o PR, resolva antes:" itens={dados.pendencias} />
         )}
 
         {dados && (

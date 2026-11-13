@@ -14,20 +14,36 @@ const variantMap: Record<AlertVariant, { role: keyof typeof semantic; Icon: type
 
 interface AlertProps {
   variant?: AlertVariant;
-  children: ReactNode;
+  /** Frase curta na cor do aviso; o corpo fica em cinza para o olho ir ao conteúdo. */
+  titulo?: string;
+  /** Pendências, uma por item. Com 1 item vira frase; com 2 ou mais, lista com marcador. */
+  itens?: ReactNode[];
+  children?: ReactNode;
   className?: string;
 }
 
-export function Alert({ variant = "info", children, className = "" }: AlertProps) {
+/** Aviso em bloco. Só o ícone e o título levam a cor (âmbar, vermelho…); o texto
+ * fica em zinc-200, que é claro no tema escuro e escuro no claro. */
+export function Alert({ variant = "info", titulo, itens, children, className = "" }: AlertProps) {
   const { role, Icon } = variantMap[variant];
   const s = semantic[role];
+  const lista = itens?.filter((i) => i !== null && i !== undefined && i !== false && i !== "") ?? [];
   return (
     <div
       role={variant === "error" ? "alert" : "status"}
-      className={`flex items-start gap-2 rounded-lg border ${s.border} ${s.bg} px-4 py-2 text-sm ${s.text} ${className}`}
+      className={`flex items-start gap-2.5 rounded-lg border ${s.border} ${s.bg} px-4 py-2.5 text-sm text-zinc-200 ${className}`}
     >
-      <Icon size={16} className="mt-0.5 shrink-0" />
-      {typeof children === "string" ? <Texto texto={children} /> : <span>{children}</span>}
+      <Icon size={16} className={`mt-0.5 shrink-0 ${s.text}`} aria-hidden />
+      <div className="min-w-0 flex-1 space-y-1">
+        {titulo && <p className={`font-semibold ${s.text}`}>{titulo}</p>}
+        {typeof children === "string" ? <Texto texto={children} /> : children}
+        {lista.length === 1 && <p>{lista[0]}</p>}
+        {lista.length > 1 && (
+          <ul className="list-disc space-y-1 pl-4">
+            {lista.map((item, i) => <li key={i}>{item}</li>)}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }
@@ -37,7 +53,7 @@ export function Alert({ variant = "info", children, className = "" }: AlertProps
 export function Texto({ texto }: { texto: string }) {
   const [principal, tecnico] = texto.split(SEPARADOR_DETALHE);
   return (
-    <span className="min-w-0 whitespace-pre-line">
+    <span className="block min-w-0 whitespace-pre-line">
       {principal}
       {tecnico && (
         <details className="mt-1 text-xs opacity-70">

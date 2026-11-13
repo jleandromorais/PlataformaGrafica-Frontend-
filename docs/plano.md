@@ -12,7 +12,7 @@ gerar o relatório do trimestre, a **regra do PR no SR** foi corrigida e o back 
 | **10/11** | Telas RP, SCG e SR com fórmula e prova real; "Está coerente"; Dashboard em círculos; texto do "Como funciona" | Prova real do RP, SCG e SR; histórico do SR |
 | **11/11** | Aviso "Possível duplicata" com "Tirar do cálculo" (RP, RET, Auditoria); toasts de sucesso; comparar só pela pasta do ciclo; botão do relatório do trimestre em Word; Comparar antes do SR | Duplicata por valor; `.zip` do mês não vira empresa "Nota Fiscal"; relatório trimestral em Word |
 | **12/11** | PMPV lembra as linhas ao trocar de página; SCG "gravado desatualizado"; textos amigáveis na Auditoria; toast único de erro no Processar; Dashboard mensal/trimestral/anual; relatório usa a planilha escolhida | Salvar módulo grava o SCG + reparo do histórico + SR automático; ano de 2 dígitos na pasta (`out-25`); **regra do PR no SR = trimestre do próprio mês**; campo `erros` nas rotas do ciclo; rota `planilha/conferir`; relatório com veredito, conferência e auditoria por empresa |
-| **13/11** | **PMPV: a tabela acompanha o trimestre** com os dados salvos no banco (`163a860`) | **Repositório organizado** (`92d9a73`): docs em `docs/`, arquivos locais em `_local/`, `backups/`, `Excel/referencia/`; **`Src/Services` por etapa** (`tarifa`, `auditoria`, `cgf`, `ret`, `rp`, `apuracao`, `comparacao`); `ARCHITECTURE.md` reescrito; rota `GET /pmpv/sessao-do-trimestre` (`96df2e3`) |
+| **13/11** | **PMPV: a tabela acompanha o trimestre** com os dados salvos no banco (`163a860`); toast ao enviar a Memória de Cálculo (`fbd20e2`); **Salvar PR travado com pendências**, erros em várias linhas e chamada morta a `/pr/trimestral` removida (`ad570a8`) | **Repositório organizado** (`92d9a73`): docs em `docs/`, arquivos locais em `_local/`, `backups/`, `Excel/referencia/`; **`Src/Services` por etapa** (`tarifa`, `auditoria`, `cgf`, `ret`, `rp`, `apuracao`, `comparacao`); `ARCHITECTURE.md` reescrito; rota `GET /pmpv/sessao-do-trimestre` (`96df2e3`); **servidor recalcula PR e SR ao salvar e recusa dados zerados**, `/pr/trimestral` removida (`abf1074`) |
 
 **Problemas de dados achados e explicados na semana**
 - **CGF de Out–Dez/2025 diferente da NT:** PMPV errado no banco (Out 1,9501 → certo 2,1502; Nov e Dez 2,1154). Corrigido no banco local; **no servidor ainda falta corrigir o de Out/2025**.
@@ -20,9 +20,99 @@ gerar o relatório do trimestre, a **regra do PR no SR** foi corrigida e o back 
 - **SR puxando o PR do trimestre anterior:** a regra antiga (3 meses antes) estava errada; corrigida em `d917c5a`.
 - **PMPV mostrava as mesmas empresas em todo trimestre:** a tabela era por "Mês 1/2/3"; corrigido em `163a860`.
 
-**Testes:** back com **835 testes passando** (13/11). Front: `tsc`, lint e build sem erro; a tela PMPV foi testada clicando num Chrome headless isolado. O `npm test` continua quebrado (`reading 'config'`).
+**Testes:** back com **860 testes passando** (13/11, depois do `abf1074`). Front: `tsc`, lint e build sem erro; a tela PMPV foi testada clicando num Chrome headless isolado. O `npm test` continua quebrado (`reading 'config'`).
 
-**Ficou para a próxima semana:** conferir o deploy de `96df2e3` e `163a860`; corrigir no servidor o PMPV Out/2025, o SR Jul–Set/25 e os PRs Nov–Jan (−0,0210) e Fev–Abr (−0,0321); decidir as correções da revisão (bloquear "Salvar PR" sem SR, meses com ano nas telas PR e PV); quadro "Conferência do mês" (contagem de arquivos e alertas de valor fora do normal); abrir as telas do `.exe` depois da reorganização.
+**Ficou para a próxima semana:** conferir o deploy de `96df2e3`, `abf1074`, `163a860`, `fbd20e2` e `ad570a8`; corrigir no servidor o PMPV Out/2025, o SR Jul–Set/25 e os PRs Nov–Jan (−0,0210) e Fev–Abr (−0,0321); decidir as correções da revisão que sobraram (meses com ano nas telas PR e PV, cascata, desktop); quadro "Conferência do mês" (contagem de arquivos e alertas de valor fora do normal); abrir as telas do `.exe` depois da reorganização.
+
+---
+
+# Plano de implementação das decisões de 13/11
+
+**Por quê:** hoje vários "Salvar" (Auditoria, CGF, RET, RP, SCG, SR, PR, PMPV) regravam SR, PR e PV sozinhos e em
+silêncio (`Src/Services/tarifa/servicos_pr_automatico.py`). A decisão de 13/11 é que nada que vem depois seja
+sobrescrito sem prévia e aprovação. Entram também: PR recusa SELIC 0%, aviso de duplicata com contexto, limpeza de
+dados de teste, aposentar SR e PR do desktop, quadro "Conferência do mês" no Painel do Ciclo e trilha de alterações.
+
+**Ordem:** 1 → 2 → 3 (back) → 4 (front) → 5, 6 e 7 em paralelo → 8 (trilha) → 9 (dados).
+O Leandro faz os commits; o back vai para o ar antes do front.
+
+## 1. PR recusa SELIC 0% (back, pequeno)
+- [ ] `servicos_pr.py`, `apurar_trimestre`: se o mês tem SR salvo e `selic_mensal` = 0, acrescentar pendência.
+  Reusar o texto do SR (`salvar_trimestre_conferido`): trimestre aberto → "ainda não fechou (fecha em …)";
+  fechado → "Busque a SELIC do Banco Central ou digite-a à mão".
+- [ ] Cobre de uma vez `POST /pr/salvar`, `POST /pr/apurar` e o PR automático.
+- [ ] Teste em `tests/test_pr_salvar_servidor.py`: SELIC 0 → 422, nada gravado.
+
+## 2. Cascata sem gravar: prévia e aprovação (back, o maior)
+- [ ] `atualizar_sr_do_mes`, `atualizar_do_mes` e `_gravar_pv` ganham `gravar: bool = True`. Com `False`, calculam
+  e devolvem o valor antes e o novo, sem escrever. A conta continua num lugar só.
+- [ ] Corrigir o furo: ao gravar, `atualizar_sr_do_mes` passa a usar `salvar_trimestre_conferido`. Hoje usa
+  `salvar_trimestre` e pula a recusa de PR, VP e SELIC zerados.
+- [ ] Serviço novo `Src/Services/tarifa/servicos_cascata.py`:
+  - `previa(periodos)` → por trimestre: `{trimestre_sr, sr_antes, sr_novo, chave_pr, pr_antes, pr_novo, pv_antes, pv_novo, desatualizado, pendencias[]}`.
+  - `aplicar(periodos)` → recalcula de novo e grava SR → PR → PV. Nunca grava valores vindos da tela.
+- [ ] Rotas novas em `Src/api/routers/cascata.py`:
+  - `GET /cascata/previa?periodos=Jul/2026&periodos=Ago/2026`
+  - `GET /cascata/pendente` → só os trimestres desatualizados, para o aviso geral.
+  - `POST /cascata/aplicar {periodos}` → 422 com as pendências se houver alguma; nada gravado nesse caso.
+- [ ] As rotas que hoje regravam em silêncio passam a só devolver a prévia no campo novo `cascata`:
+  Auditoria (`salvar`, `remover-nota`, `incluir-nota`), CGF `salvar`, conciliação (`salvar`, `remover-nota`),
+  RET (`salvar`, `remover-documento`), SCG `salvar`, SR `trimestre/salvar`, PR `salvar`, PMPV `salvar` e `mensal`.
+- [ ] O salvar explícito continua gravando o próprio valor (Salvar PR grava o PR). Só o que vem depois vai para a prévia.
+- [ ] Os campos antigos `pr_automatico` e `pv_automatico` ficam por um ciclo, sempre com `atualizado = false`,
+  para o front antigo não quebrar. Remover depois do deploy do front.
+- [ ] Testes novos em `tests/test_cascata.py`: a prévia não muda o banco; aplicar grava SR → PR → PV; aplicar com
+  pendência → 422 sem gravar; salvar a Auditoria não muda mais `pr_resultados`. Ajustar `tests/test_pv_automatico.py`.
+
+## 3. Duplicata com contexto (back)
+- [ ] `Src/common/duplicatas.py` devolve também `detalhes: [{id, nome, numero, valor, volume?, vencimento?}]`.
+  Volume vem de `auditoria_itens.volume_total`; vencimento de `ret_itens.data_vencimento`; RP só número e valor.
+- [ ] Schema `Src/api/schemas/duplicatas.py` ganha `detalhes` opcional.
+- A data de emissão lida do PDF fica para depois (decisão de 13/11).
+
+## 4. Front: aprovação da cascata e aviso de duplicata
+- [ ] Componente novo `src/components/ui/PreviaCascata.tsx` (HeroUI, consultar `.heroui-docs` antes): tabela
+  Antes × Novo para SR, PR e PV, pendências em lista, botão **Aprovar e gravar** e toast.
+- [ ] Mostrar depois de cada Salvar que devolva `cascata.desatualizado`, e num aviso no topo do Painel do Ciclo e do
+  Dashboard usando `/cascata/pendente`.
+- [ ] `src/api/index.ts` e tipos: `previaCascata`, `cascataPendente`, `aplicarCascata`.
+- [ ] `AvisoPossivelDuplicata.tsx`: cada nota mostra número, valor e, quando houver, volume ou vencimento.
+
+## 5. Conferência do mês no Painel do Ciclo
+- [ ] Back: `GET /dashboard/conferencia?periodo=Set/2026` em `Src/api/dashboard_extra.py`. Reusar a consulta de
+  empresas por mês sobre `auditoria_itens` e fazer a mesma sobre `ret_itens.empresa`.
+  - Por etapa (CGR, CGF, RET, RP): `total`, `total_anterior`, `variacao_pct`, `fora_do_normal` (variação acima de 20%).
+  - CGR e RET também trazem `empresas_faltando` (mandaram no mês anterior e não neste). CGF e RP: só a variação do total.
+- [ ] Front: card "Conferência do mês" em `src/pages/Ciclo/index.tsx`, perto do Processar.
+- [ ] Teste `tests/test_dashboard_conferencia.py`: empresa faltando; variação de 25% marca, de 15% não.
+
+## 6. Aposentar SR e PR do desktop
+- [ ] `Src/main_dashboard.py`: tirar os botões de SR e PR da barra lateral e pôr `"comando": None` nos dois cards
+  (viram "Em breve"). `tela_sr.py` e `tela_pr.py` ficam no repositório, sem acesso pelo menu.
+
+## 7. Apagar um PR (back, para a limpeza)
+- [ ] `DELETE /pr?periodo=Fev - Abr/2026` no mesmo padrão de `DELETE /periodos`: sem `aplicar` só simula; com
+  `aplicar=true` apaga a linha de `pr_resultados`. Teste simples.
+
+## 8. Trilha de alterações
+- [ ] Tabela nova `historico_alteracoes(id, tabela, periodo, campo, valor_antigo, valor_novo, origem, data_hora)`,
+  sem identificar a pessoa.
+- [ ] Gravar a linha nos métodos de salvar de `pr_resultados`, `sr_resultados`, `pv_resultados`, `consolidacao` e
+  `pmpv_mensal`: ler o valor antigo antes de gravar e registrar só se mudou.
+- [ ] `GET /trilha?periodo=&tabela=` e, no front, uma seção "Alterações" na prova real de SCG, SR, PR e PV.
+
+## 9. Dados (depois do deploy, com cópia do banco antes)
+- [ ] Local e servidor: apagar os períodos `Teste1`, `Teste2` e `Geral` (simulação → cópia → `?aplicar=true`).
+- [ ] Local: apagar o PR de Fev–Abr/2026 e salvar o PR de novo. O servidor recalcula; o esperado é −0,0321.
+- [ ] Reparo do SCG de julho: **não aplicar**. Levantar se a diferença de R$ 481.319,87 está no CGR ou no RP e levar ao analista.
+
+## Verificação
+- Back: `python -m pytest -q` (860 passando em 13/11) mais os testes novos de cada seção.
+- Banco local: salvar a Auditoria de um mês e conferir que `pr_resultados` e `pv_resultados` não mudaram e que a
+  resposta traz `cascata.desatualizado`. Aprovar pela tela e ver os valores gravados e a trilha registrada.
+- Front: `npx tsc --noEmit`, lint e build. Testar Painel do Ciclo, SCG, PR e Prova real de RET e RP num Chrome
+  headless isolado.
+- Desktop: abrir o `main_dashboard.py` e ver SR e PR como "Em breve".
 
 ---
 
@@ -32,7 +122,8 @@ Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 �
 
 ## Situação agora
 - **Back no GitHub (main) desde 12/11:** `d917c5a` (regra do PR no SR + campo `erros` nas rotas do ciclo), `c616b86` (**fase B**: rota `/auditoria/planilha/conferir` e `notas_em_ambas`, que agora estão no GitHub), `847a180` / `a29b671` / `03de487` / `b63e49e` (relatório do trimestre em Word: veredito, quadro de conferência, auditoria por empresa, comparação com a planilha, modo escuro, sem −R$ 0,00), `f73d995` (dashboard: CGR por empresa mês a mês).
-- **Front no GitHub:** `6b23152` (um só toast de erro no Processar, com o campo `erros` do back). Só falta commitar este `docs/plano.md`.
+- **Back de 13/11 (11:59):** `abf1074`. O servidor refaz a conta ao salvar o PR e o SR e grava o valor dele, ignorando os números da tela. Recusa com 422, sem gravar nada, quando falta SR, SCG, VP ou PMPV, quando o PR ou o VP do mês é zero, ou quando a SELIC é 0%. A rota `/pr/trimestral` foi removida.
+- **Front no GitHub:** `6b23152` (um só toast de erro no Processar, com o campo `erros` do back); de 13/11: `163a860` (PMPV por trimestre), `fbd20e2` (toast da Memória de Cálculo) e `ad570a8` (Salvar PR travado com pendências, erros em várias linhas, chamada a `/pr/trimestral` removida).
 - **Fase B desbloqueada:** com a `c616b86` dá para seguir com as fases D e E.
 - **Banco local:** PMPV de Out–Dez/2025 corrigido (Out 2,1502; Nov e Dez 2,1154), com cópia em `pmpv_data.backup_20261112_pmpv.db`. O `seed/pmpv_data.db` mudou só neste computador e **não vai para commit**.
 
@@ -46,9 +137,9 @@ Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 �
 - **RP Dez/2025:** a diferença é a nota PFP de R$ 58.261,99 (linha 170 da aba "Verificação EAT - EC e PEN", "inserida a posteriori pela Copergás"). O PDF dela não está na pasta.
 
 ## 0. Antes de tudo
-- [ ] **Conferir o deploy** do back no Railway (`b63e49e`) e do front na Vercel (`6b23152`). Só então mover os cartões de "Em teste" para "Em produção".
+- [ ] **Conferir o deploy** do back no Railway (`abf1074`) e do front na Vercel (`ad570a8`). Só então mover os cartões de "Em teste" para "Em produção".
 - [ ] Commitar este `docs/plano.md`.
-- [ ] Rodar `pytest` no back depois do pull (não foi rodado).
+- [x] Rodar `pytest` no back: 860 passando (13/11, depois do `abf1074`).
 
 ## 1. Dados do servidor (Leandro, no site, nesta ordem)
 - [ ] PMPV de **Out/2025 → 2,1502** (no servidor ainda está 1,9501).
@@ -60,16 +151,16 @@ Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 �
 
 ## 2. Correções da revisão (Luiz, Hero e Jose), esperando OK do Leandro
 **Críticas:**
-- [ ] Bloquear **Salvar PR sem SR** do trimestre (hoje ele salva com SR = 0). (Recomendado.)
-- [ ] `/pr/salvar` e `/sr/trimestre/salvar` aceitam 0 e valores que o servidor não conferiu: o servidor deve recalcular.
-- [ ] `/pr/trimestral` ainda usa a fórmula antiga e o front ainda chama essa rota (`api/index.ts:343`).
+- [x] Bloquear **Salvar PR sem SR** do trimestre. Feito em 13/11: o back recusa (`abf1074`) e o front trava o botão com as pendências (`ad570a8`).
+- [x] `/pr/salvar` e `/sr/trimestre/salvar` agora recalculam no servidor e recusam PR, VP ou SELIC zerados (`abf1074`).
+- [x] `/pr/trimestral` removida do back (`abf1074`) e a chamada saiu do front (`ad570a8`).
 - [ ] SR: a proposta fica velha (`SRDoTrimestre`), e trocar de trimestre rápido mistura os dados de um com os do outro.
 - [ ] Desktop (`tela_sr.py`, `tela_pr.py`): usa a fórmula antiga e salva a cada tecla.
 
 **Importantes:**
 - [ ] Recalcular em cascata (PMPV → SR → PR → PV) quando um valor de base muda.
 - [ ] PR com SELIC 0 sem avisar ninguém.
-- [ ] Mostrar os meses com o ano nas telas PR e PV ("Nov/25 – Jan/26"). (Recomendado: resolve a confusão das duas convenções de ano.)
+- [x] ~~Mostrar os meses com o ano nas telas PR e PV~~. Decisão de 13/11: não fazer.
 - [ ] Coluna "Meses" na tabela da tela PV (Hero).
 - [ ] Pendências com link para a tela onde se resolve; observação no PMPV e no RP digitados à mão.
 - [ ] O toast de erro junta as linhas com "\n" num item só; a divergência aparece em vermelho, como se fosse erro.
@@ -83,7 +174,7 @@ Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 �
 - [ ] Copiar o banco do Railway antes de `aplicar=true`.
 
 ## 4. Quando der
-- [ ] Decidir se o PR e o SR automáticos passam a **só avisar** em vez de sobrescrever o que já está salvo (preferência de 12/11: mostrar a prévia e pedir aprovação).
+- [x] Decidido em 13/11: o PR e o SR automáticos passam a **só avisar** (ver seção 5).
 - [ ] Fases D (cards clicáveis, card "Batem") e E (toast real da planilha), agora que a B está no GitHub.
 - [ ] Verificar no navegador (Chrome headless isolado): PMPV lembra o rascunho, SCG Ago sem R$ 0,00, hover do card vinho, toast de erro do Processar.
 - [ ] Renomear as planilhas "Notas de Faturamento" do CGF de Jan, Fev, Abr e Mai/2025, ou ampliar `tipoPlanilhaCGF`.
@@ -91,6 +182,36 @@ Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 �
 - [ ] Limpar os períodos inválidos (`DELETE /api/periodos/{nome}`: simulação → cópia do banco → `?aplicar=true`).
 - [ ] Corrigir o `npm test` (falha em todos os arquivos com `reading 'config'`).
 - [ ] Teste ponta a ponta de Setembro e relatório de divergências (seções abaixo).
+
+## 5. Decisões do Leandro (13/11, tarde)
+Respondidas em 13/11. Cada decisão vira uma tarefa abaixo dela.
+
+**Regras de cálculo**
+- **PR com SELIC 0%:** recusar, como no SR.
+  - [ ] Back: `salvar_apurado` do PR recusa (422) quando algum mês tem SELIC 0%.
+- **Cascata (PMPV → SR → PR → PV):** mostrar a prévia dos novos valores ao lado dos antigos e só gravar depois da aprovação.
+  - [ ] Back: rota de prévia da cascata, sem gravar. Front: tela de aprovação.
+- **PR e SR automáticos:** não sobrescrevem o valor salvo; só avisam que ele ficou desatualizado.
+  - [ ] Back: trocar a regravação automática de PR, SR e PV (ao salvar módulos) por um aviso de "desatualizado".
+
+**Dados e correções**
+- **Reparo do SCG de Jul:** investigar e pedir ao analista para verificar. Não aplicar ainda.
+  - [ ] Descobrir se a diferença de R$ 481.319,87 está no CGR ou no RP e levar ao analista.
+- **NF-e GNlink de Ago/2026 (265, 255, 443, 444):** são notas diferentes; todas entram no cálculo.
+- **Aviso de duplicata:** continua avisando por valor igual, mas mostra a data e o volume de cada nota.
+  - [ ] Back: devolver data e volume das notas no aviso. Front: mostrar esses dados no aviso.
+- **Limpeza:** apagar "Teste1", "Teste2", "Geral" e o PR local Fev–Abr/2026 = 0,0876, com cópia do banco antes.
+  - [ ] Simulação → cópia do banco → `?aplicar=true`.
+- **Setembro/2026:** os arquivos já chegaram. O teste de ponta a ponta (seção abaixo) pode ser feito.
+
+**Uso no dia a dia**
+- **App desktop:** aposentar as telas SR e PR do `.exe`.
+  - [ ] Desativar `tela_sr.py` e `tela_pr.py` no menu do desktop.
+- **Trilha de alterações:** registrar data, hora, valor antigo e valor novo, sem identificar a pessoa.
+- **Relatório de divergências de Setembro:** usar o relatório do trimestre em Word e melhorar o que faltar nele.
+- **Meses com ano nas telas PR e PV:** não fazer. Os nomes ficam como estão.
+- **Conferência do mês:** avisar quando uma empresa que mandou arquivo no mês anterior não mandou neste.
+- **Valor fora do normal:** marcar quando CGR, CGF, RET ou RP variar mais de **20%** em relação ao mês anterior.
 
 ---
 

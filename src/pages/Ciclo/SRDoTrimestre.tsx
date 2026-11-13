@@ -6,7 +6,7 @@
  * (mesmo aviso do Processar). Os números vêm do backend (POST /sr/trimestre/proposta);
  * aqui só se mostra, se compara com o gravado e se grava pelo mesmo caminho da tela /sr. */
 import { useRef, useState } from "react";
-import { AlertTriangle, Calculator, Save } from "lucide-react";
+import { Calculator, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -159,29 +159,14 @@ export function SRDoTrimestre({ meses, onGravado }: {
           )}
 
           {proposta.bloqueios.length > 0 && (
-            <Alert variant="error" className="mt-4">
-              <span className="block font-semibold">Não dá para gravar ainda:</span>
-              <ul className="mt-1 list-disc space-y-0.5 pl-5">
-                {proposta.bloqueios.map((b, i) => <li key={i}>{b}</li>)}
-              </ul>
-            </Alert>
+            <Alert variant="error" className="mt-4" titulo="Não dá para gravar ainda:" itens={proposta.bloqueios} />
           )}
 
           {/* Antes de gravar: divergência é dita com todas as letras, e quem decide é o analista. */}
           {divergentes.length > 0 ? (
-            <Alert variant="warning" className="mt-4">
-              <span className="block font-semibold">{tituloDaDivergencia(divergentes.length)}</span>
-              <span className="mt-1 block">
-                Se você gravar agora, será gravado <b>com a divergência</b>. Cabe ao analista analisar os dados antes de gravar.
-              </span>
-              <ul className="mt-1.5 list-none space-y-0.5 pl-0">
-                {motivosPorMes.map((l) => (
-                  <li key={l.mes} className="flex items-start gap-1.5">
-                    <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden />
-                    <span><b>{l.mes}</b>: {motivosDoMes(l).join("; ")}.</span>
-                  </li>
-                ))}
-              </ul>
+            <Alert variant="warning" className="mt-4" titulo={tituloDaDivergencia(divergentes.length)}
+              itens={motivosPorMes.map((l) => <><b>{l.mes}</b>: {motivosDoMes(l).join("; ")}.</>)}>
+              <p>Se você gravar agora, será gravado <b>com a divergência</b>. Cabe ao analista analisar os dados antes de gravar.</p>
             </Alert>
           ) : (
             <p className="mt-4 text-sm text-emerald-300">Nenhuma divergência. Mesmo assim, cabe ao analista conferir antes de gravar.</p>

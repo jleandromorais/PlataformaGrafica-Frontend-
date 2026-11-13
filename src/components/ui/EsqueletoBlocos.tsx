@@ -1,3 +1,4 @@
+import { Kpi } from "./KpiCard";
 import { Skeleton } from "./Skeleton";
 
 /** Esqueleto genérico de card: uma pilha de blocos, cada um com a altura que o conteúdo real
@@ -17,13 +18,14 @@ export function EsqueletoBlocos({ blocos, texto = "Carregando…", className = "
   );
 }
 
-/** Esqueleto de um card de número (rótulo, valor grande e variação) no tamanho do real. */
+/** Esqueleto de um card de número quando nem o rótulo é conhecido ainda. É o próprio `Kpi` em
+ * modo `carregando`, com chip e rótulo em cinza: mesma estrutura e alturas do card real, sem pulo.
+ * Se o rótulo já for conhecido, prefira `<Kpi carregando rotulo=... />` direto. */
 export function EsqueletoKpi({ className = "" }: { className?: string }) {
   return (
-    <div className={`rounded-xl border border-white/[0.07] bg-panel p-5 sm:p-6 ${className}`} aria-hidden>
-      <Skeleton className="h-3 w-24 rounded" />
-      <Skeleton className="mt-4 h-7 w-44" />
-      <Skeleton className="mt-3 h-3 w-24 rounded" />
+    <div className={`h-full ${className}`} aria-hidden>
+      <Kpi carregando icone={<Skeleton className="size-4 rounded" />}
+        rotulo={<Skeleton className="h-3 w-24 rounded" />} valor={null} detalhe={null} />
     </div>
   );
 }
