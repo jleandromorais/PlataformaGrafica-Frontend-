@@ -69,6 +69,18 @@ export interface PMPVHistoricoLinha {
   vp: number;
 }
 
+/** GET /pmpv/sessao-do-trimestre: o que já foi salvo para os 3 meses (a tela preenche a tabela com isto). */
+export interface PMPVSessaoDoTrimestre {
+  encontrada: boolean;
+  sessao_id: number | null;
+  nome: string | null;
+  data_criacao: string | null; // "21/10/2026 14:30"
+  pmpv: number | null;
+  conta_grafica: number | null;
+  preco_final: number | null;
+  meses: Record<string, EmpresaLinha[]>; // "Mai/2026" → empresas; `volume` = QDC (m³/dia)
+}
+
 // ─── RPV ─────────────────────────────────────────────────────────────────────
 export interface RPVValores {
   cgr: number;

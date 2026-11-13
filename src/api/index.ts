@@ -1,7 +1,7 @@
 import axios from "axios";
 import { api } from "./client";
 import type {
-  PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha,
+  PMPVCalculoRequest, PMPVResultado, PMPVSalvarRequest, PMPVImportarResponse, PMPVHistoricoLinha, PMPVSessaoDoTrimestre,
   RPVValores, RPVHistoricoLinha, SCGComparacao, SCGHistoricoLinha,
   DashEmpresasResponse, DashRetResponse, DashVolumesResponse,
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP, ProvaRealSCG, ProvaRealSR, SRHistoricoTrimestre,
@@ -62,6 +62,10 @@ export const getProvaRealPMPV = (sessaoId: number) =>
 
 export const getHistoricoPMPV = () =>
   api.get<PMPVHistoricoLinha[]>("/pmpv/historico").then((r) => r.data);
+
+/** A sessão salva mais recente dos 3 meses (ex.: ["Mai/2026","Jun/2026","Jul/2026"]); `encontrada: false` se não há. */
+export const getSessaoDoTrimestrePMPV = (periodos: string[]) =>
+  api.get<PMPVSessaoDoTrimestre>("/pmpv/sessao-do-trimestre", { params: { periodos: periodos.join(",") } }).then((r) => r.data);
 
 export const getTrimestreAtivo = () =>
   api.get<{ meses: string[] }>("/pmpv/trimestre-ativo").then((r) => r.data.meses);

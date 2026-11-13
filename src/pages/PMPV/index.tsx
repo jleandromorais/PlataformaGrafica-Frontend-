@@ -10,12 +10,12 @@ import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
 import { avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
-import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
+import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, getSessaoDoTrimestrePMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { brl, brlEntrada, dataHora, num, parseBRL } from "../../utils/format";
-import type { EmpresaLinha, PMPVHistoricoLinha, PMPVMargem, PMPVLinhaCalculo, PMPVResultado } from "../../types";
+import type { EmpresaLinha, PMPVHistoricoLinha, PMPVMargem, PMPVLinhaCalculo, PMPVResultado, PMPVSessaoDoTrimestre } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
@@ -58,8 +58,24 @@ interface Rascunho {
   margemTexto: string;
   resultado: PMPVResultado | null;
   prAoGuardar: number | null; // PR em que o resultado foi calculado
+  sujo?: boolean;             // true: as linhas foram editadas e ainda não salvas (só então vencem o banco)
 }
 const CHAVE_RASCUNHO = "pmpv:rascunho";
+
+/** De onde vieram as linhas que a tabela mostra agora. */
+type OrigemDados =
+  | { tipo: "carregando" }
+  | { tipo: "salva"; sessao: PMPVSessaoDoTrimestre }
+  | { tipo: "vazia" }
+  | { tipo: "rascunho" }
+  | { tipo: "erro"; mensagem: string };
+
+/** Linhas gravadas no banco → linhas da tabela (o `volume` gravado é o QDC digitado). */
+const linhasDaSessao = (sessao: PMPVSessaoDoTrimestre, periodos: string[]): Record<Aba, LinhaEdit[]> =>
+  Object.fromEntries(ABAS.map((a, i) => [a, (sessao.meses[periodos[i]] ?? []).map((l) => ({
+    id: proximoId++, empresa: l.empresa, molecula: paraTexto(l.molecula),
+    transporte: paraTexto(l.transporte), logistica: paraTexto(l.logistica), qdc: paraTexto(l.volume),
+  }))])) as Record<Aba, LinhaEdit[]>;
 
 // `let` (não const) porque cresce a cada linha criada; ao restaurar um rascunho é preciso
 // empurrá-lo para cima do maior id guardado.
@@ -233,6 +249,56 @@ function TabelaMes({ linhas, dias, onChange }: {
   );
 }
 
+/** Uma linha acima da tabela dizendo de onde vieram os dados que ela mostra. */
+function OrigemDosDados({ origem, faixa, onRecarregar }: {
+  origem: OrigemDados; faixa: string; onRecarregar: () => void;
+}) {
+  const BOTAO = "rounded text-sky-300 underline underline-offset-2 hover:text-sky-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400";
+  const caixa = "mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-3.5 py-2.5 text-xs leading-relaxed";
+  if (origem.tipo === "carregando") {
+    return (
+      <div role="status" className={`${caixa} border-white/[0.07] bg-white/[0.02] text-zinc-400`}>
+        <Loader2 size={13} className="animate-spin" aria-hidden /> Buscando o que já foi salvo para {faixa}…
+      </div>
+    );
+  }
+  if (origem.tipo === "salva") {
+    const s = origem.sessao;
+    return (
+      <div aria-live="polite" className={`${caixa} border-emerald-500/20 bg-emerald-500/[0.06] text-zinc-300`}>
+        <Database size={13} className="text-emerald-300" aria-hidden />
+        <span>
+          Dados salvos de {faixa}: sessão nº {s.sessao_id}
+          {s.data_criacao ? `, gravada em ${s.data_criacao}` : ", gravada agora"}
+          {s.pmpv ? <> · PMPV <strong className="font-semibold text-sky-300">{brl(s.pmpv, 4)}</strong></> : null}.
+          {" "}Para mudar, edite e salve de novo.
+        </span>
+      </div>
+    );
+  }
+  if (origem.tipo === "vazia") {
+    return (
+      <div aria-live="polite" className={`${caixa} border-amber-500/20 bg-amber-500/[0.06] text-amber-200`}>
+        Nada salvo ainda para {faixa}. Importe a Memória de Cálculo ou digite as empresas, calcule e salve.
+      </div>
+    );
+  }
+  if (origem.tipo === "rascunho") {
+    return (
+      <div aria-live="polite" className={`${caixa} border-sky-500/20 bg-sky-500/[0.06] text-zinc-300`}>
+        <span>Edições de {faixa} ainda <strong className="font-semibold text-sky-200">não salvas</strong>. Calcule e salve para gravar.</span>
+        <button type="button" onClick={onRecarregar} className={BOTAO}>Descartar e ver o que está salvo</button>
+      </div>
+    );
+  }
+  return (
+    <div role="alert" className={`${caixa} border-red-500/25 bg-red-500/[0.06] text-red-200`}>
+      <span>{origem.mensagem}</span>
+      <button type="button" onClick={onRecarregar} className={BOTAO}>Tentar de novo</button>
+    </div>
+  );
+}
+
 // ─── Página ─────────────────────────────────────────────────────────────────
 
 export default function PMPVPage() {
@@ -250,6 +316,24 @@ export default function PMPVPage() {
     "Mês 1": linhasPadrao(), "Mês 2": linhasPadrao(), "Mês 3": linhasPadrao(),
   }));
   const [aba, setAba] = useState<Aba>("Mês 1");
+  // As linhas acompanham o trimestre: ao trocar, vêm do banco (sessão salva) ou de edições ainda não salvas.
+  const [origemDados, setOrigemDados] = useState<OrigemDados>({ tipo: "carregando" });
+  const sujo = useRef(false);                       // a pessoa mexeu nas linhas depois da última carga/salvamento
+  const linhasRef = useRef(linhas);                 // linhas atuais, para guardar as edições ao trocar de trimestre
+  useEffect(() => { linhasRef.current = linhas; }, [linhas]);   // declarado antes do efeito da troca: roda primeiro
+  const edicoes = useRef<Record<string, Record<Aba, LinhaEdit[]>>>({}); // "Mai/2026,Jun/2026,Jul/2026" → edições não salvas
+  const chaveCarregada = useRef<string | null>(null);
+  const sessaoDaChave = useRef<Record<string, number>>({}); // trimestre → sessão salva (a prova real acompanha)
+  const pularCarga = useRef<string | null>(null);   // trimestre|ano do rascunho restaurado com edições: não troca pelo banco
+  const buscaDados = useRef(0);
+  /** A pessoa editou as linhas: o resultado fica velho e as linhas passam a valer mais que o banco. */
+  const editarLinhas = (novas: Record<Aba, LinhaEdit[]>) => {
+    buscaDados.current++;   // uma busca no banco ainda a caminho não pode apagar o que a pessoa digitou
+    setLinhas(novas);
+    sujo.current = true;
+    setOrigemDados({ tipo: "rascunho" });
+    invalidar();
+  };
   // Margem regulatória do ano escolhido: a última resposta, marcada com o ano a que pertence.
   const [respMargem, setRespMargem] = useState<{ ano: number; dados?: PMPVMargem; erro?: string } | null>(null);
   const [editandoMargem, setEditandoMargem] = useState(false);
@@ -311,6 +395,11 @@ export default function PMPVPage() {
           setMargemTexto(valido.margemTexto ?? "");
           setResultado(valido.resultado ?? null);
           prBase.current = { valor: valido.prAoGuardar ?? null };
+          // Só as edições não salvas vencem o banco; um rascunho sem edição é trocado pelo que foi salvo.
+          if (valido.sujo) {
+            sujo.current = true;
+            pularCarga.current = `${valido.trimestre}|${valido.ano}`;
+          }
         }
         rascunhoLido.current = true;
         return valido;
@@ -396,7 +485,7 @@ export default function PMPVPage() {
   useEffect(() => {
     if (!rascunhoLido.current || !trimestre || carregadoPara !== `${trimestre}/${ano}`) return;
     const t = setTimeout(() => {
-      guardar(CHAVE_RASCUNHO, { trimestre, ano, linhas, aba, margemTexto, resultado, prAoGuardar: prSalvo } satisfies Rascunho);
+      guardar(CHAVE_RASCUNHO, { trimestre, ano, linhas, aba, margemTexto, resultado, prAoGuardar: prSalvo, sujo: sujo.current } satisfies Rascunho);
     }, 400);
     return () => clearTimeout(t);
   }, [trimestre, ano, linhas, aba, margemTexto, resultado, prSalvo, carregadoPara]);
@@ -404,6 +493,61 @@ export default function PMPVPage() {
   const mesesTri = useMemo(() => trimestres.find((t) => t.label === trimestre)?.meses ?? [], [trimestres, trimestre]);
   const periodos = useMemo(() => periodosDe(mesesTri, ano), [mesesTri, ano]);
   const dias = periodos.map(diasDoMes);
+  const chavePeriodos = periodos.length === 3 ? periodos.join(",") : "";
+
+  /** Preenche a tabela com a sessão salva do trimestre (ou deixa vazia se nada foi salvo). */
+  const carregarDoBanco = useCallback((chave: string) => {
+    const busca = ++buscaDados.current;
+    setOrigemDados({ tipo: "carregando" });
+    getSessaoDoTrimestrePMPV(chave.split(","))
+      .then((s) => {
+        if (busca !== buscaDados.current) return; // a pessoa já trocou de trimestre
+        delete edicoes.current[chave];
+        sujo.current = false;
+        setLinhas(s.encontrada ? linhasDaSessao(s, chave.split(",")) : { "Mês 1": linhasPadrao(), "Mês 2": linhasPadrao(), "Mês 3": linhasPadrao() });
+        setOrigemDados(s.encontrada ? { tipo: "salva", sessao: s } : { tipo: "vazia" });
+        if (s.encontrada && s.sessao_id) {
+          sessaoDaChave.current[chave] = s.sessao_id;
+          setEscolhida(s.sessao_id); // a prova real acompanha o trimestre
+        }
+      })
+      .catch((e) => {
+        if (busca !== buscaDados.current) return;
+        setOrigemDados({ tipo: "erro", mensagem: mensagemDeErro(e, "Não foi possível buscar o que já foi salvo para este trimestre.") });
+      });
+  }, []);
+
+  // Trocou de trimestre/ano: guarda as edições não salvas do anterior e mostra as do novo
+  // (edições não salvas, se houver; senão, o que está no banco). Espera 0,3 s para o ano digitado.
+  useEffect(() => {
+    if (!chavePeriodos || !(ano >= 2000 && ano <= 2100)) return;
+    const anterior = chaveCarregada.current;
+    if (anterior === chavePeriodos) return;
+    if (anterior && sujo.current) edicoes.current[anterior] = linhasRef.current;
+    chaveCarregada.current = chavePeriodos;
+
+    if (pularCarga.current === `${trimestre}|${ano}`) {   // rascunho com edições, restaurado ao abrir a tela (fica com o resultado dele)
+      pularCarga.current = null;
+      setOrigemDados({ tipo: "rascunho" });
+      return;
+    }
+    pularCarga.current = null;
+    setResultado(null);   // o resultado era do trimestre anterior
+    setSucesso(null);
+    const guardadas = edicoes.current[chavePeriodos];
+    if (guardadas) {
+      setLinhas(guardadas);
+      sujo.current = true;
+      setOrigemDados({ tipo: "rascunho" });
+      const sessao = sessaoDaChave.current[chavePeriodos];
+      if (sessao) setEscolhida(sessao);
+      return;
+    }
+    sujo.current = false;
+    setOrigemDados({ tipo: "carregando" });
+    const t = setTimeout(() => carregarDoBanco(chavePeriodos), 300);
+    return () => clearTimeout(t);
+  }, [chavePeriodos, trimestre, ano, carregarDoBanco]);
   // Sem PR salvo ainda, o PMPV usa 0; o PV do trimestre é atualizado sozinho quando o PR for salvo.
   const cgValida = origemCG !== "carregando";
   const cg = prSalvo ?? 0;
@@ -493,6 +637,13 @@ export default function PMPVPage() {
       avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} salvo`, `Sessão nº ${sessao_id} gravada.${pvOk}`);
       esquecer(CHAVE_RASCUNHO); // gravado de verdade: não há mais rascunho a retomar
       setEscolhida(sessao_id); // a prova real abre na sessão que acabou de ser salva
+      sujo.current = false;
+      delete edicoes.current[chavePeriodos];
+      sessaoDaChave.current[chavePeriodos] = sessao_id;
+      setOrigemDados({ tipo: "salva", sessao: {
+        encontrada: true, sessao_id, nome, data_criacao: null, pmpv: resultado.pmpv,
+        conta_grafica: resultado.conta_grafica, preco_final: resultado.preco_final, meses: {},
+      } });
       carregarHistorico();
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível salvar a sessão."));
@@ -537,8 +688,8 @@ export default function PMPVPage() {
         }));
         importados += 1;
       });
-      setLinhas(novas);
-      invalidar();
+      if (importados > 0) editarLinhas(novas);
+      else invalidar();
       if (importados === 0) {
         const sugestoes = trimestresDaPlanilha(trimestres, r.meses_encontrados ?? [], `${trimestre}, ano ${ano}`);
         const dica = sugestoes.length ? `Escolha ${sugestoes.join(" ou ")} e importe de novo.` : "";
@@ -712,7 +863,7 @@ export default function PMPVPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setLinhas({ ...linhas, [aba]: [...linhas[aba], linhaVazia()] }); invalidar(); }}
+                    onClick={() => editarLinhas({ ...linhas, [aba]: [...linhas[aba], linhaVazia()] })}
                     className="flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/15"
                   >
                     <Plus size={13} /> Empresa
@@ -720,6 +871,8 @@ export default function PMPVPage() {
                 </div>
               }
             >
+              <OrigemDosDados origem={origemDados} faixa={faixaDosMeses(periodos)}
+                onRecarregar={() => { if (chavePeriodos) { delete edicoes.current[chavePeriodos]; carregarDoBanco(chavePeriodos); } }} />
               <div className="mb-4 flex flex-wrap gap-2" role="tablist" aria-label="Mês do trimestre">
                 {ABAS.map((a, i) => (
                   <button
@@ -735,7 +888,7 @@ export default function PMPVPage() {
               </div>
               <TabelaMes
                 linhas={linhas[aba]} dias={dias[idxAba] ?? 30}
-                onChange={(l) => { setLinhas({ ...linhas, [aba]: l }); invalidar(); }}
+                onChange={(l) => editarLinhas({ ...linhas, [aba]: l })}
               />
             </Painel>
           </div>
