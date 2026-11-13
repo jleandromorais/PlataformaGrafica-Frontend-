@@ -1,4 +1,80 @@
-# Plano de amanhã (12/11/2026)
+# Plano de 13/11/2026 (atualizado à tarde)
+
+Pull do back feito: `main` em `b63e49e`, sem conflito. Ordem sugerida: 0 → 1 → 2; depois 3 e 4.
+
+## Situação agora
+- **Back no GitHub (main) desde 12/11:** `d917c5a` (regra do PR no SR + campo `erros` nas rotas do ciclo), `c616b86` (**fase B**: rota `/auditoria/planilha/conferir` e `notas_em_ambas`, que agora estão no GitHub), `847a180` / `a29b671` / `03de487` / `b63e49e` (relatório do trimestre em Word: veredito, quadro de conferência, auditoria por empresa, comparação com a planilha, modo escuro, sem −R$ 0,00), `f73d995` (dashboard: CGR por empresa mês a mês).
+- **Front no GitHub:** `6b23152` (um só toast de erro no Processar, com o campo `erros` do back). Só falta commitar este `docs/plano.md`.
+- **Fase B desbloqueada:** com a `c616b86` dá para seguir com as fases D e E.
+- **Banco local:** PMPV de Out–Dez/2025 corrigido (Out 2,1502; Nov e Dez 2,1154), com cópia em `pmpv_data.backup_20261112_pmpv.db`. O `seed/pmpv_data.db` mudou só neste computador e **não vai para commit**.
+
+## Regras confirmadas em 12–13/11
+- **Trimestres:** a tarifa (PMPV, PR, PV) usa Nov–Jan, Fev–Abr, Mai–Jul e Ago–Out. A apuração (SCG, SR) usa trimestres civis (Jan–Mar…). O SR de um trimestre civil alimenta o PR do trimestre que começa 2 meses depois (SR Jul–Set/25 → PR Nov/25–Jan/26; SR Out–Dez/25 → PR Fev–Abr/26).
+- **PR de cada mês no SR:** é o PR do trimestre da tarifa do **próprio mês**. A regra antiga (3 meses antes) estava errada e foi corrigida em `d917c5a`.
+- **Ano nas chaves:** a tela PR usa o ano do **último** mês ("Nov–Jan/2026" = Nov/25–Jan/26). A tela PV usa o ano do **primeiro** mês ("Nov–Jan/2025" = Nov/25–Jan/26).
+- **Valores da planilha (NT_05/2026):**
+  - PR Mai–Jul/25 = 0,0292; Ago–Out/25 = 0,0116; Nov/25–Jan/26 = −0,0210; Fev–Abr/26 = −0,0321; Ago–Out/26 = 0,0135.
+  - PV Nov/25–Jan/26 = 2,0944; PV Fev–Abr/26 = 1,9667.
+- **RP Dez/2025:** a diferença é a nota PFP de R$ 58.261,99 (linha 170 da aba "Verificação EAT - EC e PEN", "inserida a posteriori pela Copergás"). O PDF dela não está na pasta.
+
+## 0. Antes de tudo
+- [ ] **Conferir o deploy** do back no Railway (`b63e49e`) e do front na Vercel (`6b23152`). Só então mover os cartões de "Em teste" para "Em produção".
+- [ ] Commitar este `docs/plano.md`.
+- [ ] Rodar `pytest` no back depois do pull (não foi rodado).
+
+## 1. Dados do servidor (Leandro, no site, nesta ordem)
+- [ ] PMPV de **Out/2025 → 2,1502** (no servidor ainda está 1,9501).
+- [ ] SR **2025 › Jul–Set**: Jul com PR 0,0292, Ago e Set com 0,0116; total perto de R$ 98.775,10 → Salvar SR.
+- [ ] PR **2026 › Nov–Jan** → Recalcular (−0,0210) → Salvar PR.
+- [ ] Conferir na tela PV a linha **Nov–Jan/2025 = 2,0944**. Se não aparecer, gravar pela tela PV (PMPV 2,1154 + PR −0,0210).
+- [ ] PR **2026 › Fev–Abr** → Recalcular (−0,0321) → Salvar PR.
+- [ ] Pedir à Copergás o PDF da nota PFP de R$ 58.261,99 (RP Dez/2025).
+
+## 2. Correções da revisão (Luiz, Hero e Jose), esperando OK do Leandro
+**Críticas:**
+- [ ] Bloquear **Salvar PR sem SR** do trimestre (hoje ele salva com SR = 0). (Recomendado.)
+- [ ] `/pr/salvar` e `/sr/trimestre/salvar` aceitam 0 e valores que o servidor não conferiu: o servidor deve recalcular.
+- [ ] `/pr/trimestral` ainda usa a fórmula antiga e o front ainda chama essa rota (`api/index.ts:343`).
+- [ ] SR: a proposta fica velha (`SRDoTrimestre`), e trocar de trimestre rápido mistura os dados de um com os do outro.
+- [ ] Desktop (`tela_sr.py`, `tela_pr.py`): usa a fórmula antiga e salva a cada tecla.
+
+**Importantes:**
+- [ ] Recalcular em cascata (PMPV → SR → PR → PV) quando um valor de base muda.
+- [ ] PR com SELIC 0 sem avisar ninguém.
+- [ ] Mostrar os meses com o ano nas telas PR e PV ("Nov/25 – Jan/26"). (Recomendado: resolve a confusão das duas convenções de ano.)
+- [ ] Coluna "Meses" na tabela da tela PV (Hero).
+- [ ] Pendências com link para a tela onde se resolve; observação no PMPV e no RP digitados à mão.
+- [ ] O toast de erro junta as linhas com "\n" num item só; a divergência aparece em vermelho, como se fosse erro.
+- [ ] Tipos do front diferentes do back (item I11 da revisão).
+
+**Dados locais estranhos:** PR Fev–Abr/2026 = 0,0876 e Mai–Jul/2026 = 0; `cgf_resumo` Mai/2026 com `volume_final` = 100; SR Jan–Mar/26 com SELIC 0 e PRs antigos; períodos de lixo "Teste1", "Teste2" e "Geral".
+
+## 3. Reparo do SCG em produção (pendente desde 12/11)
+- [ ] `POST /api/scg/reparar-historico` **sem** `aplicar` (simulação); conferir Jul, Ago e Set com o Leandro.
+- [ ] Jul: gravado −R$ 996.608,54 × calculado −R$ 1.477.928,41 (diferença R$ 481.319,87, no CGR ou no RP). Só aplicar com o OK dele.
+- [ ] Copiar o banco do Railway antes de `aplicar=true`.
+
+## 4. Quando der
+- [ ] Decidir se o PR e o SR automáticos passam a **só avisar** em vez de sobrescrever o que já está salvo (preferência de 12/11: mostrar a prévia e pedir aprovação).
+- [ ] Fases D (cards clicáveis, card "Batem") e E (toast real da planilha), agora que a B está no GitHub.
+- [ ] Verificar no navegador (Chrome headless isolado): PMPV lembra o rascunho, SCG Ago sem R$ 0,00, hover do card vinho, toast de erro do Processar.
+- [ ] Renomear as planilhas "Notas de Faturamento" do CGF de Jan, Fev, Abr e Mai/2025, ou ampliar `tipoPlanilhaCGF`.
+- [ ] RET: `servicos_ret.py:88` ainda usa o ano de hoje quando não acha o ano no caminho.
+- [ ] Limpar os períodos inválidos (`DELETE /api/periodos/{nome}`: simulação → cópia do banco → `?aplicar=true`).
+- [ ] Corrigir o `npm test` (falha em todos os arquivos com `reading 'config'`).
+- [ ] Teste ponta a ponta de Setembro e relatório de divergências (seções abaixo).
+
+---
+
+# Plano de 13/11/2026 — versão da manhã (registro)
+
+- Commit e push de 12/11 feitos. Pasta SCG-25.1 organizada; duplicatas em `SCG-25.1 - duplicata fora do ciclo`.
+- Bug do ano de 2 dígitos (`10 out-25` lido como 2026) corrigido em `782d5dd`.
+- A seção "SR muda ao Recarregar do banco" desta versão usava valores errados (Fev–Abr = −0,0001; Nov–Jan = −0,0321). Os certos estão em "Regras confirmadas em 12–13/11", acima. A causa real era a regra de 3 meses antes, corrigida em `d917c5a`.
+
+---
+
+# Plano de 12/11/2026 (registro do que foi feito e do que ficou)
 
 Resumo de hoje: Auditoria subiu antes do SR no Painel (front), e o back ganhou a rota
 `/auditoria/planilha/conferir` e o campo `notas_em_ambas`. Spec completa em `SPEC_AUDITORIA_AMIGAVEL.md`.
