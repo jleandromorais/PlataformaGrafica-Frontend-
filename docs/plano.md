@@ -26,6 +26,62 @@ gerar o relatório do trimestre, a **regra do PR no SR** foi corrigida e o back 
 
 ---
 
+# Andamento de 16/11/2026 (o que foi feito e o que está em curso)
+
+Conferido em 16/11 contra o código: **nenhuma seção do plano de 13/11 existia**. Nesse dia o Luiz (back) e o Hero (front)
+começaram a implementar em paralelo. Nada foi commitado; os commits ficam com o Leandro (back antes do front).
+**Back concluído pelo Luiz (16/11):** seções 1, 2, 3, 5, 6, 7 e 8 e o ano do RET. `pytest -q`: **915 passando, 0 falhas** (eram 860).
+**Front concluído pelo Hero (16/11):** etapas 1 e 2. `tsc` e `build` sem erro; `eslint src` com 0 problemas (o lint do projeto todo mantém os 21 erros antigos, só em `.heroui-docs` e `.claude`); **`npm test`: 14 arquivos e 188 testes passando** (eram 175, e o comando voltou a funcionar com `vitest.config.ts` e `pool: 'vmThreads'`).
+- Feito: prévia da cascata (`PreviaCascata`, `usePreviaCascata`) em todos os Salvar; aviso de cascata pendente no Painel e no Dashboard; duplicata com número, valor, volume e vencimento; card "Conferência do mês"; seção "Alterações" (trilha) em SCG, SR, PV e PR; toast de erro em lista e divergência como aviso amarelo; coluna "Meses" na tela PV; tipos alinhados com o back; fases D e E (cards clicáveis, "Batem", toast com "Ver diferenças", ✓/✗ nos meses).
+- **Não verificado:** nada foi visto no navegador nem rodado contra o back real. Falta o teste no Chrome headless isolado. O PV só aparece na trilha se a lógica de chaves do `pv_resultados` estiver certa; o Hero não confirmou.
+- Pendente: marcar os itens das seções 1 a 8 como feitos depois do teste no navegador.
+
+**"Como funciona" e visual (Hero, 16/11):** tela reorganizada em "O mês, passo a passo" (5 passos com botão), "Se algo não bater" (6 passos) e 6 abas HeroUI para consulta; textos atualizados (prévia e aprovação da cascata, SELIC 0% recusada, regra do PR no SR pelo próprio mês, Conferência do mês, Alterações, SR e PR fora do desktop); `DiagramaCiclo.tsx` removido. Passada de visual com a skill `design-taste-frontend` (só o que serve a sistema interno): botão único (`estilosBotao.ts`), card sobe 2px, alvos de toque de 44px em telas de toque, raio `rounded-lg` nos controles do Ciclo, PMPV e SR. `tsc`, `eslint src`, build e `npm test` (188) passam. Visto no Chrome headless isolado (dados fictícios): Como funciona, Painel do Ciclo e PMPV só com estado vazio. **Não visto:** Dashboard, SR, PR, PV, tema claro, celular, hover e troca de aba. Passos 2, 3 e 5 abrem `/ciclo`, pois a Conferência e a prévia pendente moram nele.
+
+| Seção do plano | Quem | Estado em 16/11 |
+|---|---|---|
+| 1. PR recusa SELIC 0% | Luiz | editado (`servicos_pr.py`); teste em `test_pr_salvar_servidor.py` |
+| 2. Cascata com prévia e aprovação (back) | Luiz | criados `servicos_cascata.py`, `routers/cascata.py`, `schemas/cascata.py`, `tests/test_cascata.py`; rotas de salvar ajustadas |
+| 3. Duplicata com detalhes | Luiz | editado (`duplicatas.py`, schema, serviços de lote, `test_duplicatas.py`) |
+| 4. Aprovação da cascata e duplicata (front) | Hero | criados `PreviaCascata.tsx`, `AvisoCascataPendente.tsx`, hooks; `AvisoPossivelDuplicata.tsx` editado |
+| 5. Conferência do mês | Luiz e Hero | back: `/dashboard/conferencia` e `test_dashboard_conferencia.py`; front: `ConferenciaDoMes.tsx` no Painel do Ciclo |
+| 6. Aposentar SR e PR do desktop | Luiz | editado (`main_dashboard.py`) |
+| 7. Apagar um PR | Luiz | `DELETE /pr` em `routers/pr.py` e `tests/test_pr_apagar.py` |
+| 8. Trilha de alterações | Luiz | `routers/trilha.py`, `servicos_trilha.py`, tabela em `database.py`, `tests/test_trilha.py`; falta a seção "Alterações" no front |
+| 9. Dados (limpeza) | Leandro | **não feita de propósito**: só depois do deploy, com cópia do banco |
+
+**Também em curso (front, Hero):** `vitest.config.ts` para consertar o `npm test`; toast de erro em itens; coluna "Meses" na tela PV;
+alinhar tipos com o back; fases D e E da spec de Auditoria.
+**Back, o que mudou (contrato para o front)**
+- `GET /api/cascata/previa`, `GET /api/cascata/pendente`, `POST /api/cascata/aplicar`; campo `cascata` nos salvar (Auditoria, CGF, conciliação, RET, SCG, SR, PR, PMPV), com `pr_automatico` e `pv_automatico` mantidos com `atualizado=false`.
+- **`POST /api/pmpv/mensal/{periodo}` deixou de ser 204** e agora devolve 200 com `{ cascata }`. O front não pode esperar corpo vazio.
+- `detalhes` nas duplicatas; `GET /api/dashboard/conferencia`; `DELETE /api/pr` (simula sem `aplicar`); `GET /api/trilha`.
+- Ano do RET: sem ano no caminho, o documento fica sem mês e o analista escolhe o período; nunca usa o ano de hoje. Corrigido de passagem o `` que escondia o ano em `JANEIRO_2026`.
+- Desktop: SR e PR viraram "Em breve".
+
+**Ressalvas do back**
+- Cascata de vários trimestres seguidos: a prévia do 2º SR lê o PR velho gravado, e o `aplicar` grava em ordem. A resposta do `aplicar` mostra o que foi gravado de fato.
+- `aplicar` grava SR, PR e PV em transações separadas; se algo mudar no meio, para com 422 e o já gravado fica.
+- `/cascata/pendente` consulta o Banco Central para a SELIC e pode demorar se ele estiver fora do ar.
+- Código antigo sem uso (`atualizar_dos_meses`, `atualizar_*_sem_falhar`, `atualizar_pv_do_pr`) pode ser removido pelo Bill depois do deploy do front.
+- O `pmpv_data.db` da raiz ganhou a tabela vazia `historico_alteracoes` (0 linhas, nenhum dado mudou), criada quando algo abre o banco padrão sem `PLATAFORMA_DB`. `seed/pmpv_data.db` e `plataforma_pmpv.db` não foram tocados.
+- Desktop não foi aberto para conferir os cards "Em breve".
+
+**Ainda não feito**
+- Seção "Alterações" (trilha) nas provas reais de SCG, SR, PR e PV.
+- Conferir o contrato real das rotas do back contra o front.
+- Rodar `pytest`, `tsc`, lint, build e `npm test`, e registrar aqui o resultado.
+- Reorganizar a tela "Como funciona" (mais simples, com passo a passo; texto atualizado para a cascata) e passar o visual das telas com a skill `design-taste-frontend`, aproveitando só o que serve a um sistema interno.
+- Investigar o SCG de Jul (R$ 481.319,87, só leitura) e preparar a limpeza de dados em simulação.
+
+**Dependem do Leandro**
+- Acertos no servidor: PMPV Out/2025 (2,1502), SR Jul–Set/25, PR Nov–Jan e Fev–Abr; PDF da nota PFP de R$ 58.261,99 com a Copergás.
+- Deploy do back antes do front; conferir os cartões do Trello antes de mover para "Em produção".
+- Decidir o `seed/pmpv_data.db`: está versionado no repositório público do back e foi alterado de novo em `7ab3b70`.
+- Aplicar (ou não) o reparo do SCG e a limpeza de dados, depois de ver a simulação.
+
+---
+
 # Plano de implementação das decisões de 13/11
 
 **Por quê:** hoje vários "Salvar" (Auditoria, CGF, RET, RP, SCG, SR, PR, PMPV) regravam SR, PR e PV sozinhos e em

@@ -3,6 +3,7 @@
  * mesmo e só grava se confirmar. Mesmo envio da tela da Auditoria (modo XML, todas as
  * empresas, sem planilha). O seletor de pasta pode fazer o Chrome perguntar se quer enviar
  * os arquivos; arrastar ou .zip não perguntam. */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useRef, useState } from "react";
 import { FileArchive, Loader2, Play, Save, X } from "lucide-react";
 import { salvarAuditoria, type ArquivoDaPasta } from "../../api";
@@ -167,6 +168,8 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // SR, PR e PV não são regravados sozinhos: o analista aprova a prévia
+
   const gravar = async () => {
     if (!res || !ativo) return;
     setConfirmar(false);
@@ -174,6 +177,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     setFase("gravando");
     try {
       const s = await salvarAuditoria(ativo, res.r.itens);
+      mostrarCascata(s.cascata);
       setGravado({ cgr: s.cgr_liquido, notas: s.qtd_itens });
       setRes(null);
       setEnvio(null);
@@ -209,7 +213,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
             <button key={m} type="button" onClick={() => abrir(m)} disabled={bloqueado || (aberto && travado)}
               aria-expanded={aberto} aria-controls={aberto ? "auditar-mes-painel" : undefined}
               title={bloqueado ? `Grave ou descarte ${ativo} antes de auditar outro mês` : undefined}
-              className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${
+              className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${
                 aberto ? "border-sky-400/50 bg-sky-500/15 text-sky-100" : "border-white/[0.1] text-zinc-300 hover:border-sky-400/40 hover:text-white"}`}>
               Auditar {mesCurto(m)}
             </button>
@@ -238,7 +242,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
                 </p>
                 {/* Sem "Escolher a pasta": o seletor do sistema faz o Chrome abrir um aviso que o site não controla. */}
                 <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                  className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                  className="flex items-center gap-2 rounded-lg border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
                   <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
                 </button>
                 <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
@@ -352,9 +356,10 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
           {fase === "gravado" && gravado && (
             <div className="mt-3 space-y-3">
               <Alert variant="success">
-                CGR de {ativo} gravado: {brl(gravado.cgr)} ({num(gravado.notas)} notas). O sistema também regravou o RPV e o PR/PV dos
-                meses afetados, e as etapas do ciclo já foram atualizadas.
+                CGR de {ativo} gravado: {brl(gravado.cgr)} ({num(gravado.notas)} notas). O sistema também regravou o RPV do mês e as etapas
+                do ciclo já foram atualizadas. O SR, o PR e o PV não mudam sozinhos: aprove a prévia abaixo, se aparecer.
               </Alert>
+              {previa}
               <Button variant="ghost" onClick={fechar}>Fechar</Button>
             </div>
           )}

@@ -1,6 +1,8 @@
 /** "Prova real" do PV de um trimestre fiscal: a conta do PV gravado (PMPV + PR) e se ele ainda
  * bate com o PMPV e o PR que os módulos dão hoje. Só lê: quem refaz as contas é o backend
  * (GET /pv/prova-real). A busca fica na página (useProvaRealDoMes). */
+import { chavesDoPV } from "../../utils/periodos";
+import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
 import type { Ref } from "react";
 import { Card } from "@heroui/react";
 import { ClipboardCheck, RefreshCw } from "lucide-react";
@@ -125,6 +127,7 @@ export function ProvaRealPV({ chave, estado, cardRef, onUsarNoFormulario, classN
             {d.avisos.map((a, i) => <li key={i}>{a}</li>)}
           </ul>
         )}
+        <AlteracoesDaTrilha periodos={chavesDoPV(chave)} rotulo={chave} tabela="pv_resultados" versao={d?.data_atualizacao} />
       </Card.Content>
 
       {chave && onUsarNoFormulario && (

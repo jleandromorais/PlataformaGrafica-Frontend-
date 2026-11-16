@@ -49,12 +49,13 @@ const CONTAS: Conta[] = [
       "O SR anterior não é calculado sozinho: o analista informa (fica 0 se ninguém informar).",
       "A SELIC é a acumulada do mês até o fim do trimestre, calculada com as taxas diárias do Banco Central.",
       "A SELIC só existe depois que o trimestre fecha. Antes disso, o card do SR avisa que ela está indisponível e bloqueia a gravação.",
-      "O PR de cada mês é o do trimestre fiscal que contém o mês de 3 meses antes. Exemplo: janeiro usa o PR de ago–out do ano anterior.",
+      "O PR de cada mês é o do trimestre fiscal do próprio mês. Exemplo: janeiro usa o PR de Nov–Jan.",
+      "Com SELIC 0%, o SR não grava.",
     ],
     exemplo: "VP de 100 m³, VF de 90 m³, PR de R$ 2,00, SELIC de 1% e SR anterior informado como zero: 10 × 2 × 1,01 = R$ 20,20." },
   { sigla: "PR", nome: "Parcela de Recuperação",
     formula: "PR = (SCG com SELIC + SR com SELIC) ÷ VP do trimestre do PR",
-    explica: ["Transforma o saldo total em um ajuste de preço por m³."],
+    explica: ["Transforma o saldo total em um ajuste de preço por m³.", "Com SELIC 0%, o PR não grava (como o SR)."],
     exemplo: "Com o SCG de R$ 330,85 e o SR de R$ 20,20 dos exemplos acima (para simplificar, o SCG já contado com a SELIC): 351,05 ÷ 500 m³ de VP = R$ 0,7021 por m³." },
   { sigla: "PMPV", nome: "Preço Médio Ponderado de Venda",
     formula: "PMPV = Σ(preço × volume) ÷ Σ volume",
@@ -71,7 +72,7 @@ export function AsContas() {
   return (
     <div className={CARD_VINHO}>
       <p className="text-sm leading-relaxed text-vinho-texto">
-        Os números abaixo são inventados, só para você ver a conta andando, e contam uma história só: um mês pequeno, do CGR ao PV. O cálculo de verdade é feito pelo sistema, nunca pela tela.
+        Números inventados, numa história só: um mês pequeno, do CGR ao PV. O cálculo de verdade é do sistema, nunca da tela.
       </p>
       <ul className="mt-4 flex flex-col gap-3">
         {CONTAS.map((c) => (

@@ -1,6 +1,7 @@
 /** "Prova real" do SCG de um mês: a soma refeita (CGR − CGF = RPV; RPV + RET + RP = SCG) contra o
  * SCG gravado e, abaixo, de onde vêm CGR, CGF, RET e RP, cada um com o seu selo e o link para a
  * tela que o grava. Só lê: quem refaz as contas é o backend (GET /scg/prova-real). */
+import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
 import type { Ref } from "react";
 import { Card } from "@heroui/react";
 import { ClipboardCheck } from "lucide-react";
@@ -98,6 +99,7 @@ export function ProvaRealSCG({ periodo, estado, cardRef, className = "" }: {
             </div>
           </div>
         )}
+        <AlteracoesDaTrilha periodos={periodo ? [periodo] : null} rotulo={periodo} tabela="consolidacao" versao={d?.data_atualizacao} />
       </Card.Content>
     </Card>
   );

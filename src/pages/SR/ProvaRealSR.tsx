@@ -1,6 +1,8 @@
 /** "Prova real" do SR de um trimestre gravado: a conta refeita mês a mês com os valores gravados,
  * o selo de cada mês e o que as fontes (PMPV, CGF, módulo PR, Banco Central) dizem hoje.
  * Só lê: quem refaz as contas é o backend (GET /sr/prova-real). */
+import { mesesDoSR } from "../../utils/periodos";
+import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
 import type { Ref } from "react";
 import { Link } from "react-router-dom";
 import { Card } from "@heroui/react";
@@ -155,6 +157,7 @@ export function ProvaRealSR({ chave, estado, cardRef, onUsarNoFormulario, classN
             )}
           </div>
         )}
+        <AlteracoesDaTrilha periodos={mesesDoSR(chave)} rotulo={chave ? rotulo : null} tabela="sr_resultados" versao={d?.data_atualizacao} />
       </Card.Content>
 
       {chave && (

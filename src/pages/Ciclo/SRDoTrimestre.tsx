@@ -5,6 +5,7 @@
  * o botão Gravar sempre pede confirmação e, havendo divergência, diz isso com todas as letras
  * (mesmo aviso do Processar). Os números vêm do backend (POST /sr/trimestre/proposta);
  * aqui só se mostra, se compara com o gravado e se grava pelo mesmo caminho da tela /sr. */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useRef, useState } from "react";
 import { Calculator, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -57,6 +58,7 @@ export function SRDoTrimestre({ meses, onGravado }: {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata("mt-4"); // PR e PV não são regravados sozinhos: o analista aprova a prévia
   const gravar = async () => {
     if (!proposta || !proposta.pode_gravar) return;
     setConfirmar(false);
@@ -67,6 +69,7 @@ export function SRDoTrimestre({ meses, onGravado }: {
       const linhas = proposta.linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior, diferenca, sr_parcela, sr_selic, total }) =>
         ({ mes, vp, vf, pr, selic_mensal, sr_anterior, diferenca, sr_parcela, sr_selic, total }));
       const salvo = await salvarTrimestreSR(meses, meses[meses.length - 1], linhas);
+      mostrarCascata(salvo.cascata);
       const pr = textoPRAutomatico(salvo.pr_automatico);
       setSucesso(`SR de ${faixa} gravado. Total = ${brl(salvo.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
       setAvisoPR(pr && !pr.ok ? pr.texto : null);
@@ -100,6 +103,7 @@ export function SRDoTrimestre({ meses, onGravado }: {
       {erro && <Alert variant="error" className="mt-4 whitespace-pre-line">{erro}</Alert>}
       {sucesso && <Alert variant="success" className="mt-4">{sucesso}</Alert>}
       {avisoPR && <Alert variant="warning" className="mt-4 whitespace-pre-line">{avisoPR}</Alert>}
+      {previa}
 
       {/* Enquanto a proposta carrega pela primeira vez: esqueleto no formato da tabela. */}
       <div aria-live="polite" aria-busy={carregando}>

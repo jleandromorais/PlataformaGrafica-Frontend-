@@ -21,6 +21,8 @@ import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
 import { SRDoTrimestre } from "./SRDoTrimestre";
+import { ConferenciaDoMes } from "./ConferenciaDoMes";
+import { AvisoCascataPendente } from "../../components/ui/AvisoCascataPendente";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { reabrirPasta, type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida } from "../../utils/pasta";
@@ -400,18 +402,21 @@ export default function CicloPage() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
+        {/* Algum SR, PR ou PV ficou para trás da última mudança? Aviso geral, com a prévia para aprovar. A chave refaz a busca depois de gravar. */}
+        <AvisoCascataPendente key={versao} />
+
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ano anterior" onClick={() => irPara(ano - 1, tri)}
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white"><ChevronLeft size={16} /></button>
+              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronLeft size={16} /></button>
             <span className="w-14 text-center text-lg font-semibold tabular-nums text-white">{ano}</span>
             <button type="button" aria-label="Próximo ano" onClick={() => irPara(ano + 1, tri)}
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white"><ChevronRight size={16} /></button>
+              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronRight size={16} /></button>
           </div>
           <div role="radiogroup" aria-label="Trimestre apurado" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
             {TRIMESTRES.map((t, i) => (
               <button key={t} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   tri === i ? "bg-sky-500/20 text-sky-200" : "text-zinc-400 hover:text-zinc-100"}`}>{t}</button>
             ))}
           </div>
@@ -440,7 +445,7 @@ export default function CicloPage() {
                   o aviso "Quer carregar N ficheiros para este site?", que nenhum site consegue esconder
                   nem estilizar. Arrastar ou usar o .zip não dispara esse aviso. */}
               <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
-                className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                className="flex items-center gap-2 rounded-lg border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
                 <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
               </button>
               <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
@@ -467,6 +472,8 @@ export default function CicloPage() {
               (arrastando, escolhendo a pasta ou o .zip): o navegador não guarda os arquivos depois de recarregar a página.
             </p>
           )}
+          {/* Conferência do mês: total de cada etapa x mês anterior, antes de processar e gravar. */}
+          {mapa && !ocupadoPasta && <ConferenciaDoMes key={meses[0]} meses={meses} versao={versao} />}
           {mapa && !ocupadoPasta && (
             <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} aberto={processando}
               processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
@@ -645,7 +652,7 @@ function MapaPasta({ mapa, meses, raiz, total, processar, aberto }: {
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <button type="button" disabled={!processar} onClick={processar}
-          className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+          className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
           {aberto ? "Recomeçar o Processar" : `Processar ${meses[0]} a ${meses[2]}`}
         </button>
         <span className="text-xs text-zinc-500">

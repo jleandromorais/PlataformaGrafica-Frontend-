@@ -6,6 +6,7 @@
  * despesas, "Processar e conciliar", digitar valores de PDFs não lidos, Relatório Excel e Salvar).
  * Não está em nenhuma tela; para voltar, basta renderizar <LeituraDoMes /> no
  * src/pages/Conciliacao/index.tsx (só o cabeçalho PageHeader foi retirado daqui). */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useState } from "react";
 import { Download, Loader2, Play, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -101,6 +102,7 @@ export function LeituraDoMes() {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!itensFinais) return;
     setErro(null);
@@ -108,6 +110,7 @@ export function LeituraDoMes() {
     setOcupado("salvar");
     try {
       const r = await salvarConcilia(periodo, itensFinais);
+      mostrarCascata(r.cascata);
       setSucesso(`RP de ${periodo} salvo: ${brl(r.rp)} (${r.qtd_itens} PDFs).`);
       getHistoricoConcilia().then(setHistorico);
     } catch (e) {
@@ -140,6 +143,7 @@ export function LeituraDoMes() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {previa}
 
         <section className={`${PANEL} p-5 sm:p-6`}>
           <SeletorMes mes={mes} ano={ano} onChange={(m, a) => { setMes(m); setAno(a); }} />

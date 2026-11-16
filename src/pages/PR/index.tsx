@@ -1,3 +1,5 @@
+import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, FileText, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -107,6 +109,7 @@ export default function PRPage() {
     buscar(meses, chave).then(aplicar).catch(falhar);
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!dados) return;
     setSalvando(true);
@@ -115,6 +118,7 @@ export default function PRPage() {
     setAvisoPV(null);
     try {
       const r = await salvarPR(chave, dados.scg_selic, dados.sr, dados.vp);
+      mostrarCascata(r.cascata);
       setPrSalvo(r.pr);
       // O backend regrava o PV do mesmo trimestre com este PR.
       const pv = textoPVAutomatico(r.pv_automatico);
@@ -153,6 +157,7 @@ export default function PRPage() {
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPV && <Alert variant="warning">{avisoPV}</Alert>}
+        {previa}
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
@@ -273,6 +278,13 @@ export default function PRPage() {
               </p>
             </section>
           </div>
+        )}
+
+        {/* Alterações do PR deste trimestre: quando mudou, de quanto para quanto (só lê). */}
+        {dados && (
+          <section className={`${PANEL} px-5 pb-5`}>
+            <AlteracoesDaTrilha periodos={[chave]} rotulo={chave} tabela="pr_resultados" versao={prSalvo} />
+          </section>
         )}
 
         {/* 1ª carga (ou depois de um erro): ainda não há nada para mostrar esmaecido. */}

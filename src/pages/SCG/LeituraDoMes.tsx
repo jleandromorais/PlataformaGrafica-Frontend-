@@ -5,6 +5,7 @@
  * (é o único lugar que grava o SCG). Esta cópia guarda a tela de antes, sem mudanças, só sem o
  * cabeçalho PageHeader. Não está em nenhuma tela; para voltar à tela antiga, basta renderizar
  * <LeituraDoMes /> no src/pages/SCG/index.tsx. */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -148,6 +149,7 @@ export function LeituraDoMes() {
     && (provaDoMes.scg_gravado === null || difere(provaDoMes.scg_gravado, scg));
   const alterado = !!comp && validos && (!comp.gravado || camposDiferem || gravadoDesatualizado);
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!validos) return setErro("Corrija os valores digitados antes de salvar.");
     setErro(null);
@@ -156,6 +158,7 @@ export function LeituraDoMes() {
     setSalvando(true);
     try {
       const r = await salvarSCG({ periodo, ...v });
+      mostrarCascata(r.cascata);
       // O backend regrava o PR e o PV do trimestre que usa este mês.
       const pr = textoPRAutomatico(r.pr_automatico);
       setSucesso(`SCG de ${periodo} salvo: ${brl(r.scg)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
@@ -181,6 +184,7 @@ export function LeituraDoMes() {
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
+        {previa}
 
         <section className={`${PANEL} p-5 sm:p-6`}>
           <SeletorMes

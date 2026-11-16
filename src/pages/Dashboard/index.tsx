@@ -32,6 +32,7 @@ import {
 import { Select } from "../../components/ui/Input";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Alert } from "../../components/ui/Alert";
+import { AvisoCascataPendente } from "../../components/ui/AvisoCascataPendente";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
@@ -417,6 +418,9 @@ export default function DashboardPage() {
         />
 
         {erro && <Alert variant="error">{erro}</Alert>}
+
+        {/* SR, PR ou PV desatualizado? Aviso geral, com a prévia para aprovar (nada é gravado sozinho). */}
+        <AvisoCascataPendente />
 
         {incompletos.length > 0 && ultimoMes && (
           <Alert variant="warning">

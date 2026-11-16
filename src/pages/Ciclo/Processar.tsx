@@ -7,8 +7,10 @@ import { Link } from "react-router-dom";
 import { AlertTriangle, ArrowUpRight, CheckCircle2, CircleDashed, Loader2, XCircle } from "lucide-react";
 import {
   calcularCGFRs, getPMPVMensal, processarCGF, processarConcilia, processarRET,
-  salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
+  previaCascata, salvarAuditoria, salvarCGF, salvarConcilia, salvarRET,
 } from "../../api";
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
+import type { Cascata } from "../../types";
 import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { avisarAtencao, avisarErro, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
@@ -221,7 +223,7 @@ export function ProcessarTrimestre({
       const rs = await calcularCGFRs(c.periodo, r.volume_final, pmpv);
       return {
         estado: "processada", cgf: { r, pmpv }, valor: rs.cgf_rs ?? undefined, avisos,
-        errosBack: unicos([...(r.erros ?? []), ...(rs.erros ?? [])]),
+        errosBack: unicos(rs.erros ?? []),
         detalhe: `VF ${num(r.volume_final, 0)} m³ = faturado ${num(r.volume_faturado, 0)} − devoluções ${num(r.volume_devolucoes, 0)} · PMPV ${num(pmpv, 4)}`,
       };
     }
@@ -271,6 +273,7 @@ export function ProcessarTrimestre({
     let feitas = 0;
     let problemas = 0; // erro ou bloqueada: o motivo já aparece na tabela
     const linhasDeErro: string[] = []; // vira UM toast de erro no fim da rodada
+    const linhasDeAviso: string[] = []; // valor diferente do gravado: não é erro, vira um toast amarelo
     for (const c of pedidas) {
       if (parar.current) break;
       atualizar(c, { estado: "processando", motivo: undefined });
@@ -283,7 +286,7 @@ export function ProcessarTrimestre({
           // As frases do back já dizem etapa, mês e valores; sem elas, usa a diferença processado x gravado.
           const dif = textoValorDivergente({ ...c, ...r });
           if (doBack.length) linhasDeErro.push(...doBack);
-          else if (dif) linhasDeErro.push(`${rotuloDe(c)}: ${dif}.`);
+          else if (dif) linhasDeAviso.push(`${rotuloDe(c)}: ${dif}.`);
         } else {
           problemas += 1;
           // erro ou bloqueada (ex.: falta o PMPV): diz qual etapa-mês e o motivo.
@@ -297,16 +300,21 @@ export function ProcessarTrimestre({
       }
     }
     // Um toast de erro só por rodada (não empilha um por etapa-mês).
-    if (linhasDeErro.length) avisarErro(`${faixaDosMeses(meses)}: etapa(s)-mês com erro`, unicos(linhasDeErro).join("\n"));
+    // Cada frase vira um item da lista (sem juntar com quebra de linha).
+    if (linhasDeErro.length) avisarErro(`${faixaDosMeses(meses)}: etapa(s)-mês com erro`, unicos(linhasDeErro));
+    if (linhasDeAviso.length) avisarAtencao(`${faixaDosMeses(meses)}: valor diferente do gravado`, unicos(linhasDeAviso));
     setFase("revisao");
     // UM aviso no fim, só se tudo o que foi pedido rodou ("Parar depois desta" não avisa).
     const terminou = feitas + problemas === pedidas.length;
     if (!terminou || !feitas) return;
     const titulo = `Processamento de ${faixaDosMeses(meses)} pronto`;
-    if (linhasDeErro.length) return; // o toast de erro acima já cobre esta rodada
+    if (linhasDeErro.length || linhasDeAviso.length) return; // os toasts acima já cobrem esta rodada
     if (problemas) avisarAtencao(titulo, `${feitas} etapa(s)-mês prontas; ${problemas} com problema (veja na tabela). Confira antes de gravar.`);
     else avisarSucesso(titulo, "Confira antes de gravar.");
   }
+
+  // Prévia do SR, PR e PV depois de gravar o ciclo: nada à frente é regravado sem a aprovação do analista.
+  const { previa, mostrarCascata } = usePreviaCascata("mt-4");
 
   async function gravar() {
     setConfirmar(false);
@@ -314,15 +322,18 @@ export function ProcessarTrimestre({
     // Gravar com valor divergente: toast de erro listando etapa, mês, processado e gravado.
     const comValorDiferente = divergentes.filter((c) => textoValorDivergente(c));
     if (comValorDiferente.length) {
-      avisarErro(
+      avisarAtencao(
         "Gravando com valor diferente do gravado",
-        comValorDiferente.map((c) => `${rotuloDe(c)}: ${textoValorDivergente(c)}`).join("\n"),
+        comValorDiferente.map((c) => `${rotuloDe(c)}: ${textoValorDivergente(c)}`),
       );
     }
     parar.current = false;
     setFase("gravando");
     const gravadasAgora: Celula[] = []; // para o aviso de "deu certo" dizer só o que gravou mesmo
     let falhas = 0;
+    mostrarCascata(null);
+    let cascataDoSalvar: Cascata | null = null; // a última prévia que um Salvar devolveu (o back antigo não manda)
+    const mesesGravados: string[] = [];
     for (const c of celulas.filter((x) => x.escolhida && x.estado === "processada")) {
       if (parar.current) break;
       atualizar(c, { estado: "gravando" });
@@ -330,6 +341,7 @@ export function ProcessarTrimestre({
         if (c.auditoria) {
           const s = await salvarAuditoria(c.periodo, c.auditoria.itens);
           atualizar(c, { estado: "gravada", valor: s.cgr_liquido });
+          cascataDoSalvar = s.cascata ?? cascataDoSalvar;
         } else if (c.cgf) {
           const { r, pmpv } = c.cgf;
           const s = await salvarCGF({
@@ -337,14 +349,18 @@ export function ProcessarTrimestre({
             volume_devolucoes: r.volume_devolucoes, volume_consumo_proprio: r.volume_consumo_proprio, volume_final: r.volume_final,
           });
           atualizar(c, { estado: "gravada", valor: s.cgf_rs });
+          cascataDoSalvar = s.cascata ?? cascataDoSalvar;
         } else if (c.ret) {
           const s = await salvarRET(c.ret.documentos, c.periodo);
           atualizar(c, { estado: "gravada", valor: s.find((x) => x.periodo === c.periodo)?.ret ?? c.valor });
+          cascataDoSalvar = s.find((x) => x.cascata)?.cascata ?? cascataDoSalvar;
         } else if (c.concilia) {
           const s = await salvarConcilia(c.periodo, c.concilia.itens);
           atualizar(c, { estado: "gravada", valor: s.rp });
+          cascataDoSalvar = s.cascata ?? cascataDoSalvar;
         }
         gravadasAgora.push(c);
+        if (!mesesGravados.includes(c.periodo)) mesesGravados.push(c.periodo);
       } catch (e) {
         falhas += 1;
         atualizar(c, { estado: "erro", motivo: mensagemDeErro(e, `Não foi possível gravar ${NOMES_ETAPA[c.etapa]} de ${c.periodo}.`) });
@@ -352,12 +368,17 @@ export function ProcessarTrimestre({
     }
     setFase("fim");
     onGravado();
+    if (cascataDoSalvar) {
+      // Cada Salvar viu só o seu mês: junta tudo numa prévia só (todos os meses gravados). Se falhar, fica a última.
+      const ultima: Cascata = cascataDoSalvar;
+      try { mostrarCascata(await previaCascata(mesesGravados)); } catch { mostrarCascata(ultima); }
+    }
     if (gravadasAgora.length) {
       const etapas = ORDEM.filter((e) => gravadasAgora.some((c) => c.etapa === e)).map((e) => NOME_CURTO[e]);
       const lista = etapas.length > 1 ? `${etapas.slice(0, -1).join(", ")} e ${etapas[etapas.length - 1]}` : etapas[0];
       avisarSucesso(
         falhas ? `Ciclo de ${faixaDosMeses(meses)} gravado em parte` : `Ciclo de ${faixaDosMeses(meses)} processado`,
-        `Gravados: ${lista} (${gravadasAgora.length} etapa(s)-mês). O PR e o PV que dependem deles são atualizados pelo servidor.`
+        `Gravados: ${lista} (${gravadasAgora.length} etapa(s)-mês). O SR, o PR e o PV que dependem deles não são regravados sozinhos: aprove a prévia abaixo.`
           + (falhas ? ` ${falhas} etapa(s)-mês não gravaram: veja na tabela.` : ""),
       );
     }
@@ -484,6 +505,7 @@ export function ProcessarTrimestre({
       {fase === "revisao" && divergentes.length === 0 && aGravar > 0 && (
         <p className="mt-4 text-sm text-emerald-300">Nenhuma divergência nas etapas marcadas. Mesmo assim, cabe ao analista conferir os dados antes de gravar.</p>
       )}
+      {fase === "fim" && previa}
       {/* Depois de gravar: fica dito na tela que o ciclo foi gravado com divergência. */}
       {fase === "fim" && gravadasDivergentes.length > 0 && (
         <Alert variant="warning" className="mt-4"
@@ -499,24 +521,24 @@ export function ProcessarTrimestre({
         {fase === "previa" && (
           <button type="button" onClick={processar} disabled={!aProcessar || semArquivos}
             title={semArquivos ? "Arraste a pasta acima (ou escolha o .zip) para enviar os arquivos" : undefined}
-            className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+            className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
             Processar {aProcessar} etapa(s)-mês
           </button>
         )}
         {fase === "revisao" && (
           <button type="button" onClick={pedirGravar} disabled={!aGravar}
-            className="rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+            className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
             Gravar {aGravar} etapa(s)-mês
           </button>
         )}
         {ocupado && (
           <button type="button" onClick={() => { parar.current = true; }}
-            className="rounded-xl border border-white/[0.15] px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05]">
+            className="rounded-lg border border-white/[0.15] px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05]">
             Parar depois desta
           </button>
         )}
         {!ocupado && (
-          <button type="button" onClick={onFechar} className="rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-400 hover:text-white">
+          <button type="button" onClick={onFechar} className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-400 hover:text-white">
             {fase === "fim" ? "Fechar" : "Cancelar"}
           </button>
         )}

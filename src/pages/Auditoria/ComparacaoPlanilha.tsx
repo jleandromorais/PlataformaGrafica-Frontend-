@@ -1,12 +1,15 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AuditoriaComparacao, NotaSoNaPlanilha } from "../../types";
 import { incluirNotaAuditoria } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { Conferencia } from "../../components/ui/Conferencia";
+import { PreviaCascata } from "../../components/ui/PreviaCascata";
+import { ID_QUADRO_COMPARACAO, useIrParaSecao } from "../../components/ui/useIrParaSecao";
+import type { Cascata } from "../../types";
 import { brl, num } from "../../utils/format";
 import { pedidoDeInclusao, podeIncluirNota } from "./incluirNota";
-import { TOL, cgrDaNota, cgrDifere, parearMesmoValor, resumoDaComparacao, separarAvisos } from "./comparacaoResumo";
+import { TOL, cgrDaNota, cgrDifere, empresaDa, parearMesmoValor, resumoDaComparacao, separarAvisos, type SecaoDaComparacao } from "./comparacaoResumo";
 
 /** "Empresa · NF-e · 123 · linha 10 · R$ 1.000,00": a nota numa linha. */
 const textoDaNota = (n: Record<string, unknown>) => {
@@ -23,9 +26,6 @@ const textoDaNota = (n: Record<string, unknown>) => {
  *  - generico: só presença das notas.
  * Em qualquer um, "Mostrar diferenças" abre o porquê de cada supridor com diferença.
  * A comparação não grava nada; só o botão "Incluir esta nota" (nota que só está na planilha) grava. */
-/** As listas que um contador pode abrir. */
-type SecaoDaLista = "diferentes" | "pares" | "arquivos" | "planilha";
-
 export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: {
   comparacao: AuditoriaComparacao;
   className: string;
@@ -33,20 +33,16 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
   aoIncluirNota?: () => void;
 }) {
   const [mostrarDif, setMostrarDif] = useState(false);
-  // Clicar num contador (ex.: "Só na planilha") abre a lista dele, rola até ela e a destaca por um instante.
-  const uid = useId();
-  const idSecao = (s: SecaoDaLista) => `${uid}-${s}`;
-  const [destaque, setDestaque] = useState<SecaoDaLista | null>(null);
-  const abrirSecao = (s: SecaoDaLista) => {
-    const el = document.getElementById(idSecao(s));
-    if (!el) return;
-    if (el instanceof HTMLDetailsElement) el.open = true;   // se o analista tinha fechado a lista
-    el.scrollIntoView({ behavior: "smooth", block: "start" });
-    setDestaque(s);
-    window.setTimeout(() => setDestaque((atual) => (atual === s ? null : atual)), 1800);
+  // Regra única: tudo que mostra um problema é clicável e leva ao detalhe (rola, abre o que está fechado e destaca por ~2 s).
+  const { idDe: idSecao, ir } = useIrParaSecao();
+  // Lista "Só na planilha" / "Só nos arquivos" filtrada por uma empresa (clique no item do resumo).
+  const [filtro, setFiltro] = useState<string | null>(null);
+  const irPara = (secao: SecaoDaComparacao, empresa?: string) => {
+    if (secao === "planilha" || secao === "arquivos") setFiltro(empresa ?? null);
+    if (secao === "supridores") setMostrarDif(true); // abre "Mostrar diferenças"
+    // Espera o React desenhar a lista (aberta ou filtrada) antes de rolar até ela.
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => ir(secao === "supridores" && empresa ? `sup-${empresa}` : secao)));
   };
-  const realce = (s: SecaoDaLista) =>
-    `scroll-mt-6 rounded-lg transition-shadow duration-500 ${destaque === s ? "ring-2 ring-amber-300/70 ring-offset-4 ring-offset-transparent" : ""}`;
   const porNota = c.tipo === "por_nota";
   const porSupridor = c.tipo === "por_supridor";
   const comModelo = porNota || porSupridor;
@@ -62,9 +58,22 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
   const resumo = resumoDaComparacao(c, pareamento, veredito);
   const pontos = resumo.itens.length;
   const algumCgrDifere = c.divergencias_valor.some(cgrDifere);
+  const batem = c.notas_em_ambas ?? [];                         // o back antigo não manda: sem lista, "Batem" fica sem clique
+  const soDaEmpresa = (n: Record<string, unknown>) => !filtro || empresaDa(n) === filtro;
+  const aSerVista: SecaoDaComparacao | null = difEmpresas.length ? "supridores" : c.divergencias_valor.length ? "diferentes" : null; // para onde leva a diferença do total
+
+  // Supridor com diferença: o nome vira botão que abre o cartão "Por que difere" dele. Só com modelo (tem explicações).
+  const nomeDoSupridor = (e: { empresa: string; confere: boolean }) =>
+    !e.confere && comModelo ? (
+      <button type="button" onClick={() => irPara("supridores", e.empresa)}
+        aria-label={`${e.empresa}: com diferença. Mostrar por que difere`}
+        className="rounded text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+        {e.empresa} <span className="text-[0.65rem] font-medium text-amber-200/80">por quê →</span>
+      </button>
+    ) : e.empresa;
 
   return (
-    <section className={className}>
+    <section id={ID_QUADRO_COMPARACAO} className={`realce-secao ${className}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-base font-semibold text-white">Comparação com a planilha ({c.periodo})</h2>
         {comModelo && (
@@ -95,7 +104,16 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
         {resumo.itens.length > 0 && (
           <ul className="mt-2 list-disc space-y-1 pl-5 text-zinc-300">
             {resumo.itens.map((i) => (
-              <li key={i.texto} className={i.gravidade === "dinheiro" ? "marker:text-red-400" : "marker:text-amber-400"}>{i.texto}</li>
+              <li key={i.texto} className={i.gravidade === "dinheiro" ? "marker:text-red-400" : "marker:text-amber-400"}>
+                {i.secao ? (
+                  // Item de problema: um clique leva às notas responsáveis.
+                  <button type="button" onClick={() => irPara(i.secao!, i.empresa)}
+                    aria-label={`${i.texto} Mostrar quais`}
+                    className="text-left underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                    {i.texto} <span className="whitespace-nowrap text-xs font-medium text-amber-200/80">Ver →</span>
+                  </button>
+                ) : i.texto}
+              </li>
             ))}
           </ul>
         )}
@@ -122,9 +140,16 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
                   <td className="py-2 text-zinc-300">Planilha · {rotulo}</td>
                   <td className="py-2 text-right tabular-nums text-zinc-300">{v === null ? <span className="text-zinc-500">não tem este mês</span> : brl(v)}</td>
                   <td className="py-2 text-right font-semibold num">
-                    {v !== null && (
+                    {v !== null && (Math.abs(aud - v) > TOL && aSerVista ? (
+                      // Diferença no total: leva ao porquê (supridores ou notas com valor diferente).
+                      <button type="button" onClick={() => irPara(aSerVista)}
+                        aria-label={`Diferença de ${brl(aud - v)} no total. Mostrar o porquê`}
+                        className="rounded underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                        <Conferencia confere={false}>{brl(aud - v)}</Conferencia>
+                      </button>
+                    ) : (
                       <Conferencia confere={Math.abs(aud - v) <= TOL}>{Math.abs(aud - v) > TOL ? brl(aud - v) : undefined}</Conferencia>
-                    )}
+                    ))}
                   </td>
                 </tr>
               ))}
@@ -136,7 +161,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       {c.notas_mes_na_planilha && (
         <div className={`mt-4 grid grid-cols-2 gap-3 text-center ${porNota && pareamento.pares.length ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
           {([
-            ["Batem", c.qtd_em_ambas - (c.divergencias_valor?.length ?? 0), "text-emerald-300", null],
+            ["Batem", c.qtd_em_ambas - (c.divergencias_valor?.length ?? 0), "text-emerald-300", batem.length ? "batem" : null],
             ["Valor diferente", c.divergencias_valor?.length ?? 0, algumCgrDifere ? "text-red-300" : "text-amber-300", "diferentes"],
             ["Mesma nota dos dois lados", pareamento.pares.length, "text-amber-300", "pares"],
             ["Só nos arquivos", pareamento.restoAuditoria.length, "text-amber-300", "arquivos"],
@@ -151,12 +176,15 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
                 </>
               );
               // Com notas e com lista própria, o contador vira botão que leva até a lista.
+              // "Batem" (verde) é a exceção aprovada à regra "só problema é clicável": abre as notas que conferem.
               return secao && v > 0 ? (
-                <button key={r} type="button" onClick={() => abrirSecao(secao)}
+                <button key={r} type="button" onClick={() => irPara(secao)}
                   aria-label={`${r}: ${v}. Mostrar quais`}
-                  className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3 transition hover:border-amber-300/40 hover:bg-amber-300/[0.04] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300">
+                  className={`card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3 transition focus-visible:outline-2 focus-visible:outline-offset-2 ${secao === "batem"
+                    ? "hover:border-emerald-300/40 hover:bg-emerald-300/[0.04] focus-visible:outline-emerald-300"
+                    : "hover:border-amber-300/40 hover:bg-amber-300/[0.04] focus-visible:outline-amber-300"}`}>
                   {conteudo}
-                  <span className="mt-0.5 block text-[0.65rem] font-medium text-amber-200/80">ver quais ↓</span>
+                  <span className={`mt-0.5 block text-[0.65rem] font-medium ${secao === "batem" ? "text-emerald-200/80" : "text-amber-200/80"}`}>ver quais ↓</span>
                 </button>
               ) : (
                 <div key={r} className="card-hover rounded-xl border border-white/[0.05] bg-white/[0.015] py-3">{conteudo}</div>
@@ -166,7 +194,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {pareamento.pares.length > 0 && (
-        <details open id={idSecao("pares")} className={`mt-4 text-sm ${realce("pares")}`}>
+        <details open id={idSecao("pares")} className="mt-4 text-sm realce-secao">
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Parecem a mesma nota (número ou empresa lidos de outro jeito) ({pareamento.pares.length})
           </summary>
@@ -183,12 +211,13 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {pareamento.restoPlanilha.length > 0 && (
-        <details open id={idSecao("planilha")} className={`mt-3 text-sm ${realce("planilha")}`}>
+        <details open id={idSecao("planilha")} className="mt-3 text-sm realce-secao">
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Notas que estão na planilha e NÃO vieram nos arquivos ({pareamento.restoPlanilha.length})
           </summary>
+          <FiltroAtivo filtro={filtro} aoLimpar={() => setFiltro(null)} />
           <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto font-mono text-xs text-zinc-400">
-            {pareamento.restoPlanilha.map((n, i) => (
+            {pareamento.restoPlanilha.filter(soDaEmpresa).map((n, i) => (
               <li key={i}>
                 {/* Só a nota da planilha com CGR (modelo por nota) pode ser incluída no mês. */}
                 {c.periodo && podeIncluirNota(n as NotaSoNaPlanilha)
@@ -201,18 +230,31 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {pareamento.restoAuditoria.length > 0 && (
-        <details open id={idSecao("arquivos")} className={`mt-3 text-sm ${realce("arquivos")}`}>
+        <details open id={idSecao("arquivos")} className="mt-3 text-sm realce-secao">
           <summary className="cursor-pointer font-medium text-amber-300 hover:text-amber-200">
             Notas que vieram nos arquivos e NÃO estão na planilha ({pareamento.restoAuditoria.length})
           </summary>
+          <FiltroAtivo filtro={filtro} aoLimpar={() => setFiltro(null)} />
           <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto font-mono text-xs text-zinc-400">
-            {pareamento.restoAuditoria.map((n, i) => <li key={i}>{textoDaNota(n)}</li>)}
+            {pareamento.restoAuditoria.filter(soDaEmpresa).map((n, i) => <li key={i}>{textoDaNota(n)}</li>)}
+          </ul>
+        </details>
+      )}
+
+      {/* Card "Batem": fechada por padrão; abre ao clicar no card verde. */}
+      {batem.length > 0 && (
+        <details id={idSecao("batem")} className="mt-3 text-sm realce-secao">
+          <summary className="cursor-pointer font-medium text-emerald-300 hover:text-emerald-200">
+            Notas que conferem ({batem.length})
+          </summary>
+          <ul className="mt-2 max-h-72 space-y-1 overflow-y-auto font-mono text-xs text-zinc-400">
+            {batem.map((n, i) => <li key={i}>{textoDaNota(n as Record<string, unknown>)}</li>)}
           </ul>
         </details>
       )}
 
       {c.divergencias_valor?.length > 0 && (
-        <details open id={idSecao("diferentes")} className={`mt-4 text-sm ${realce("diferentes")}`}>
+        <details open id={idSecao("diferentes")} className="mt-4 text-sm realce-secao">
           <summary className={`cursor-pointer font-medium ${algumCgrDifere ? "text-red-300 hover:text-red-200" : "text-amber-300 hover:text-amber-200"}`}>
             Notas com valores diferentes ({c.divergencias_valor.length})
           </summary>
@@ -271,7 +313,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
               <tbody className="divide-y divide-white/[0.05]">
                 {c.por_empresa.map((e) => (
                   <tr key={e.empresa}>
-                    <td className="py-1.5 text-zinc-300">{e.empresa}</td>
+                    <td className="py-1.5 text-zinc-300">{nomeDoSupridor(e)}</td>
                     <td className={`py-1.5 text-right tabular-nums ${e.qtd_auditoria === e.qtd_planilha ? "text-zinc-400" : "text-amber-300"}`}>{e.qtd_auditoria} / {e.qtd_planilha}</td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_auditoria)}</td>
                     <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_planilha)}</td>
@@ -285,7 +327,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
       )}
 
       {comModelo && c.por_empresa.length > 0 && (
-        <div className="mt-4">
+        <div id={idSecao("supridores")} className="mt-4 realce-secao">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <Conferencia confere={!difEmpresas.length} className="text-sm font-medium">
               {difEmpresas.length ? `${difEmpresas.length} supridor(es) com diferença` : "Todos os supridores conferem com a planilha"}
@@ -308,7 +350,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
                 const difCgr = Math.abs(e.diferenca) > TOL;
                 const difVol = Math.abs(e.diferenca_volume ?? 0) > 1;
                 return (
-                  <li key={e.empresa} className="rounded-xl border border-red-400/20 bg-red-400/[0.04] p-3">
+                  <li key={e.empresa} id={idSecao(`sup-${e.empresa}`)} className="rounded-xl border border-red-400/20 bg-red-400/[0.04] p-3 realce-secao">
                     <p className="text-sm font-semibold text-zinc-100">{e.empresa}</p>
                     <dl className="mt-1.5 grid grid-cols-[auto_1fr_1fr_1fr] gap-x-4 gap-y-0.5 text-xs tabular-nums">
                       <dt />
@@ -354,7 +396,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
                 <tbody className="divide-y divide-white/[0.05]">
                   {c.por_empresa.map((e) => (
                     <tr key={e.empresa}>
-                      <td className="py-1.5 text-zinc-300">{e.empresa}</td>
+                      <td className="py-1.5 text-zinc-300">{nomeDoSupridor(e)}</td>
                       <td className={`py-1.5 text-right tabular-nums ${Math.abs(e.diferenca_volume ?? 0) > 1 ? "text-amber-300" : "text-zinc-400"}`}>{num(e.volume_auditoria ?? 0)} / {num(e.volume_planilha ?? 0)}</td>
                       <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_auditoria)}</td>
                       <td className="py-1.5 text-right tabular-nums text-zinc-300">{brl(e.cgr_planilha)}</td>
@@ -393,6 +435,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
   const [incluindo, setIncluindo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [cgrNovo, setCgrNovo] = useState<number | null>(null);   // CGR do mês depois de incluir
+  const [cascata, setCascata] = useState<Cascata | null>(null);   // prévia do SR, PR e PV: aprovar para gravar
 
   const pedido = pedidoDeInclusao(nota, motivo);
 
@@ -403,6 +446,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
     try {
       const r = await incluirNotaAuditoria(periodo, pedido);
       setCgrNovo(r.valor_gravado);
+      setCascata(r.cascata ?? null);
       setConfirmando(false);
       aoIncluir?.();
     } catch (e) {
@@ -430,7 +474,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
         <div className="rounded-md border border-amber-300/30 bg-amber-400/[0.06] px-3 py-2 font-sans text-xs text-amber-200">
           <p>
             Incluir esta nota no CGR de <b>{periodo}</b> com o valor da planilha: <b className="tabular-nums">{brl(nota.cgr_planilha!)}</b>.
-            {" "}Isto <b>grava</b> a nota no mês; o CGR, o RPV, o SCG, o PR e o PV são recalculados.
+            {" "}Isto <b>grava</b> a nota no mês; o CGR, o RPV e o SCG são recalculados. O SR, o PR e o PV só mudam depois que você aprovar a prévia.
           </p>
           <label className="mt-2 block">
             <span className="text-amber-100">Motivo (obrigatório)</span>
@@ -453,6 +497,21 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
       )}
 
       {erro && <p role="alert" className="font-sans text-xs text-red-300">{erro}</p>}
+      {cascata && <PreviaCascata cascata={cascata} aoFechar={() => setCascata(null)} className="font-sans" />}
     </div>
+  );
+}
+
+/** "Mostrando só as notas da TAG · Ver todas": avisa que a lista está filtrada e deixa tirar o filtro. */
+function FiltroAtivo({ filtro, aoLimpar }: { filtro: string | null; aoLimpar: () => void }) {
+  if (!filtro) return null;
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-zinc-400">
+      Só as notas de <b className="text-zinc-200">{filtro}</b>.
+      <button type="button" onClick={aoLimpar}
+        className="font-medium text-sky-300 underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+        Ver todas
+      </button>
+    </p>
   );
 }

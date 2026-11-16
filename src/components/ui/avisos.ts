@@ -10,9 +10,37 @@ export function avisarSucesso(titulo: string, descricao?: string) {
   return toast.success(titulo, { description: descricao, timeout: TEMPO });
 }
 
-/** Deu certo, mas falta algo ou há diferença: amarelo, para o analista olhar a tela. */
-export function avisarAtencao(titulo: string, descricao?: string) {
-  return toast.warning(titulo, { description: descricao, timeout: TEMPO });
+/** Monta a descrição do toast: um texto só fica como está; vários viram lista com marcador
+ * (nunca junte linhas numa frase só: o toast mostraria tudo num item só). */
+function descricaoEmLista(detalhes?: string | string[]) {
+  const itens = typeof detalhes === "string" ? [detalhes] : (detalhes ?? []).filter(Boolean);
+  if (itens.length <= 1) return itens[0];
+  const maximo = 6; // lista enorme não cabe no canto da tela
+  const mostrados = itens.slice(0, maximo);
+  const resto = itens.length - mostrados.length;
+  return createElement(
+    "ul",
+    { className: "list-disc space-y-0.5 pl-4" },
+    ...mostrados.map((t, i) => createElement("li", { key: i }, t)),
+    resto > 0 ? createElement("li", { key: "resto" }, `e mais ${resto}…`) : null,
+  );
+}
+
+/** Deu certo, mas falta algo ou há diferença: amarelo, para o analista olhar a tela.
+ * `descricao` pode ser um texto ou uma lista. */
+export function avisarAtencao(titulo: string, descricao?: string | string[], acao?: AcaoDoAviso) {
+  return toast.warning(titulo, {
+    description: descricaoEmLista(descricao), timeout: TEMPO,
+    ...(acao ? { actionProps: { children: acao.rotulo, onPress: acao.aoClicar } } : {}),
+  });
+}
+
+/** Botão dentro do aviso (ex.: "Ver diferenças"). */
+export interface AcaoDoAviso { rotulo: string; aoClicar: () => void }
+
+/** Fecha um aviso que ainda está na tela (ex.: o "em andamento" de uma conferência que foi cancelada). */
+export function fecharAviso(id: string) {
+  toast.close(id);
 }
 
 // Erro fica mais tempo: o analista precisa ler o que veio errado antes de sumir.

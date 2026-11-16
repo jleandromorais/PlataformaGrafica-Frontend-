@@ -5,6 +5,7 @@
  * Este componente guarda a lógica de antes, sem mudanças, para não perder o que só ela
  * faz: escolher empresas, modo "Somente PDF", comparar com a planilha e baixar o
  * Relatório Excel. Não está em nenhuma tela; para voltar, basta renderizar <LeituraDoMes />. */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, FileSpreadsheet, FolderOpen, Loader2, Play, Save, X } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -137,6 +138,7 @@ export function LeituraDoMes() {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!resultado) return;
     setErro(null);
@@ -144,6 +146,7 @@ export function LeituraDoMes() {
     setOcupado("salvar");
     try {
       const r = await salvarAuditoria(periodo, resultado.itens);
+      mostrarCascata(r.cascata);
       setSucesso(`CGR de ${periodo} salvo: ${brl(r.cgr_liquido)} (${r.qtd_itens} notas). RPV do mês agora é ${brl(r.rpv)}.`);
       getHistoricoAuditoria().then(setHistorico);
     } catch (e) {
@@ -179,6 +182,7 @@ export function LeituraDoMes() {
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {previa}
         <ListaProblemas problemas={problemas} />
 
         <section className={`${PANEL} p-5 sm:p-6`}>

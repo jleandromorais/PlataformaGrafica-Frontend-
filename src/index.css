@@ -358,7 +358,27 @@
    atributo data-reduce-motion da HeroUI). */
 @media (prefers-reduced-motion: no-preference) {
   :root:not([data-reduce-motion="true"]) .card-hover:hover {
-    transform: translateY(-3px);
+    transform: translateY(-2px);
+  }
+}
+
+/* Botões do site (.btn-passo, vem de classesDoBotao em Button.tsx): sobem 1px no hover e afundam
+   no clique. Só para ponteiro fino e quem não pediu menos movimento; desabilitado não se mexe. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  :root:not([data-reduce-motion="true"]) .btn-passo:not(:disabled):hover { transform: translateY(-1px); }
+  :root:not([data-reduce-motion="true"]) .btn-passo:not(:disabled):active { transform: translateY(0) scale(0.985); }
+}
+
+/* Telas de toque: todo botão, aba e campo de escolha tem pelo menos 44px de alvo.
+   No computador (ponteiro fino) a densidade da tela continua como está. */
+@media (pointer: coarse) {
+  main button:not([role="tab"]),
+  main [role="tab"],
+  main summary {
+    min-height: 44px;
+  }
+  main button:has(> svg:only-child) {
+    min-width: 44px;
   }
 }
 
@@ -387,4 +407,22 @@
 /* Eixos dos gráficos Recharts (o <text> do SVG não recebe classe por tick). */
 .recharts-cartesian-axis-tick-value {
   font-variant-numeric: tabular-nums;
+}
+
+/* Seção para onde um clique leva (useIrParaSecao): ao chegar, ganha um anel âmbar por ~2 s. */
+.realce-secao {
+  scroll-margin-top: 1.5rem;
+  border-radius: 0.5rem;
+  transition: box-shadow 0.5s ease;
+}
+.realce-secao[data-realce="true"] {
+  box-shadow: 0 0 0 2px rgb(252 211 77 / 0.7);
+}
+@media (prefers-reduced-motion: reduce) {
+  .realce-secao {
+    transition: none;
+  }
+}
+:root[data-reduce-motion="true"] .realce-secao {
+  transition: none;
 }

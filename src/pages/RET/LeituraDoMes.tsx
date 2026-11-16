@@ -5,6 +5,7 @@
  * Este componente guarda a lógica de antes, sem mudanças (escolher a pasta, processar os PDFs,
  * ver os documentos e Salvar). Não está em nenhuma tela; para voltar, basta renderizar
  * <LeituraDoMes /> no src/pages/RET/index.tsx (só o cabeçalho PageHeader foi retirado daqui). */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { GLOSSARIO, dicaDe } from "../../utils/glossario";
 import { AvisoPdfNaoLido } from "../../components/ui/AvisoPdfNaoLido";
 import { useEffect, useState } from "react";
@@ -61,6 +62,7 @@ export function LeituraDoMes() {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!resultado) return;
     setErro(null);
@@ -68,6 +70,7 @@ export function LeituraDoMes() {
     setOcupado("salvar");
     try {
       const salvos = await salvarRET(resultado.documentos, resultado.periodo_detectado);
+      mostrarCascata(salvos.find((s) => s.cascata)?.cascata);
       setSucesso(`RET salvo: ${salvos.map((s) => `${s.periodo} ${brl(s.ret)}`).join(" · ")}.`);
       getHistoricoRET().then(setHistorico);
     } catch (e) {
@@ -86,6 +89,7 @@ export function LeituraDoMes() {
 
         {erro && <Alert variant="error">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {previa}
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
           <section className={`${PANEL} flex flex-col gap-4 p-5 sm:p-6 xl:col-span-4`}>

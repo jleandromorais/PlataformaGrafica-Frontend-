@@ -66,12 +66,12 @@ export function PageHeader({ modulo, titulo, descricao, formula, acoes }: Props)
 function PassoLink({ alvo, direcao }: { alvo: (typeof MODULOS)[ChaveModulo] | null; direcao: "anterior" | "proxima" }) {
   const Seta = direcao === "anterior" ? ChevronLeft : ChevronRight;
   if (!alvo) {
-    return <span className="flex h-8 w-8 items-center justify-center text-zinc-700" aria-hidden><Seta size={16} /></span>;
+    return <span className="flex h-10 w-10 items-center justify-center text-zinc-700" aria-hidden><Seta size={16} /></span>;
   }
   const rotulo = `${direcao === "anterior" ? "Etapa anterior" : "Próxima etapa"}: ${alvo.sigla ?? alvo.nome}`;
   return (
     <Link to={alvo.to} title={rotulo} aria-label={rotulo}
-      className="flex h-8 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white">
+      className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white">
       {direcao === "anterior" && <Seta size={15} />}
       <span>{alvo.sigla ?? alvo.nome.split(" ")[0]}</span>
       {direcao === "proxima" && <Seta size={15} />}

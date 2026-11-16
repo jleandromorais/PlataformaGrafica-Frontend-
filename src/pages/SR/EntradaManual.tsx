@@ -6,6 +6,7 @@
  * continua nela (junto com o card SR do Painel do Ciclo, é onde o SR é gravado). Esta cópia guarda
  * a tela de antes, sem mudanças, só sem o cabeçalho PageHeader. Não está em nenhuma tela; para voltar
  * à tela antiga, basta renderizar <EntradaManual /> no src/pages/SR/index.tsx. */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -211,6 +212,7 @@ export function EntradaManual() {
     setSucesso(null);
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     setErro(null);
     setSucesso(null);
@@ -222,6 +224,7 @@ export function EntradaManual() {
       );
       setLinhas(calc.linhas);
       const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
+      mostrarCascata(salvo.cascata);
       setFonte("salvo");
       // O backend regrava o PR e o PV do trimestre que usa este SR.
       const pr = textoPRAutomatico(salvo.pr_automatico);
@@ -267,23 +270,24 @@ export function EntradaManual() {
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
+        {previa}
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ano anterior" onClick={() => irPara(ano - 1, tri)}
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white">
+              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white">
               <ChevronLeft size={16} />
             </button>
             <span className="w-14 text-center text-lg font-semibold tabular-nums text-white">{ano}</span>
             <button type="button" aria-label="Próximo ano" onClick={() => irPara(ano + 1, tri)}
-              className="rounded-md p-1.5 text-zinc-400 hover:bg-white/[0.05] hover:text-white">
+              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white">
               <ChevronRight size={16} />
             </button>
           </div>
           <div role="radiogroup" aria-label="Trimestre" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
             {TRIMESTRES.map((t, i) => (
               <button key={t} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   tri === i ? "bg-sky-500/20 text-sky-200" : "text-zinc-400 hover:text-zinc-100"}`}>
                 {i + 1}º · {t}
               </button>

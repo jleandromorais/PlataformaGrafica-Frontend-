@@ -5,6 +5,7 @@
  * Este componente guarda a lógica de antes, sem mudanças (processar planilhas, PMPV, CGF em R$
  * e Salvar). Não está em nenhuma tela; para voltar, basta renderizar <LeituraDoMes /> no
  * src/pages/CGF/index.tsx (só o cabeçalho PageHeader foi retirado daqui). */
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useEffect, useRef, useState } from "react";
 import { Loader2, Play, Save, Zap } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -146,6 +147,7 @@ export function LeituraDoMes() {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!resultado || !pmpv || (resultado.problemas ?? []).some((p) => p.gravidade === "erro")) return;
     setErro(null);
@@ -154,6 +156,7 @@ export function LeituraDoMes() {
     try {
       const { volume_faturado, volume_canceladas, volume_devolucoes, volume_consumo_proprio, volume_final } = resultado;
       const r = await salvarCGF({ periodo, pmpv, volume_faturado, volume_canceladas, volume_devolucoes, volume_consumo_proprio, volume_final });
+      mostrarCascata(r.cascata);
       setSucesso(`CGF de ${periodo} salvo: ${brl(r.cgf_rs)}. RPV do mês agora é ${brl(r.rpv)}.`);
       getHistoricoCGF().then(setHistorico);
     } catch (e) {
@@ -183,6 +186,7 @@ export function LeituraDoMes() {
         {erro && <Alert variant="error">{erro}</Alert>}
         {aviso && <Alert variant="warning">{aviso}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {previa}
         <ListaProblemas problemas={problemas} />
 
         <section className={`${PANEL} p-5 sm:p-6`}>

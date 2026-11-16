@@ -9,6 +9,7 @@ import type {
   SCGPeriodo, PRResultado, PRApuracao, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
+  Cascata, CascataAPartirDe, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -51,7 +52,7 @@ export const calcularPMPV = (payload: PMPVCalculoRequest) =>
 
 /** Salva sessão + PMPV mensal de cada período + trimestre ativo (igual ao desktop). */
 export const salvarPMPV = (payload: PMPVSalvarRequest) =>
-  api.post<{ sessao_id: number; pv_automatico?: PVAutomatico[] }>("/pmpv/salvar", payload).then((r) => r.data);
+  api.post<ComCascata<{ sessao_id: number; pv_automatico?: PVAutomatico[] }>>("/pmpv/salvar", payload).then((r) => r.data);
 
 export const getPMPVMensal = (periodo: string) =>
   api.get<{ pmpv: number }>(`/pmpv/mensal/${periodo}`).then((r) => r.data);
@@ -119,7 +120,7 @@ export const processarCGF = (arquivos: File[], colunas: CGFColunas) => {
 
 /** Grava CGF em R$ (volume final × PMPV) e o resumo. Exige PMPV > 0. */
 export const salvarCGF = (payload: CGFVolumes & { periodo: string; pmpv: number }) =>
-  api.post<{ cgf_rs: number; rpv: number }>("/cgf/salvar", payload).then((r) => r.data);
+  api.post<ComCascata<{ cgf_rs: number; rpv: number }>>("/cgf/salvar", payload).then((r) => r.data);
 
 /** CGF em R$ = volume final × PMPV. Sem `pmpv`, o back usa o PMPV salvo do mês. Não grava. */
 export const calcularCGFRs = (periodo: string, volume_final: number, pmpv?: number) =>
@@ -162,7 +163,7 @@ export const processarAuditoria = (opts: {
 
 /** Grava o CGR (recalculado no servidor) e os itens do período. */
 export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
-  api.post<{ cgr_liquido: number; rpv: number; qtd_itens: number }>("/auditoria/salvar", { periodo, itens }).then((r) => r.data);
+  api.post<ComCascata<{ cgr_liquido: number; rpv: number; qtd_itens: number }>>("/auditoria/salvar", { periodo, itens }).then((r) => r.data);
 
 /** Onde as notas processadas diferem das gravadas no mês, por empresa e nota. Não grava. */
 export const diferencasAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
@@ -216,7 +217,7 @@ export const processarConcilia = (receitas: ArquivoDaPasta[], despesas: ArquivoD
 
 /** Grava o RP (despesas − receitas, recalculado no servidor) e os itens. */
 export const salvarConcilia = (periodo: string, itens: ConciliaItem[]) =>
-  api.post<{ rp: number; qtd_itens: number }>("/conciliacao/salvar", { periodo, itens }).then((r) => r.data);
+  api.post<ComCascata<{ rp: number; qtd_itens: number }>>("/conciliacao/salvar", { periodo, itens }).then((r) => r.data);
 
 export const baixarRelatorioConcilia = (periodo: string, itens: ConciliaItem[]) =>
   api.post<Blob>("/conciliacao/relatorio", { periodo, itens }, { responseType: "blob" }).then((r) => r.data);
@@ -226,7 +227,7 @@ export const getProvaRealRP = (periodo: string) =>
   api.get<ProvaRealRP>("/conciliacao/prova-real", { params: { periodo } }).then((r) => r.data);
 
 /** O que a API devolve ao tirar uma nota do cálculo: o RP/RET/CGR novo do mês e quantas notas ficaram. */
-export interface NotaRemovida { periodo: string; valor_gravado: number; qtd_itens: number }
+export type NotaRemovida = ComCascata<{ periodo: string; valor_gravado: number; qtd_itens: number }>;
 
 /** Tira UMA nota gravada do mês (aviso "Possível duplicata") e regrava o RP sem ela; o SCG e o PR se atualizam junto. */
 export const removerNotaRP = (periodo: string, id: number) =>
@@ -252,7 +253,7 @@ export const processarRET = (arquivos: ArquivoDaPasta[], pastaRaiz: string) => {
 /** Grava o RET de cada mês (recalculado no servidor) e os documentos. */
 export const salvarRET = (documentos: RETDocumento[], periodoPadrao: string) =>
   api
-    .post<{ periodo: string; ret: number; qtd_documentos: number }[]>("/ret/salvar", { documentos, periodo_padrao: periodoPadrao })
+    .post<ComCascata<{ periodo: string; ret: number; qtd_documentos: number }>[]>("/ret/salvar", { documentos, periodo_padrao: periodoPadrao })
     .then((r) => r.data);
 
 /** A conta do RET gravado do mês, aberta (EAT × (1 − PIS/COFINS) + EC). Não grava nada. */
@@ -294,7 +295,7 @@ export const getSCGComparacao = (periodo: string) =>
 
 /** Grava CGR/CGF/RET/RP escolhidos e recalcula RPV e SCG. */
 export const salvarSCG = (payload: { periodo: string; cgr: number; cgf: number; ret: number; rp: number }) =>
-  api.post<SCGPeriodo & { pr_automatico: PRAutomatico }>("/scg/salvar", payload).then((r) => r.data);
+  api.post<ComCascata<SCGPeriodo & { pr_automatico?: PRAutomatico }>>("/scg/salvar", payload).then((r) => r.data);
 
 export const getHistoricoSCG = () =>
   api.get<SCGHistoricoLinha[]>("/scg/historico").then((r) => r.data);
@@ -359,7 +360,7 @@ export const apurarPR = (periodos: string[]) =>
   api.post<PRApuracao>("/pr/apurar", { periodos }).then((r) => r.data);
 
 export const salvarPR = (periodo: string, scg: number, sr: number, vp: number) =>
-  api.post<{ pr: number; pv_automatico?: PVAutomatico | null }>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
+  api.post<ComCascata<{ pr: number; pv_automatico?: PVAutomatico | null }>>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
 
 // ─── PV ──────────────────────────────────────────────────────────────────────
 // PV = PMPV + PR. Ver docs/specs/SPEC_PV.md.
@@ -423,7 +424,7 @@ export const salvarTrimestreSR = (
   linhas: SRLinhaCalculada[]
 ) =>
   api
-    .post<{ total: number; pr_automatico: PRAutomatico | null }>("/sr/trimestre/salvar", {
+    .post<ComCascata<{ total: number; pr_automatico?: PRAutomatico | null }>>("/sr/trimestre/salvar", {
       labels_meses: labelsMeses,
       periodo_referencia: periodoReferencia,
       linhas,
@@ -448,3 +449,42 @@ export const buscarSelicSR = (meses: string[]) =>
   api
     .get<SRSelic>("/sr/selic", { params: { meses }, paramsSerializer: { indexes: null } })
     .then((r) => r.data);
+
+// ─── CASCATA SR → PR → PV ────────────────────────────────────────────────────
+// O servidor nunca grava valores vindos da tela: a prévia só mostra, e "aplicar" recalcula tudo lá.
+
+/** Prévia (antes × novo) dos trimestres dos meses que mudaram. Não grava nada. */
+export const previaCascata = (periodos: string[], aPartirDe: CascataAPartirDe = "sr") =>
+  api
+    .get<Cascata>("/cascata/previa", { params: { periodos, a_partir_de: aPartirDe }, paramsSerializer: { indexes: null } })
+    .then((r) => r.data);
+
+/** Só os trimestres recentes com SR, PR ou PV desatualizado (aviso geral do Painel e do Dashboard). */
+export const cascataPendente = () =>
+  api.get<Cascata>("/cascata/pendente").then((r) => r.data);
+
+/** Depois da aprovação: o servidor recalcula e grava SR → PR → PV. Com pendência responde 422 e nada é gravado. */
+export const aplicarCascata = (periodos: string[], aPartirDe: CascataAPartirDe = "sr") =>
+  api.post<Cascata>("/cascata/aplicar", { periodos, a_partir_de: aPartirDe }).then((r) => r.data);
+
+// ─── CONFERÊNCIA DO MÊS E TRILHA ─────────────────────────────────────────────
+
+/** Conferência do mês no Painel: total de cada etapa, variação sobre o mês anterior e empresas que não mandaram. */
+export const getConferenciaDoMes = (periodo: string) =>
+  api.get<ConferenciaDoMes>("/dashboard/conferencia", { params: { periodo } }).then((r) => r.data);
+
+/** Alterações de valores gravados (data, valor antigo e novo) de um mês ou trimestre e de uma tabela. */
+export const getTrilha = (periodo: string, tabela: string) =>
+  api.get<AlteracaoDaTrilha[]>("/trilha", { params: { periodo, tabela } }).then((r) => r.data);
+
+// ─── CONFERIR PLANILHA ───────────────────────────────────────────────────────
+
+/** Abre a planilha da Conta Gráfica e diz quais meses ela tem. Não audita nem grava nada. */
+export const conferirPlanilha = (planilha: File, meses: string[]) => {
+  const form = new FormData();
+  form.append("planilha", planilha);
+  form.append("meses", meses.join(","));
+  return api
+    .post<ConferirPlanilhaResponse>("/auditoria/planilha/conferir", form, { headers: { "Content-Type": "multipart/form-data" } })
+    .then((r) => r.data);
+};

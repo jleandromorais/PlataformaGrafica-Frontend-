@@ -10,7 +10,7 @@ type Nota = Record<string, unknown>;
 const valor = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
 /** CGR da nota: na auditoria vem em `cgr_liquido`, na planilha em `cgr_planilha`. */
 export const cgrDaNota = (n: Nota) => valor(n.cgr_liquido) ?? valor(n.cgr_planilha);
-const empresaDa = (n: Nota) => String(n.empresa ?? n.supridor ?? "Sem empresa");
+export const empresaDa = (n: Nota) => String(n.empresa ?? n.supridor ?? "Sem empresa");
 
 export interface Pareamento {
   pares: { auditoria: Nota; planilha: Nota }[];
@@ -58,14 +58,15 @@ export function separarAvisos(avisos: string[]): { veredito: string | null; leit
 }
 
 
-/** Agrupa por empresa: "Falta 1 nota da TAG na pasta (R$ 1.000,00). Ela está na planilha." */
-function porEmpresa(lista: Nota[], frase: (empresa: string, qtd: number, soma: string) => string): ItemResumo[] {
+/** Agrupa por empresa: "Falta 1 nota da TAG na pasta (R$ 1.000,00). Ela está na planilha."
+ * Cada item leva `secao` (a lista onde estão as notas) e `empresa` (para a lista abrir já filtrada). */
+function porEmpresa(lista: Nota[], secao: SecaoDaComparacao, frase: (empresa: string, qtd: number, soma: string) => string): ItemResumo[] {
   const grupos = new Map<string, Nota[]>();
   lista.forEach((n) => grupos.set(empresaDa(n), [...(grupos.get(empresaDa(n)) ?? []), n]));
   return [...grupos].map(([empresa, ns]) => {
     const valores = ns.map(cgrDaNota).filter((v): v is number => v !== undefined);
     const soma = valores.length ? ` (${brl(valores.reduce((s, v) => s + v, 0))})` : "";
-    return { texto: frase(empresa, ns.length, soma), gravidade: "dinheiro" as const };
+    return { texto: frase(empresa, ns.length, soma), gravidade: "dinheiro" as const, secao, empresa };
   });
 }
 
@@ -73,7 +74,14 @@ function porEmpresa(lista: Nota[], frase: (empresa: string, qtd: number, soma: s
 export interface ItemResumo {
   texto: string;
   gravidade: "dinheiro" | "conferir";
+  /** Para onde o clique leva: a seção do quadro com as notas responsáveis por este item. */
+  secao?: SecaoDaComparacao;
+  /** Item de uma empresa só: a lista abre filtrada por ela. */
+  empresa?: string;
 }
+
+/** As seções do quadro da comparação para onde um clique pode levar. */
+export type SecaoDaComparacao = "diferentes" | "pares" | "arquivos" | "planilha" | "batem" | "supridores";
 
 export interface Resumo {
   confere: boolean;
@@ -95,23 +103,26 @@ export function resumoDaComparacao(c: AuditoriaComparacao, p: Pareamento, veredi
   const supridores = c.tipo === "por_supridor" ? c.por_empresa.filter((e) => !e.confere) : [];
 
   const itens: ItemResumo[] = [
-    ...porEmpresa(p.restoPlanilha, (e, n, soma) =>
+    ...porEmpresa(p.restoPlanilha, "planilha", (e, n, soma) =>
       `${n === 1 ? "Falta 1 nota" : `Faltam ${n} notas`} da ${e} na pasta${soma}. ${n === 1 ? "Ela está" : "Elas estão"} na planilha.`),
-    ...porEmpresa(p.restoAuditoria, (e, n, soma) =>
+    ...porEmpresa(p.restoAuditoria, "arquivos", (e, n, soma) =>
       `${nota(n)} da ${e} ${n === 1 ? "veio" : "vieram"} na pasta${soma} e ${n === 1 ? "não está" : "não estão"} na planilha.`),
     ...(p.pares.length ? [{
       texto: `${nota(p.pares.length)} ${p.pares.length === 1 ? "parece" : "parecem"} ser a mesma dos dois lados, com número ou empresa escritos de outro jeito. O valor é o mesmo.`,
       gravidade: "conferir" as const,
+      secao: "pares" as const,
     }] : []),
     ...(divCgr.length ? [{
       texto: `${nota(divCgr.length)} com valor diferente da planilha (${brl(divCgr.reduce((s, d) => s + d.diferenca_cgr, 0))} no total).`,
       gravidade: "dinheiro" as const,
+      secao: "diferentes" as const,
     }] : []),
     ...(soVolume.length ? [{
       texto: `${nota(soVolume.length)} com o mesmo valor nos dois lados; só o volume ou a alíquota foi escrito diferente. Não muda o total.`,
       gravidade: "conferir" as const,
+      secao: "diferentes" as const,
     }] : []),
-    ...supridores.map((e) => ({ texto: `${e.empresa}: diferença de ${brl(e.diferenca)}.`, gravidade: "dinheiro" as const })),
+    ...supridores.map((e) => ({ texto: `${e.empresa}: diferença de ${brl(e.diferenca)}.`, gravidade: "dinheiro" as const, secao: "supridores" as const, empresa: e.empresa })),
   ];
 
   // Quanto da diferença as notas listadas explicam (notas de um lado só + diferenças por nota).
@@ -124,6 +135,7 @@ export function resumoDaComparacao(c: AuditoriaComparacao, p: Pareamento, veredi
     if (Math.abs(falta) > 2 * TOL) itens.push({
       texto: `${brl(falta)} não se explicam pelas notas. Costuma ser arredondamento ou nota lançada em outro mês. Veja por supridor.`,
       gravidade: "dinheiro",
+      secao: "supridores",
     });
   }
 

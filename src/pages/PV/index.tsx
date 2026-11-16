@@ -8,7 +8,7 @@ import { Alert } from "../../components/ui/Alert";
 import { colorForValue } from "../../theme";
 import { getHistoricoPV, getProvaRealPV, getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
 import { mensagemDeErro } from "../../api/client";
-import { MESES_ABREV } from "../../utils/periodos";
+import { MESES_ABREV, mesesDoTrimestre } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { PageHeader } from "../../components/layout/PageHeader";
@@ -322,10 +322,11 @@ export default function PVPage() {
           <p className="mt-0.5 text-xs text-zinc-500">Clique num trimestre para ver a prova real dele. O formulário de cima não muda.</p>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] text-sm">
+          <table className="w-full min-w-[46rem] text-sm">
             <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
               <tr>
                 <th scope="col" className="border-l-[3px] border-l-transparent px-4 py-3 text-left font-semibold">Trimestre</th>
+                <th scope="col" className="px-4 py-3 text-left font-semibold">Meses</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">PMPV (R$/m³)</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">PR (R$/m³)</th>
                 <th scope="col" className="px-4 py-3 text-right font-semibold">PV (R$/m³)</th>
@@ -333,7 +334,7 @@ export default function PVPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-white/[0.05]">
-              {!historicoCarregado && <LinhasEsqueleto colunas={5} texto="Carregando o histórico…" />}
+              {!historicoCarregado && <LinhasEsqueleto colunas={6} texto="Carregando o histórico…" />}
               {pag.itensDaPagina.map((h) => {
                 const ativo = h.chave === aberto;
                 return (
@@ -341,6 +342,8 @@ export default function PVPage() {
                     onClick={() => abrirProva(h.chave)}
                     className={linhaDoMes(ativo, true)}>
                     <PeriodoClicavel periodo={h.chave} valido ativo={ativo} onAbrir={abrirProva} />
+                    {/* Meses com o ano de cada um: "Nov/2025, Dez/2025, Jan/2026" (o ano do trimestre é o do 1º mês). */}
+                    <td className="px-4 py-2.5 text-xs text-zinc-400">{mesesDoTrimestre(h.trimestre.split(" - ")[0], h.ano).join(", ")}</td>
                     <td className="px-4 py-2.5 text-right tabular-nums text-zinc-300">{brl(h.pmpv, 4)}</td>
                     <td className={`px-4 py-2.5 text-right tabular-nums ${colorForValue(h.pr)}`}>{brl(h.pr, 4)}</td>
                     <td className={`px-4 py-2.5 text-right font-semibold tabular-nums ${colorForValue(h.pv)}`}>{brl(h.pv, 4)}</td>
@@ -349,7 +352,7 @@ export default function PVPage() {
                 );
               })}
               {historicoCarregado && historico.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Nenhum trimestre gravado ainda.</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum trimestre gravado ainda.</td></tr>
               )}
             </tbody>
           </table>

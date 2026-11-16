@@ -1,3 +1,4 @@
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
@@ -614,6 +615,7 @@ export default function PMPVPage() {
     }
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     if (!resultado) return;
     limparMensagens();
@@ -635,8 +637,8 @@ export default function PMPVPage() {
       const resultadoDaSessao = { ...resultado };
       delete resultadoDaSessao.margem_regulatoria;
       delete resultadoDaSessao.tarifa_media;
-      const { sessao_id, pv_automatico } = await salvarPMPV({ nome, dados_por_mes, resultado: resultadoDaSessao, periodos });
-      // O backend regrava o PV do trimestre com o PMPV novo e o PR salvo.
+      const { sessao_id, pv_automatico, cascata } = await salvarPMPV({ nome, dados_por_mes, resultado: resultadoDaSessao, periodos });
+      mostrarCascata(cascata); // o PV do trimestre não é regravado sozinho: o analista aprova a prévia
       const pv = (pv_automatico ?? []).map(textoPVAutomatico).filter((t) => t !== null);
       const pvOk = pv.filter((t) => t.ok).map((t) => ` ${t.texto}`).join("");
       setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
@@ -750,6 +752,7 @@ export default function PMPVPage() {
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {aviso && <Alert variant="warning" {...partesDoAviso(aviso)} />}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
+        {previa}
 
         {/* KPIs: os 3 primeiros mostram o resultado do cálculo em andamento; o 4º, a prova real da sessão aberta. */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -916,7 +919,7 @@ export default function PMPVPage() {
               <div className="flex flex-col gap-3">
                 <button
                   type="button" onClick={() => calcular()} disabled={!pronto || ocupado !== null}
-                  className="flex items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
+                  className="flex items-center justify-center gap-2 rounded-lg bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
                 >
                   {ocupado === "calcular" ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
                   {ocupado === "calcular" ? "Calculando…" : "Calcular PMPV"}
@@ -924,7 +927,7 @@ export default function PMPVPage() {
                 <button
                   type="button" onClick={salvar} disabled={!resultado || ocupado !== null}
                   title={resultado ? undefined : "Calcule antes de salvar"}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.03] py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40"
                 >
                   {ocupado === "salvar" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Salvar sessão

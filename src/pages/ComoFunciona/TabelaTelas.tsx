@@ -10,14 +10,14 @@ interface Linha {
   grava: ReactNode;
 }
 
-const CONFERENCIA = "Mostra a fórmula, a prova real do mês e o histórico. Clicar num mês abre a prova real dele.";
+const CONFERENCIA = "Mostra a fórmula, a prova real do mês e o histórico. Clicar num mês abre a prova real dele. Tem a seção Alterações: data, hora, valor antigo e valor novo, sem identificar a pessoa.";
 
 const LINHAS: Linha[] = [
   { nome: "PMPV", to: MODULOS.pmpv.to,
     serve: "Calcula e salva o preço e o volume previsto (VP) do trimestre.",
     dados: "Memória de Cálculo ou digitação.", grava: "A própria tela." },
   { nome: "Painel do Ciclo", to: MODULOS.ciclo.to,
-    serve: "Mostra o que está pronto e o que falta no trimestre. Tem o card do SR e a comparação com a planilha.",
+    serve: "Mostra o que está pronto e o que falta no trimestre. Tem a Conferência do mês, o card do SR, a comparação com a planilha e o aviso de prévia pendente.",
     dados: "A pasta do trimestre, que você envia.", grava: "O botão Processar grava Auditoria, CGF, RET e RP." },
   ...([
     ["Auditoria CGR", MODULOS.auditoria.to, "Não grava aqui: a leitura das notas e a gravação são no Painel do Ciclo."],
@@ -26,9 +26,9 @@ const LINHAS: Linha[] = [
     ["RET", MODULOS.ret.to, "Não grava aqui: os PDFs são processados e gravados no Painel do Ciclo."],
     ["RP", MODULOS.conciliacao.to, "Não grava aqui: os PDFs são processados e gravados no Painel do Ciclo."],
     ["SCG", MODULOS.scg.to, "A própria tela, no botão Salvar do mês (o SCG também é recalculado ao gravar os módulos)."],
-    ["SR", MODULOS.sr.to, "A própria tela (Salvar SR do trimestre) ou o card do SR no Painel do Ciclo."],
-    ["PR", MODULOS.pr.to, "A própria tela (Salvar PR). Também é regravado sozinho quando o SCG ou o SR mudam."],
-    ["PV", MODULOS.pv.to, "A própria tela (Salvar PV do trimestre). Também é regravado sozinho quando o PMPV ou o PR mudam."],
+    ["SR", MODULOS.sr.to, "A própria tela (Salvar SR do trimestre) ou o card do SR no Painel do Ciclo. Só existe aqui: saiu do app desktop."],
+    ["PR", MODULOS.pr.to, "A própria tela (Salvar PR). Quando o SCG ou o SR mudam, a prévia mostra o PR novo e você aprova. Só existe aqui: saiu do app desktop."],
+    ["PV", MODULOS.pv.to, "A própria tela (Salvar PV do trimestre). Quando o PMPV ou o PR mudam, a prévia mostra o PV novo e você aprova."],
   ] as const).map(([nome, to, grava]): Linha => ({
     nome, to, serve: CONFERENCIA, dados: "O que já está gravado.", grava,
   })),

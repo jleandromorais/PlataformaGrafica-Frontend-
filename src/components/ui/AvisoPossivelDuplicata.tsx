@@ -6,7 +6,20 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { mensagemDeErro } from "../../api/client";
 import { brl } from "../../utils/format";
-import type { PossivelDuplicataValor } from "../../types";
+import { m3 } from "../../utils/format";
+import type { Cascata, DetalheDuplicata, PossivelDuplicataValor } from "../../types";
+import { usePreviaCascata } from "./usePreviaCascata";
+
+/** "nº 255 · R$ 1.000,00 · 1.234 m³ · vence 10/10/2026": o contexto de uma nota, só com o que o back mandou. */
+function textoDoDetalhe(d: DetalheDuplicata | undefined): string {
+  if (!d) return "";
+  return [
+    d.numero ? `nº ${d.numero}` : null,
+    brl(d.valor),
+    d.volume != null ? m3(d.volume) : null,
+    d.vencimento ? `vence ${d.vencimento}` : null,
+  ].filter(Boolean).join(" · ");
+}
 
 interface Props {
   grupos: PossivelDuplicataValor[] | undefined;
@@ -26,7 +39,9 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
   const [tirando, setTirando] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
-  if (!grupos || grupos.length === 0) return null;
+  // Tirar uma nota mexe no SCG do mês: o servidor devolve a prévia do SR, PR e PV (que não são regravados sozinhos).
+  const { previa, mostrarCascata } = usePreviaCascata("mt-3");
+  if (!grupos || grupos.length === 0) return previa;
   const qtdNotas = grupos.reduce((soma, g) => soma + g.qtd, 0);
   const podeTirar = !!aoTirar && !!periodo;
 
@@ -35,7 +50,8 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
     setTirando(id);
     setErro(null);
     try {
-      await aoTirar(periodo, id);
+      const r = await aoTirar(periodo, id);
+      mostrarCascata((r as { cascata?: Cascata | null } | undefined)?.cascata);
       setConfirmando(null);
       aoConcluir?.();
     } catch (e) {
@@ -65,6 +81,7 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
                   <li key={`${nome}-${i}`} className="flex flex-col gap-1.5">
                     <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                       <span className="break-all">• {nome}</span>
+                      {g.detalhes?.[i] && <span className="text-xs tabular-nums text-amber-100/80">{textoDoDetalhe(g.detalhes[i])}</span>}
                       {podeTirar && id !== undefined && confirmando !== id && (
                         <button type="button" onClick={() => { setConfirmando(id); setErro(null); }}
                           className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
@@ -74,8 +91,8 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
                     </span>
                     {podeTirar && id !== undefined && confirmando === id && (
                       <span className="rounded-md border border-amber-300/30 bg-black/20 px-3 py-2 text-xs">
-                        Tirar esta nota do {totalDoMes} de <b>{periodo}</b>? O {totalDoMes} gravado do mês, o SCG e o PR
-                        são recalculados. Para trazer a nota de volta, processe e grave o mês de novo.
+                        Tirar esta nota do {totalDoMes} de <b>{periodo}</b>? O {totalDoMes} gravado do mês e o SCG
+                        são recalculados; o SR, o PR e o PV só mudam depois que você aprovar a prévia. Para trazer a nota de volta, processe e grave o mês de novo.
                         <span className="mt-2 flex gap-2">
                           <button type="button" disabled={tirando === id} onClick={() => void tirar(id)}
                             className={`${BOTAO} border-amber-300 bg-amber-300 text-black hover:bg-amber-200`}>
@@ -103,6 +120,7 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
         a original e a "atualizada"). Abra os arquivos e confira: se for cópia, tire uma do cálculo. Mantenha
         a de nome mais limpo. Se forem notas diferentes que só têm o mesmo valor, pode ignorar.
       </p>
+      {previa}
     </div>
   );
 }

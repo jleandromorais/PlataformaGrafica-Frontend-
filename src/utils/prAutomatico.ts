@@ -7,6 +7,8 @@ const tarifa = (v: number | null) => (v === null ? "—" : num(v, 4));
  * PV do trimestre. `ok` false = algo não foi gravado e pede atenção. */
 export function textoPRAutomatico(p: PRAutomatico | null | undefined): { texto: string; ok: boolean } | null {
   if (!p) return null;
+  // Back novo: o campo antigo vem sempre "não atualizado" e sem pendência (nada é regravado; a prévia vai em `cascata`).
+  if (!p.atualizado && p.pendencias.length === 0) return null;
   const faixa = p.meses_pr.length ? `${p.meses_pr[0]} a ${p.meses_pr[2]}` : "";
   if (!p.atualizado) {
     return {
@@ -25,6 +27,7 @@ export function textoPRAutomatico(p: PRAutomatico | null | undefined): { texto: 
  * As pendências do backend já dizem "PV não atualizado: falta …". */
 export function textoPVAutomatico(p: PVAutomatico | null | undefined): { texto: string; ok: boolean } | null {
   if (!p) return null;
+  if (!p.atualizado && p.pendencias.length === 0) return null; // legado do back novo: veja `cascata`
   if (!p.atualizado) return { ok: false, texto: p.pendencias.join(" ") };
   return { ok: true, texto: `PV de ${p.trimestre} atualizado: ${tarifa(p.pv_antes)} → ${tarifa(p.pv)} R$/m³.` };
 }

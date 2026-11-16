@@ -8,9 +8,10 @@
 // ── Importações: peças prontas que este arquivo usa ───────────────────────────
 // React: useMemo guarda uma conta pronta (só refaz se algo mudar); useRef aponta para um
 // elemento da tela (aqui, o campo escondido de escolher a planilha); useState é a "memória" da tela.
-import { useMemo, useRef, useState } from "react";
-import { FileSpreadsheet, FolderOpen, Loader2, Play, X } from "lucide-react"; // ícones
-import type { ArquivoDaPasta } from "../../api";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Check, FileSpreadsheet, FolderOpen, Loader2, Play, X } from "lucide-react"; // ícones
+import { isAxiosError } from "axios";
+import { conferirPlanilha, type ArquivoDaPasta } from "../../api";
 import { mensagemDeErro } from "../../api/client"; // transforma um erro técnico em frase para o usuário
 import { Button } from "../../components/ui/Button";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista"; // as barrinhas cinza de "carregando"
@@ -20,7 +21,9 @@ import { arquivosDaCelula, classificar, envioDaAuditoria } from "../../utils/pas
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { ComparacaoPlanilha } from "../Auditoria/ComparacaoPlanilha"; // o quadro de resultado, o mesmo da tela da Auditoria
 import { TOL, parearMesmoValor, resumoDaComparacao, separarAvisos } from "../Auditoria/comparacaoResumo";
-import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos"; // avisos no canto da tela (toast)
+import { avisarAtencao, avisarEnviando, avisarSucesso, concluirAviso, fecharAviso } from "../../components/ui/avisos"; // avisos no canto da tela (toast)
+import { ID_QUADRO_COMPARACAO, irParaSecao } from "../../components/ui/useIrParaSecao"; // "Ver diferenças" no toast leva ao quadro
+import { resultadoDaConferencia, type ResultadoDaConferencia } from "./conferenciaPlanilha";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes"; // a função que fala com o servidor
 
 // Classes de estilo do "cartão" da seção (borda fina e fundo do painel), as mesmas do resto do Painel.
@@ -53,7 +56,9 @@ function avisarResultado(mes: string, r: AuditoriaDoMes) {
   const ref = (c.fontes_cgr ?? []).find((f) => f.valor !== null)?.valor ?? null;
   const dif = ref !== null ? (c.cgr_auditoria ?? 0) - ref : 0;
   avisarAtencao(`${mes}: ${resumo.itens.length} ${resumo.itens.length === 1 ? "ponto" : "pontos"} para conferir`,
-    Math.abs(dif) > TOL ? `As notas somam ${brl(Math.abs(dif))} a ${dif < 0 ? "menos" : "mais"} que a planilha. Nada foi gravado.` : "O total confere, mas há notas para olhar. Nada foi gravado.");
+    Math.abs(dif) > TOL ? `As notas somam ${brl(Math.abs(dif))} a ${dif < 0 ? "menos" : "mais"} que a planilha. Nada foi gravado.` : "O total confere, mas há notas para olhar. Nada foi gravado.",
+    // Um clique leva ao quadro da comparação (rola, destaca e põe o foco no título).
+    { rotulo: "Ver diferenças", aoClicar: () => { irParaSecao(ID_QUADRO_COMPARACAO); } });
 }
 
 // O que o Painel entrega a esta seção (as "props"):
@@ -79,8 +84,51 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
   const [lidos, setLidos] = useState<{ feitos: number; total: number } | null>(null); // progresso "12 de 90"
   const [res, setRes] = useState<AuditoriaDoMes | null>(null);     // a resposta do servidor
   const [erro, setErro] = useState<string | null>(null);           // a frase de erro, se houver
+  // Conferência da planilha (o servidor ABRE o arquivo e diz quais meses ela tem). `chave` diz a que planilha+trimestre
+  // o resultado se refere: se ela mudar (outra planilha, outro trimestre), o resultado velho deixa de valer e a conferência refaz.
+  const [conf, setConf] = useState<{ chave: string; resultado: ResultadoDaConferencia | null } | null>(null);
+  const mesesKey = meses.join(",");
+  const chaveConf = planilha ? `${planilha.name}|${planilha.size}|${planilha.lastModified}|${mesesKey}` : null;
+  const conferindo = !!chaveConf && conf?.chave !== chaveConf;
+  const conferencia = conf && conf.chave === chaveConf ? conf.resultado : null; // null = servidor sem a rota (antigo) ou ainda conferindo
   // Referência ao campo <input type="file"> escondido: o botão bonito "clica" nele por baixo dos panos.
   const inputPlanilha = useRef<HTMLInputElement>(null);
+
+  // Escolheu a planilha (ou trocou de trimestre com ela já escolhida): o servidor ABRE o arquivo, sem auditar nada
+  // e sem gravar, e o toast diz se ela abriu mesmo e quais meses tem. Só vira "pronta" (verde) se ele realmente abriu.
+  useEffect(() => {
+    if (!planilha || !chaveConf) return;
+    let vivo = true;
+    let pendente = true;
+    const pedidos = mesesKey.split(",");
+    const aviso = avisarEnviando("Conferindo a planilha…", planilha.name);
+    conferirPlanilha(planilha, pedidos)
+      .then((resp) => {
+        if (!vivo) return;
+        pendente = false;
+        const r = resultadoDaConferencia(resp, pedidos);
+        setConf({ chave: chaveConf, resultado: r });
+        concluirAviso(aviso, r.desfecho === "pronta" ? "success" : r.desfecho === "parcial" ? "warning" : "danger", r.titulo, r.descricao);
+      })
+      .catch((e) => {
+        if (!vivo) return;
+        pendente = false;
+        // Servidor antigo (sem a rota): não trava a comparação; ela abre a planilha na hora de comparar.
+        if (isAxiosError(e) && (e.response?.status === 404 || e.response?.status === 405)) {
+          setConf({ chave: chaveConf, resultado: null });
+          concluirAviso(aviso, "warning", "Planilha escolhida", "Ainda não conferi os meses dela: isso acontece quando você comparar.");
+          return;
+        }
+        const r: ResultadoDaConferencia = {
+          desfecho: "erro", titulo: "Não consegui abrir esta planilha", meses: [],
+          descricao: mensagemDeErro(e, "Não foi possível conferir a planilha. Tente de novo ou escolha outra."),
+        };
+        setConf({ chave: chaveConf, resultado: r });
+        concluirAviso(aviso, "danger", r.titulo, r.descricao);
+      });
+    // Trocou de planilha/trimestre no meio: o aviso "conferindo" some, o resultado velho não vale.
+    return () => { vivo = false; if (pendente) fecharAviso(aviso); };
+  }, [planilha, chaveConf, mesesKey]);
 
   // O ano do trimestre ("2026"), para completar nomes de pasta que vêm sem ano.
   const ano = Number(meses[0].split("/")[1]);
@@ -108,7 +156,9 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
   const ocupado = fase === "lendo" || fase === "processando";   // há trabalho em andamento: trava os botões
   const cgrGravado = ativo ? auditoria.find((h) => h.periodo === ativo)?.cgr_gravado ?? null : null; // CGR salvo do mês
   // O botão "Comparar" só liga com planilha, mês e as notas do mês abertas na pasta do ciclo.
-  const pronto = !!planilha && !!ativo && doCiclo.length > 0 && !ocupado;
+  const mesSemAba = (m: string) => !!conferencia && conferencia.desfecho !== "erro" && conferencia.meses.some((x) => x.periodo === m && !x.tem);
+  const planilhaRecusada = conferencia?.desfecho === "erro"; // o servidor não conseguiu abrir: escolha outra
+  const pronto = !!planilha && !!ativo && doCiclo.length > 0 && !ocupado && !conferindo && !planilhaRecusada && !mesSemAba(ativo);
 
   // Sem notas para comparar: por quê? Cada caso pede uma frase diferente ao usuário.
   const semNotas = !ativo || doCiclo.length ? null
@@ -186,16 +236,38 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
             onChange={(e) => {
               const f = e.target.files?.[0] ?? null;
               setPlanilha(f); setRes(null); if (fase === "resultado") setFase("escolher"); e.target.value = "";
-              if (f) avisarSucesso("Planilha carregada", f.name); // aviso no canto: o arquivo entrou
             }} />
           {planilha ? (
-            // Já escolheu: mostra o nome do arquivo e um X para remover.
+            // Já escolheu: mostra o nome do arquivo e um X para remover; abaixo, o que o servidor achou nela.
+            <>
             <div className="flex max-w-md items-center gap-2 rounded-lg border border-white/[0.05] bg-white/[0.015] px-3 py-2 text-sm">
               <FileSpreadsheet size={14} className="text-emerald-400" aria-hidden />
               <span className="min-w-0 flex-1 truncate text-zinc-200">{planilha.name}</span>
               <button type="button" disabled={ocupado} aria-label="Remover planilha" onClick={() => { setPlanilha(null); zerar(); }}
                 className="text-zinc-500 hover:text-red-400 disabled:opacity-40"><X size={14} /></button>
             </div>
+            <div aria-live="polite" className="mt-2 text-xs">
+              {conferindo ? (
+                <p className="flex items-center gap-2 text-zinc-400"><Loader2 size={13} className="animate-spin text-sky-300" aria-hidden /> Conferindo a planilha…</p>
+              ) : planilhaRecusada ? (
+                <div className="max-w-md rounded-lg border border-red-500/25 bg-red-500/[0.06] px-3 py-2 text-red-200">
+                  <p className="font-semibold">{conferencia!.titulo}</p>
+                  <p className="mt-0.5">{conferencia!.descricao}</p>
+                  <Button variant="ghost" size="sm" className="mt-2" onClick={() => inputPlanilha.current?.click()}>Escolher outra</Button>
+                </div>
+              ) : conferencia ? (
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-zinc-400">
+                  {conferencia.meses.map((m, i) => (
+                    <span key={m.periodo} className={m.tem ? "text-emerald-300" : "text-amber-300"}>
+                      {i > 0 && <span className="mr-2 text-zinc-600" aria-hidden>·</span>}
+                      <span aria-hidden>{m.tem ? "✓" : "✗"}</span> {m.curto}{m.tem ? "" : " (sem aba)"}
+                      <span className="sr-only">{m.tem ? ": tem aba na planilha" : ": sem aba na planilha"}</span>
+                    </span>
+                  ))}
+                </p>
+              ) : null}
+            </div>
+            </>
           ) : (
             <Button variant="ghost" icon={<FileSpreadsheet size={15} />} onClick={() => inputPlanilha.current?.click()}>Escolher planilha (.xlsx)</Button>
           )}
@@ -207,10 +279,16 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
           <div role="group" aria-label="Mês a comparar com a planilha" className="flex flex-wrap items-center gap-2">
             {meses.map((m) => {
               const aberto = ativo === m;
+              const semAba = mesSemAba(m);
+              const status = conferencia && conferencia.desfecho !== "erro" ? conferencia.meses.find((x) => x.periodo === m) : undefined;
               return (
-                <button key={m} type="button" onClick={() => abrirMes(m)} disabled={ocupado} aria-pressed={aberto}
-                  className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${
+                <button key={m} type="button" onClick={() => abrirMes(m)} disabled={ocupado || semAba || planilhaRecusada} aria-pressed={aberto}
+                  title={semAba ? `A planilha não tem aba de ${m}` : planilhaRecusada ? "Escolha outra planilha" : undefined}
+                  className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-40 ${
                     aberto ? "border-sky-400/50 bg-sky-500/15 text-sky-100" : "border-white/[0.1] text-zinc-300 hover:border-sky-400/40 hover:text-white"}`}>
+                  {status && (status.tem
+                    ? <Check size={12} className="-ml-0.5 mr-1 inline text-emerald-300" aria-hidden />
+                    : <X size={12} className="-ml-0.5 mr-1 inline text-amber-300" aria-hidden />)}
                   Comparar {mesCurto(m)}
                 </button>
               );
@@ -250,6 +328,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button variant="solid" icon={<Play size={14} />} onClick={comparar} disabled={!pronto}>Comparar {ativo} com a planilha</Button>
               {!planilha && <span className="text-xs text-zinc-500">Escolha a planilha no passo 1.</span>}
+              {conferindo && <span className="text-xs text-zinc-500">Esperando a conferência da planilha…</span>}
             </div>
           </div>
         )}

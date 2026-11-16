@@ -122,7 +122,6 @@ export interface ProblemaArquivo {
 }
 
 export interface CGFProcessarResponse extends CGFVolumes {
-  erros?: string[];           // frases de erro do back (etapa, mês, valores); vazio = tudo certo
   periodo_detectado: string;
   arquivos_ignorados: string[];
   problemas: ProblemaArquivo[];
@@ -173,7 +172,19 @@ export interface AuditoriaEmpresa {
   frete_fora_do_cgr: number;
 }
 
+/** Nota que bate nos dois lados (item de `notas_em_ambas`). `cgr_planilha` é null no comparador genérico. */
+export interface NotaEmAmbas {
+  empresa?: string;
+  tipo?: string;
+  numero?: string;
+  linha_excel?: number;
+  cgr_liquido?: number;
+  cgr_planilha?: number | null;
+}
+
 export interface AuditoriaComparacao {
+  /** Notas que batem (card "Batem"). Opcional: o back antigo não manda. */
+  notas_em_ambas?: NotaEmAmbas[];
   periodo: string;
   qtd_em_ambas: number;
   notas_apenas_auditoria: Record<string, unknown>[];
@@ -292,6 +303,17 @@ export interface PossivelDuplicataValor {
   qtd: number;
   notas: string[];    // nome/número de cada nota
   ids?: number[];     // id gravado de cada nota (mesma ordem de `notas`): é o que "Tirar do cálculo" envia
+  detalhes?: DetalheDuplicata[]; // contexto de cada nota (mesma ordem de `notas`); o back antigo não manda
+}
+
+/** Contexto de uma nota do aviso de duplicata, para ver se é cópia ou nota diferente. */
+export interface DetalheDuplicata {
+  id?: number | null;
+  nome: string;
+  numero?: string | null;
+  valor: number;
+  volume?: number | null;      // Auditoria
+  vencimento?: string | null;  // RET (texto como veio do documento)
 }
 
 export interface ProvaRealAuditoria {
@@ -513,7 +535,17 @@ export interface SCGPeriodo extends SCGValores {
 }
 
 /** PR e PV do trimestre regravados pelo backend ao salvar o SCG ou o SR. */
+/** SR do trimestre civil recalculado sozinho (LEGADO: o back novo manda `atualizado` sempre false). */
+export interface SRAutomatico {
+  trimestre: string;        // "Jul/2026_Set/2026"
+  atualizado: boolean;
+  sr_antes: number | null;
+  sr: number | null;
+  pendencias: string[];
+}
+
 export interface PRAutomatico {
+  sr_automatico?: SRAutomatico | null;  // null = o SR não foi recalculado nesta chamada
   meses_pr: string[];
   atualizado: boolean;      // false = nada gravado; ver `pendencias`
   pr_antes: number | null;
@@ -789,6 +821,7 @@ export interface ProvaRealRET {
 // ─── RP: PROVA REAL (GET /conciliacao/prova-real) ───────────────────────────
 /** Uma nota de penalidade na prova real do RP. `liquido` já tem o desconto do PIS/COFINS. */
 export interface ProvaRealItemRP {
+  id?: number | null;                            // id gravado da nota (para tirá-la do cálculo)
   arquivo: string;
   nome: string;                                  // nome curto da nota
   lado: "receita" | "despesa" | "ja_no_ret";     // "ja_no_ret": já contada no RET, vale 0 no RP
@@ -889,4 +922,84 @@ export interface ProvaRealSR {
   fontes_disponiveis: boolean;
   alertas: { codigo: string; mensagem: string }[];
   data_atualizacao: string;
+}
+
+// ─── CASCATA SR → PR → PV (prévia e aprovação) ──────────────────────────────
+/** Um trimestre da cascata: o que está gravado (antes) × o que o servidor calculou (novo). */
+export interface CascataTrimestre {
+  periodo: string;                 // mês-guia do trimestre: é o que vai em /cascata/aplicar
+  trimestre_sr: string | null;     // "Jul/2026_Set/2026"; null quando a cascata não parte do SR
+  sr_antes: number | null;         // null = nunca gravado
+  sr_novo: number | null;          // null = não calculado ou com pendência
+  meses_pr: string[];
+  chave_pr: string;                // "Nov - Jan/2027"
+  pr_antes: number | null;
+  pr_novo: number | null;
+  chave_pv: string;                // "Nov - Jan/2026"
+  pv_antes: number | null;
+  pv_novo: number | null;
+  desatualizado: boolean;          // algum valor novo difere do gravado
+  pendencias: string[];            // o que falta; com pendência não dá para aprovar
+}
+
+/** De onde a cascata parte: "sr" recalcula SR, PR e PV; "pr" só PR e PV; "pv" só o PV. */
+export type CascataAPartirDe = "sr" | "pr" | "pv";
+
+/** A prévia (GET /cascata/previa, /cascata/pendente) e o resultado de POST /cascata/aplicar. */
+export interface Cascata {
+  periodos: string[];
+  a_partir_de: CascataAPartirDe;
+  desatualizado: boolean;
+  trimestres: CascataTrimestre[];
+  pendencias: string[];
+}
+
+/** Resposta de um Salvar: o back novo traz `cascata`; o antigo não (por isso é opcional). */
+export type ComCascata<T> = T & { cascata?: Cascata | null };
+
+// ─── CONFERÊNCIA DO MÊS (GET /dashboard/conferencia) ────────────────────────
+export type EtapaDaConferencia = "CGR" | "CGF" | "RET" | "RP";
+
+export interface ConferenciaEtapa {
+  etapa: EtapaDaConferencia;
+  total: number | null;            // null = o mês não tem esse valor gravado
+  total_anterior: number | null;
+  variacao_pct: number | null;     // null = sem como comparar (falta um dos totais ou o anterior é zero)
+  fora_do_normal: boolean;         // variação acima de `limite_pct`
+  empresas_faltando: string[];     // só CGR e RET: mandaram no mês anterior e não neste
+}
+
+export interface ConferenciaDoMes {
+  periodo: string;
+  periodo_anterior: string;
+  limite_pct: number;              // 20
+  etapas: ConferenciaEtapa[];      // CGR, CGF, RET, RP, nessa ordem
+}
+
+// ─── TRILHA DE ALTERAÇÕES (GET /trilha) ─────────────────────────────────────
+export interface AlteracaoDaTrilha {
+  id: number;
+  tabela: string;                  // "sr_resultados", "pr_resultados"...
+  periodo: string;
+  campo: string;
+  valor_antigo: number | null;     // null = ainda não havia valor
+  valor_novo: number | null;       // null = o valor foi apagado
+  origem: string;                  // "salvar", "cascata" (aprovação) ou "apagar"
+  data_hora: string;               // "AAAA-MM-DD HH:MM:SS"
+}
+
+// ─── CONFERIR PLANILHA (POST /auditoria/planilha/conferir) ──────────────────
+export interface MesConferido {
+  periodo: string;                 // "Jul/2026"
+  tem: boolean;                    // o mês está na planilha
+  abas: string[];
+  qtd_notas: number | null;        // null quando o modelo não lista notas
+}
+
+export interface ConferirPlanilhaResponse {
+  ok: boolean;
+  modelo: string | null;
+  modelo_rotulo: string | null;
+  meses: MesConferido[];
+  aviso: string | null;            // motivo, em português, quando ok = false
 }

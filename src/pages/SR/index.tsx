@@ -1,3 +1,4 @@
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
@@ -255,6 +256,7 @@ export default function SRPage() {
     setSucesso(null);
   };
 
+  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
   const salvar = async () => {
     setErro(null);
     setSucesso(null);
@@ -266,6 +268,7 @@ export default function SRPage() {
       );
       setLinhas(calc.linhas);
       const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
+      mostrarCascata(salvo.cascata);
       setFonte("salvo");
       // A prova real abre no trimestre salvo (buscada de novo) e o histórico é recarregado.
       setEscolhido(trimestreLabel);
@@ -316,6 +319,7 @@ export default function SRPage() {
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {sucesso && <Alert variant="success">{sucesso}</Alert>}
         {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
+        {previa}
 
         <KpisSR chave={aberto} estado={prova} />
 

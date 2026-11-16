@@ -1,6 +1,30 @@
 import { describe, expect, it } from "vitest";
-import { deslocaPeriodo, lerPeriodo, mesesDoPRDoCivil } from "./periodos";
+import { chavesDoPV, deslocaPeriodo, lerPeriodo, mesesDoPRDoCivil, mesesDoSR, mesesDoTrimestre } from "./periodos";
 import { linkDoCiclo } from "./periodoNaUrl";
+
+describe("mesesDoSR e chavesDoPV", () => {
+  it("abre a chave do SR em 3 meses", () => {
+    expect(mesesDoSR("Jan/2026_Mar/2026")).toEqual(["Jan/2026", "Fev/2026", "Mar/2026"]);
+    expect(mesesDoSR("Out/2025_Dez/2025")).toEqual(["Out/2025", "Nov/2025", "Dez/2025"]);
+  });
+  it("chave que não é de SR vira null", () => {
+    expect(mesesDoSR("Fev - Abr/2026")).toBeNull();
+    expect(mesesDoSR(null)).toBeNull();
+  });
+  it("PV: a chave e o 1º mês do trimestre", () => {
+    expect(chavesDoPV("Nov - Jan/2025")).toEqual(["Nov - Jan/2025", "Nov/2025"]);
+    expect(chavesDoPV("lixo")).toBeNull();
+  });
+});
+
+describe("mesesDoTrimestre", () => {
+  it("vira o ano no meio do trimestre", () => {
+    expect(mesesDoTrimestre("Nov", 2025)).toEqual(["Nov/2025", "Dez/2025", "Jan/2026"]);
+  });
+  it("trimestre dentro do mesmo ano", () => {
+    expect(mesesDoTrimestre("Fev", 2026)).toEqual(["Fev/2026", "Mar/2026", "Abr/2026"]);
+  });
+});
 
 describe("lerPeriodo", () => {
   it("lê Mmm/AAAA", () => {

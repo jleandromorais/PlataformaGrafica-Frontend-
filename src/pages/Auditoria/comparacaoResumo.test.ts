@@ -78,6 +78,13 @@ describe("resumoDaComparacao", () => {
     expect(r.itens.map((i) => so(i.texto))).toEqual(["Falta 1 nota da Empresa B na pasta (R$ 500,00). Ela está na planilha."]);
   });
 
+  it("cada item de problema aponta a seção e a empresa para onde o clique leva", () => {
+    const c = { ...base, cgr_auditoria: 9500, notas_apenas_planilha: [outraDaPlanilha] };
+    const r = resumoDaComparacao(c, parearMesmoValor([], c.notas_apenas_planilha), null);
+    expect(r.itens[0]).toMatchObject({ secao: "planilha", empresa: "Empresa B" });
+    expect(resumoDaComparacao({ ...base, divergencias_valor: [div(0)] }, parearMesmoValor([], []), null).itens[0].secao).toBe("diferentes");
+  });
+
   it("avisa a parte da diferença que as notas não explicam", () => {
     const c = { ...base, cgr_auditoria: 9000, notas_apenas_planilha: [outraDaPlanilha] };
     const r = resumoDaComparacao(c, parearMesmoValor([], c.notas_apenas_planilha), null);
@@ -89,7 +96,7 @@ describe("resumoDaComparacao", () => {
     const r = resumoDaComparacao(c, parearMesmoValor([], []), null);
     expect(r.confere).toBe(false);
     expect(r.frase).toBe("O total das notas confere com a planilha, mas há notas para conferir.");
-    expect(r.itens).toEqual([{ texto: "1 nota com o mesmo valor nos dois lados; só o volume ou a alíquota foi escrito diferente. Não muda o total.", gravidade: "conferir" }]);
+    expect(r.itens).toEqual([{ texto: "1 nota com o mesmo valor nos dois lados; só o volume ou a alíquota foi escrito diferente. Não muda o total.", gravidade: "conferir", secao: "diferentes" }]);
   });
 
   it("conta a mesma nota dos dois lados", () => {
