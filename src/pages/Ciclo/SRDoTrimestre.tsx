@@ -177,12 +177,11 @@ export function SRDoTrimestre({ meses, onGravado }: {
           )}
 
           <div className="mt-4">
-            <button ref={botaoGravar} type="button" onClick={() => setConfirmar(true)}
-              disabled={!proposta.pode_gravar || gravando || carregando}
-              className="inline-flex items-center gap-2 rounded-lg bg-marinho px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400">
+            <Button variant="solid" ref={botaoGravar} onClick={() => setConfirmar(true)}
+              disabled={!proposta.pode_gravar || gravando || carregando}>
               {gravando ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" aria-hidden /> : <Save size={15} aria-hidden />}
               {gravando ? "Gravando…" : `Gravar o SR de ${faixa}`}
-            </button>
+            </Button>
           </div>
 
           <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante="atencao" voltarFoco={botaoGravar}

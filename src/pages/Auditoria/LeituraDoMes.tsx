@@ -23,10 +23,10 @@ import type { AuditoriaHistoricoLinha, AuditoriaResultado } from "../../types";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
-const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
 const LIMITE_NOTAS = 50;
 
 interface Empresa { nome: string; xml: number; pdf: number }
@@ -255,17 +255,16 @@ export function LeituraDoMes() {
                   <button type="button" onClick={() => setPlanilha(null)} aria-label="Remover planilha" className="text-zinc-500 hover:text-red-400"><X size={14} /></button>
                 </div>
               ) : (
-                <button type="button" onClick={() => inputPlanilha.current?.click()} className={`${BOTAO_SEC} w-full`}>
+                <Button variant="ghost" onClick={() => inputPlanilha.current?.click()} className="w-full">
                   <FileSpreadsheet size={15} /> Escolher planilha (.xlsx)
-                </button>
+                </Button>
               )}
             </div>
 
-            <button type="button" onClick={processar} disabled={!enviados.length || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+            <Button variant="solid" size="lg" onClick={processar} disabled={!enviados.length || ocupado !== null} className="w-full justify-center">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? `Auditando ${enviados.length} arquivos…` : "Executar auditoria"}
-            </button>
+            </Button>
             {!enviados.length && ocupado === null && <p className="-mt-2 text-center text-xs text-zinc-400">Escolha a pasta das notas (e marque ao menos uma empresa) para liberar a auditoria.</p>}
             {ocupado === "processar" && qtdPdf > 20 && (
               <p className="-mt-2 text-xs text-zinc-500">Ler {qtdPdf} PDFs leva alguns minutos (cerca de 1 min a cada 90). Não feche a página.</p>
@@ -291,13 +290,12 @@ export function LeituraDoMes() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={relatorio} disabled={ocupado !== null} className={BOTAO_SEC}>
+                      <Button variant="ghost" onClick={relatorio} disabled={ocupado !== null}>
                         {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
-                      </button>
-                      <button type="button" onClick={salvar} disabled={ocupado !== null || !anoValido(ano)}
-                        className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+                      </Button>
+                      <Button variant="solid" onClick={salvar} disabled={ocupado !== null || !anoValido(ano)}>
                         {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar CGR de {periodo}
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   <div className="mt-5 overflow-x-auto">

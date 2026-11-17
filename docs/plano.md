@@ -26,6 +26,455 @@ gerar o relatório do trimestre, a **regra do PR no SR** foi corrigida e o back 
 
 ---
 
+# PLANO DE 17/11/2026 (terça-feira, no trabalho)
+
+**Como usar:** é a lista do dia, na ordem. Os detalhes de cada item estão nas seções do dia 16/11 logo abaixo. Nada foi commitado por agente; o Leandro faz os commits (back antes do front).
+
+## Adiantado em 16/11 (Luiz, back; sem commit): `pytest` 963 passando (eram 915)
+- **Backup:** `scripts/backup_banco.py` (API de backup do sqlite3, valida com `integrity_check`, retenção de 30 cópias, `restaurar` recusa sobrescrever sem `--confirmo-sobrescrever`), `tests/test_backup.py` (14 testes), `docs/BACKUP.md` e cópia manual do banco local em `backups/pmpv_data_20261116_130438.db` (602.112 bytes, restauração testada). `backups/` já estava no `.gitignore`. **Falta:** decidir onde guardar a cópia **fora do servidor** (o volume do Railway só monta em um serviço, e uma cópia no mesmo `/data` não protege contra a perda do volume) e agendar.
+- **`Dockerfile` e `.dockerignore` alterados** (não foi pedido): sem isso o script não existiria no Railway. **Muda a imagem no próximo deploy.** O Leandro pode desfazer.
+- **Trava 409 e aprovação por etapa:** `POST /cascata/aplicar` aceita `ate = sr | pr | pv` e `esperado`; 409 se o valor mudou desde a prévia; SR grava sem o PMPV seguinte; PR exige SR salvo e PMPV novo; PV exige PR. Campos novos são opcionais (o front atual segue funcionando). 12 testes novos.
+- **`GET /api/ciclo/situacao?trimestre=`:** estado por passo (`pronto`, `atencao`, `falta`, `bloqueado`), motivo, rota, SELIC fechada (exige `hoje > fim` e série do Banco Central até o último dia útil), PMPV novo e `proximo_passo`. 22 testes. Contrato em `docs/SITUACAO_DO_CICLO.md`.
+- **Fora, por decisão ou dependência:** login com perfis e `aprovado_por` (dependem dos perfis aprovados); `GET /tarifa/media`; a regra do último dia útil só vale na situação, não em `selic_do_trimestre` (aplicar lá pode recusar um SR que hoje grava; decisão do Leandro); o passo 2 só confere se o SCG existe, não detecta divergência da soma (caso de Jul); o "último dia útil" só considera fim de semana, então em 31/12/2026 a situação pode ficar em `aguardando_publicacao` por causa do feriado.
+- **Arquivos do back desta entrega:** `scripts/backup_banco.py`, `tests/test_backup.py`, `docs/BACKUP.md`, `Dockerfile`, `.dockerignore`, `servicos_cascata.py`, `servicos_pr_automatico.py`, `servicos_selic.py`, `servicos_ciclo.py`, `schemas/cascata.py`, `schemas/ciclo.py`, `routers/cascata.py`, `routers/ciclo.py`, `deps.py`, `main.py`, `tests/test_cascata.py`, `tests/test_ciclo_situacao.py`, `docs/SITUACAO_DO_CICLO.md`. Somam-se aos 49 do back de ontem, ainda sem commit.
+
+## Adiantado em 16/11 (Hero, front; sem commit): `tsc`, `eslint src` e build sem erro; `npm test` 17 arquivos e 204 testes (eram 188)
+- **Fatia A, as 21 edições:** o Hero leu o diff inteiro desde o `7d534f8`. São só trocas de `<button>` por `<Button>` do projeto e a prop `ref`; sem mudança de lógica nem de texto de cálculo. **Correção:** o `Button` não tinha `type="button"` por padrão e qualquer botão dentro de um formulário enviaria o formulário; agora tem (Login e Cadastro já passam `type="submit"`). Os botões mudam de aparência (por exemplo, os âmbar viram a variante `warning`).
+- **Fatia B, trimestre sugerido em janeiro:** `trimestreSugerido.ts` com teste (jan, mar, abr, jul, out, dez). Em janeiro e março sugere Out–Dez do ano anterior.
+- **Fatia C, SCG gravado × soma:** `DivergenciaSCG.tsx` mostra, só nos meses com `diverge`, a tabela "Soma dos módulos × Gravado × Diferença", o texto "o sistema não escolheu nenhum" e o link para o SCG; Skeleton ao carregar e "Tentar de novo" no erro. Tolerância de R$ 0,01, igual à do back.
+- **Fatia D, próximo passo:** `proximoPasso.ts` (função pura, 8 testes). O próximo passo ganha borda, etiqueta "Próximo" e botão cheio; os bloqueados mostram "Bloqueado: falta ..." com link. Entraram dois passos: "PMPV do trimestre apurado" e "Tarifa média" (só link). O Painel faz 3 chamadas extras a `getPMPVMensal`. O PMPV ganhou o atalho "Voltar ao Ciclo". Para usar `GET /ciclo/situacao`, basta alimentar a mesma função com a resposta da rota.
+- **Visto num Chrome isolado (API de mentira, dados fictícios):** Painel do Ciclo em escuro e claro a 1280px e 390px; o aviso do SCG; o estado de erro. Achou e corrigiu um aviso cortado no celular.
+- **Não visto:** Auditoria, CGF, RET, RP, SR, SCG, RPV, PMPV e Excel Final no navegador; hover e foco dos botões trocados; o Skeleton do SCG; a barra "Voltar ao Ciclo" dentro do PMPV; tema escuro a 390px depois da correção; Painel com dados reais; contraste e teclado.
+- **Fora:** passada de visual de Dashboard, SR, PR, PV, CGF, RET, RP e Auditoria; prévia da cascata aberta sozinha; os cartões SR, PR e PV dentro do Painel; SR automático; tarifa média com valores (dependem do back).
+
+## 1. Primeiro, no começo do dia (Leandro, ~30 min)
+- [ ] `git status` no back e no front, para ver que nada se perdeu desde ontem.
+- [x] **Back de ontem já enviado** (commit `0f3f65e`: cascata, trilha, conferência, DELETE /pr, SELIC 0%, ano do RET). `main` local igual à do GitHub em 16/11. **Falta conferir o deploy do Railway** e abrir o Painel do Ciclo no site.
+- [ ] **Commitar e enviar o back de hoje** (backup, trava 409 e aprovação por etapa, situação do ciclo, `Dockerfile` e `.dockerignore`): mensagem e comandos abaixo, na seção "Commits prontos".
+- [ ] **Commitar e enviar o front de hoje** (21 edições validadas, trimestre em janeiro, SCG divergente, próximo passo): só depois do deploy do back.
+- [ ] **Só depois** conferir o front no ar (a Vercel já recebeu o `7d534f8` ontem; ele chama rotas que só existem no back novo).
+- [ ] **Nesta ordem:** o deploy do back precisa estar verde antes de qualquer teste do front.
+- [ ] Mover no Trello os cartões [Cascata], [Conferência] e [Trilha] para "Em teste" depois do push; "Em produção" só depois de conferir o deploy.
+
+## Verificado por mim em 17/11, 08:02 (antes dos commits)
+- **Back:** `python -m pytest -q`: **963 passando**, 2 avisos, 3 min 15 s.
+- **Front:** `npx tsc --noEmit` sem erro; `npx eslint src` sem avisos; `npm test`: **17 arquivos e 207 testes passando** (o Hero acrescentou 3 depois do relatório de ontem).
+- **Pendentes de commit:** back 18 arquivos, front 34. Nada foi enviado durante a noite.
+
+## Commits prontos (Leandro roda; sem co-autor)
+**Back** (`plataforma-conta-grafica`), primeiro:
+```powershell
+git pull
+git add -A
+git commit -m "feat(ciclo): backup do banco, trava 409 e aprovacao por etapa, situacao do ciclo" -m "- scripts/backup_banco.py: copia pela API de backup do sqlite3, valida com integrity_check, retencao de 30 copias e restauracao que nao sobrescreve sem confirmacao (14 testes, docs/BACKUP.md)
+- POST /cascata/aplicar aceita ate (sr|pr|pv) e esperado; 409 se o valor mudou desde a previa; SR grava sem o PMPV seguinte, PR exige SR e PMPV novo, PV exige PR
+- GET /ciclo/situacao: estado por passo, motivo, SELIC fechada (exige serie do Banco Central ate o ultimo dia util) e proximo passo (docs/SITUACAO_DO_CICLO.md)
+- Dockerfile e .dockerignore: incluem o script de backup na imagem
+- Testes: 963 passando"
+git push
+```
+**Front** (`Front_end`), só depois de o deploy do back estar verde:
+```powershell
+git pull
+git add -A
+git commit -m "feat(ciclo): proximo passo em destaque, SCG divergente, trimestre sugerido e botao unico" -m "- Painel do Ciclo destaca o proximo passo, bloqueia com motivo e link e ganha os passos PMPV e tarifa media
+- SCG gravado x soma dos modulos lado a lado quando diverge, sem escolher
+- Trimestre sugerido em janeiro corrigido (Out-Dez do ano anterior)
+- Button com type=button por padrao; troca dos botoes soltos pelo componente do projeto
+- Atalho Voltar ao Ciclo no PMPV
+- Testes: 207 passando; plano.md atualizado"
+git push
+```
+**Antes de rodar o do back:** o `Dockerfile` muda a imagem no próximo deploy; se não quiser agora, `git restore Dockerfile .dockerignore` antes do `git add -A`. A pasta `backups/` já está no `.gitignore`.
+
+## 2. Prioridade máxima: backup do banco (Luiz)
+- [ ] Cópia diária do SQLite do Railway para fora do servidor, com data no nome e retenção (por exemplo, 30 dias).
+- [ ] **Testar a restauração** em uma cópia, antes de dizer que está pronto.
+- [ ] Cópia manual **agora**, antes de qualquer gravação nova: o banco do Railway é hoje a única cópia.
+- [ ] Decidir com o Leandro onde guardar (Railway, bucket na nuvem ou pasta da empresa) e se vale avaliar Postgres.
+
+## 3. Em seguida, em paralelo
+**Back (Luiz)**
+- [ ] Trava **409** no `aplicar` e `aplicar` por etapa (`ate = sr | pr | pv`), com aprovações **separadas** (decidido).
+- [ ] `GET /ciclo/situacao` (estado por passo, motivo, link, SELIC fechada, PMPV novo pronto).
+- [ ] Login com **perfis** e `aprovado_por` obrigatório na trilha (depende de desenhar os perfis, ver item 5).
+**Front (Hero)**
+- [ ] **Validar as 21 edições** de ontem: `npx tsc --noEmit`, `npx eslint src`, `npm run build`, `npm test` e abrir as telas num Chrome isolado (tema escuro e claro, 1280px e 390px).
+- [ ] Corrigir o trimestre sugerido em **janeiro** e destacar o **próximo passo** no Ciclo (maior dor do Leandro).
+- [ ] Mostrar **SCG gravado × soma dos módulos** quando divergir (maior dor: números que não batem com a planilha).
+
+## 4. Amanda (só analisa)
+- [ ] Desenhar os **perfis** (quem processa, quem aprova SR, PR e PV, quem só consulta, quem faz a revisão do analista) e o passo de **revisão antes de fechar o trimestre**.
+- [ ] Corrigir `docs/regras-de-calculo.md` (linhas 85–86), `SPEC_PR.md`, `SPEC_SR.md` e a docstring de `servicos_pr_automatico.py`.
+
+## 5. Para levar ao analista humano (trabalho)
+- [ ] De onde vem o **SR anterior** de cada mês e se ele entra no SCG.
+- [ ] O que define um **PR "em vigor"** e como a ARPE trata correção retroativa.
+- [ ] Qual **MB** vale para Dez e Jan do Nov–Jan (compare PV 2,0944 com a tarifa média do Quadro 9 da NT_05/2026).
+- [ ] Se o limite de **20%** está certo, e se é relativo ou absoluto.
+- [ ] Quais **perfis** existem e quem faz a revisão antes de fechar o trimestre.
+- [ ] **Setembro/2026:** os arquivos já chegaram; é o primeiro teste de ponta a ponta com tudo isso (Trello: "Fechar o 3º trimestre").
+
+## 6. Fica para depois de 17/11
+- SR, PR e PV como cartões dentro do Painel (Etapa 4) e "Aprovar em sequência".
+- Limpeza de dados (Teste1, Teste2, Geral e o PR local Fev–Abr/2026): só depois do deploy e **com cópia do banco** (o backup do item 2 vem antes).
+- Reparo do SCG de Julho (R$ 481.319,87): só depois de o analista explicar a diferença. Não aplicar.
+- Decisão sobre o `seed/pmpv_data.db` (mantido por enquanto; o risco continua registrado).
+
+## 7. Atenção
+- **Não gravar nada novo em produção antes do backup** (item 2).
+- **Back antes do front**, sempre.
+- Nenhum agente faz commit; o Leandro roda os comandos.
+- A Amanda dá parecer, mas a regra de negócio só vale depois de o analista confirmar.
+
+---
+
+# Parecer da Amanda: perfis, revisão e pacote de aprovação (16/11/2026, recomendações)
+
+**Parecer geral dela: maturidade 6,5 de 10.** O motor de cálculo está bem pensado (fonte única, prova real, cascata com aprovação), mas ainda não é uma ferramenta de controle: sem backup, a trilha não diz quem fez, não há perfis e a validação contra a planilha é irregular. Também apontou: VP, SELIC e notas fora da trilha, o câmbio fixo de 6,0 em `servicos_ret.py:7` sem origem documentada e a falta de versão da regra nos resultados.
+
+## Achados novos
+1. **Cadastro aberto por padrão** (`auth.py:49-50`, `PERMITIR_CADASTRO` padrão "1"). Conferir no Railway se está `PERMITIR_CADASTRO=0`. Fechar antes de falar em perfis.
+2. **Contradição no plano:** "aprovado por obrigatório" (login com perfis) × "se a aprovação deve identificar a pessoa" como não bloqueante. Vale o login com perfis; o analista confirma. O comentário "Não guarda quem mudou" em `database.py:344` fica desatualizado.
+3. **Luiz deve confirmar:** `servicos_consolidacao.py:46-49` devolve a soma dos módulos quando o SCG gravado difere, então o PR provavelmente já usa a soma. Isso conflita com a escolha "gravado ou soma" da tela SCG.
+4. **`pr_resultados` não guarda rastro:** só `scg` (já com SELIC), `sr`, `vp` e `pr`. Falta SELIC, SCG de cada mês, origem do VP e versão da regra.
+5. **A trilha de hoje é fraca para auditoria:** só valores numéricos, cinco tabelas, sem quem, sem motivo e sem os insumos do SR.
+
+## Perfis propostos (uma pessoa pode ter mais de um)
+Consulta (só lê); Operador (processa a pasta e grava módulos); Aprovador (aprova SR, PR e PV); Analista (revisa e fecha o trimestre; decide SCG gravado × soma, SR anterior, MB e SELIC manual, sempre com motivo); Administrador (usuários, apagar período, limpar dados de teste, restaurar backup).
+
+| Ação | Consulta | Operador | Aprovador | Analista | Admin |
+|---|---|---|---|---|---|
+| Ver telas, provas reais e trilha | S | S | S | S | S |
+| Processar a pasta e gravar módulo | N | S | N | S | S |
+| Escolher SCG gravado × soma, SR anterior, SELIC manual, MB (com motivo) | N | N | N | S | N |
+| Aprovar SR, PR e PV (cada uma) | N | N | S | S | N |
+| Revisar e fechar o trimestre | N | N | N | S | N |
+| Apagar PR, período ou SCG; limpar dados de teste | N | N | N | N | S |
+| Reparar histórico do SCG | N | N | N | condicional | S |
+| Gerar relatório oficial do trimestre | N | N | condicional | S | S |
+| Gerenciar usuários, perfis e backup | N | N | N | N | S |
+
+**Regras de separação (recomendações):** quem processou pode aprovar, porque a equipe é pequena, mas a trilha marca "mesma pessoa processou e aprovou"; a marca "conferido" só vale de quem tem perfil Analista; o perfil é lido do banco a cada requisição, não do token; usuário novo nasce sem acesso ou como Consulta, e o Administrador cria as contas e fecha o autocadastro.
+**A trilha passa a registrar:** `usuario_id`, nome e e-mail copiados na hora, `perfil`, `acao`, `motivo`, `pacote_id` e `regra_versao`. Textos, motivos e escolhas vão para uma tabela nova `aprovacoes`.
+
+## Passo de revisão do analista antes de fechar o trimestre
+**Confere:** módulos por mês (planilha × sistema); SCG gravado × soma; SR com VP, VF, PR de origem, SELIC e SR anterior; PR (Quadro 7); PV (Quadro 8); tarifa média (Quadro 9, só leitura); pendências abertas.
+**Tela:** tabela "Sistema × Planilha × NT × Diferença". A NT o analista cola; o sistema só calcula a diferença. Se algo for regravado depois, a marca "conferido" cai e volta "Conferir de novo".
+**Bloqueia o fechamento:** SR, PR ou PV não aprovados; cascata pendente; PMPV novo ausente, SELIC 0% ou parcial; prova real com falha; SCG ≠ soma sem escolha e motivo; 409; revisão por quem não é Analista.
+**Exige motivo:** diferença acima da tolerância; MB diferente entre Dez e Jan; PR em vigor sendo mudado.
+**Só avisa:** variação do PR acima de 20% ou troca de sinal; duplicata não resolvida; mesma pessoa processou e aprovou; revisão sem planilha.
+**Tolerância proposta (a confirmar):** 4 casas para PR, PV e tarifa; R$ 0,01 para valores em reais.
+**Registra ao marcar "conferido":** quem, quando, perfil, versão da regra; trimestres; planilha e NT usadas; valor do sistema, da fonte, diferença e motivo por item; escolha de SCG por mês; MB de cada ano; hash dos valores vistos.
+
+## Pacote de aprovação e versão da regra
+**Congelar na aprovação do PR:** chave e meses; por mês o SCG usado (qual e quanto), a SELIC e sua fonte, o SR com SELIC e o `sr_anterior`; VP dos 3 meses com a origem; PMPV; resultado; PR anterior e variação; marcas "Conferi a variação" e "em vigor" com motivo; versão da regra, quem, quando e hash. SR e PV congelam o equivalente.
+**Onde:** tabela `aprovacoes` (etapa, chave, usuário, perfil, data, `regra_versao`, `pacote_json`, `pacote_hash`, situação). O 409 compara o pacote visto com o recalculado, e não só o resultado.
+**Trilha ampliada:** `sr_trimestre`, `vp_mensal`, `cgf_resumo`, `config` e as tabelas de itens (`auditoria_itens`, `ret_itens`, `concilia_itens`), mais os apagamentos (só o PR é anotado hoje).
+**Versão da regra:** constante `REGRA_VERSAO` e "Histórico de regras" na documentação; coluna `regra_versao` em `sr_trimestre`, `sr_resultados`, `pr_resultados` e `pv_resultados`. v1 = "PR do SR = 3 meses antes" (errada); v2 = "PR do SR = trimestre da tarifa do próprio mês" (corrigida em `d917c5a`). Linhas antigas ficam "v1" ou "versão desconhecida", com o aviso "refazer pelo Ciclo". A fronteira é a data em que o back corrigido entrou no ar, que o Leandro confirma. **Nunca corrigir sozinho:** a correção passa pela cascata com prévia e aprovação.
+
+## Documentação já corrigida em 16/11
+- `docs/regras-de-calculo.md` (linhas 85 e 86): salvar não grava mais em silêncio; prévia e aprovação.
+- `SPEC_PR.md` e `SPEC_SR.md`: aviso de "documento histórico" no topo, com a fórmula e as rotas atuais.
+- **Falta (depois que o Luiz terminar, para não colidir no código):** docstrings de `servicos_pr_automatico.py` (linhas 1–13) e de `ServicosPR` (que ainda diz `PR = (SGR + SR) / VP`); remover `buscar_dados_trimestral` (Bill).
+
+## PERGUNTAS PARA O ANALISTA (para imprimir; as que travam a programação são 1, 2, 9, 14 e 15)
+1. **SR anterior:** de onde sai a coluna "SR anterior" na aba SR da NT_05/2026 (por exemplo, Jul–Set/25)? Ele entra no SCG? ______
+2. **PR em vigor:** o que define um PR em vigor (1º mês do trimestre ou outra data)? Já houve correção retroativa? Regravar ou lançar como ajuste no seguinte? ______
+3. **MB de Dez e Jan:** qual MB vale para Dez/25 e Jan/26? O PV de Nov/25–Jan/26 é 2,0944; qual é a tarifa média do Quadro 9? Existe tarifa média única por trimestre? ______
+4. **Limite de 20%:** está certo? É relativo ou absoluto? Existe faixa aceitável? ______
+5. **Câmbio fixo 6,0 (`servicos_ret.py:7`):** quem definiu, quando e com que fonte? Vale para todos os meses? A nota em euro traz a própria taxa? ______
+6. **SCG de Jul (R$ 481.319,87):** de onde vem a diferença e qual valor vale? ______
+7. **Nota PFP de Dez/2025 (R$ 58.261,99):** o PDF existe? Entra no RP de Dez/25? ______
+8. **SELIC:** quando o Banco Central publica a do último dia do trimestre? A ARPE aceita SELIC digitada à mão, e em que caso? ______
+9. **Revisão antes de fechar:** quem faz hoje e quem deveria fazer? ______
+10. **Fontes da revisão:** compara com a planilha, com a NT ou com as duas? Sem planilha, pode fechar? ______
+11. **Diferença aceitável** entre sistema e planilha ou NT, em PR, PV, tarifa (R$/m³) e valores em reais. ______
+12. **Quadros da NT** que precisam bater para fechar (7, 8 e 9). ______
+13. **Pacote de aprovação:** a ARPE exige só data e valores ou o nome da pessoa? Quanto tempo se guarda o registro? ______
+14. **Quem é quem:** quantas pessoas e que papel: processa a pasta, aprova SR, aprova PR e PV, só consulta, faz a revisão. ______
+15. **Mesma pessoa:** quem processou pode aprovar? Quem aprovou pode fechar o trimestre? ______
+16. **Cadastro:** contas só por um administrador? Quem? ______
+17. **Apagar e limpar:** quem pode apagar período, PR ou limpar dados de teste? ______
+
+**Dúvidas abertas por pessoa:** Leandro confirma `PERMITIR_CADASTRO=0` no Railway, a data do deploy do `d917c5a` e a contradição do "aprovado por". Luiz confirma se a escolha "gravado × soma" chega ao PR e se `DELETE /periodos` e `DELETE /scg` entram na trilha.
+
+---
+
+# PLANO DE EXECUÇÃO — 16/11/2026 (consolida as seções abaixo; nada começa sem OK do Leandro)
+
+**Objetivo:** ciclo mais didático e mais automático, em 5 passos no Painel do Ciclo: (1) PMPV do trimestre anterior; (2) processar a pasta, com SCG automático e prova real; (3) SR calculado sozinho quando a SELIC fecha; (4) PR e PV como conferência; (5) tarifa média, fechada no PMPV. **Gravar continua com aprovação.**
+**Equipe:** Luiz (back), Hero (front, com a skill `design-taste-frontend`), Amanda (regra e teoria, só analisa), Bill (limpeza depois), Leandro (decide, faz commits; back antes do front).
+**Detalhes de cada decisão:** seções "Plano de automação", "Roteiro do Ciclo em 5 passos", "Decisões da Amanda", "Plano de visual do front" e "Andamento de 16/11", logo abaixo.
+
+## Decisões do Leandro em 16/11 (respostas às perguntas de qualidade)
+- **Aprovação do PR e do PV: separadas.** Cada uma com o seu botão; o PR com a caixa "Conferi a variação". Fecha a pergunta 6 da Amanda.
+- **As 21 edições do Hero ficam:** o Hero roda `tsc`, lint, build e testes e confere no navegador antes de qualquer commit.
+- **`seed/pmpv_data.db`: manter por enquanto** no repositório público do back. Risco registrado: dados reais da empresa continuam visíveis no histórico. Reabrir quando o Leandro decidir.
+- **Usuários: de 2 a 5 pessoas, com papéis diferentes** (por exemplo, quem processa a pasta e quem aprova SR, PR e PV). **Conflita com a decisão de 13/11** de a trilha não identificar a pessoa: com papéis diferentes, o campo "aprovado por" deixa de ser opcional e pede login por perfil. A Amanda deve confirmar com o analista antes de programar.
+
+- **Acesso: login com perfis.** Cada pessoa entra com e-mail e senha e o perfil define quem processa e quem aprova; a trilha registra quem aprovou. Fecha a dúvida do "aprovado por": passa a ser obrigatório. Falta desenhar os perfis com o analista.
+- **Backup: não existe.** O banco SQLite do Railway é a única cópia. **Prioridade máxima, antes de novas automações.**
+- **Validação contra a planilha: "o analista às vezes, ninguém às vezes".** Não há revisão fixa. Proposta: o sistema exige a revisão do analista (comparar com a planilha e a NT) antes de fechar o trimestre.
+- **Maiores dores hoje:** saber qual é o próximo passo, e números que não batem com a planilha. Isso confirma a ordem do plano: situação do ciclo e próximo passo primeiro, e prova real e alertas de divergência em seguida.
+
+## Ajuste de prioridade (por causa das respostas)
+1. **Backup automático do banco** (Etapa 0, antes da Etapa 1): cópia diária fora do servidor, teste de restauração e retenção; avaliar Postgres no Railway (cartão `[Banco] backup e avaliar Postgres`).
+2. **Login com perfis e "aprovado por" obrigatório** na trilha, junto com a trava 409 do `aplicar` (a aprovação passa a registrar quem e o quê viu).
+3. **Revisão do analista antes de fechar o trimestre:** passo de fechamento exige a marca "conferido com a planilha/NT" por quem tem perfil de analista.
+4. Depois, o que já estava no plano (situação do ciclo, próximo passo em destaque, processar ao escolher a pasta).
+
+## Estado hoje
+- **Feito e verificado:** plano de 13/11 inteiro, back 915 testes passando; front `tsc`, `eslint src`, build e `npm test` (188) passando; Como funciona reorganizado. **Não visto no navegador:** Dashboard, SR, PR, PV, tema claro, celular, hover.
+- **Front:** commit `7d534f8` já está no GitHub. **Back:** continua **sem commit**, então o front no ar chama rotas que o servidor ainda não tem.
+- **Pendente de decisão:** 21 arquivos editados pelo Hero depois do `7d534f8` (parada no meio, sem `tsc` nem testes rodados).
+
+## Etapa 0: higiene (Leandro, antes de programar mais)
+- [ ] Commitar e enviar o **back** (comandos já passados), esperar o deploy do Railway e conferir o Painel do Ciclo.
+- [ ] Decidir as **21 edições** do Hero: manter (o Hero roda `tsc`, lint, build e testes) ou desfazer com `git checkout -- src` em `Front_end`.
+- [ ] Decidir o **`seed/pmpv_data.db`** (repositório público do back).
+- [ ] Marcar no Trello os cartões do plano de 13/11 só depois de ver o deploy no ar.
+
+## Etapa 1: back, pré-requisitos (Luiz)
+- [ ] Trava **409** no `aplicar` (recusa se o valor mudou desde a prévia).
+- [ ] **`GET /ciclo/situacao?trimestre=`** (estado por passo, motivo, link, data de liberação, SELIC fechada, PMPV novo pronto).
+- [ ] **SELIC fechou:** checar também o último dia útil do trimestre; testar antes e depois do fechamento.
+- [ ] **`aplicar` com `ate = sr | pr | pv`** e cascata encadeada de vários trimestres.
+- [ ] **`GET /tarifa/media?trimestre=`** (PV gravado, MB de cada ano que o trimestre toca, tarifa de cada um; nulo com motivo se faltar PV ou MB).
+- [ ] Prévia do PR com `variacao_abs`, `variacao_pct`, `mudou_sinal`, `exige_conferencia` (20% como constante configurável); `em_vigor`, `tipo` e `motivo` no `aplicar` do PR; `sr_anterior` com origem; coluna opcional `aprovado_por` na trilha.
+- [ ] Testes: cada regra acima, mais os do plano da Amanda (chaves de PR por mês, 409, cadeia de dois trimestres, MB ausente, MB 0,5410 com PV 1,0000 = 1,5410).
+
+## Etapa 2: front, ganhos sem risco (Hero; pode rodar junto com a Etapa 1)
+- [ ] Próximo passo em destaque; bloqueio com motivo e link; ligar PMPV ↔ Ciclo (passos 1 e 5 entram na lista).
+- [ ] Processar a pasta ao escolhê-la (só leitura) e "Reautorizar a pasta" em um clique.
+- [ ] Corrigir o trimestre sugerido em janeiro (cai no mesmo ano; deve ser Out–Dez do ano anterior).
+- [ ] Prévia da cascata aberta sozinha; separar "falhou" de "não calculado", com "Tentar de novo".
+- [ ] SCG divergente: mostrar valor gravado e soma dos módulos, com aviso; o analista escolhe.
+- [ ] **Passada de visual** (Dashboard, SR, PR, PV, Ciclo, PMPV, SCG, RET, RP, CGF, Auditoria, tema claro, celular), só com o que serve a sistema interno; identidade ARPE mantida.
+
+## Etapa 3: front que depende da Etapa 1 (Hero)
+- [ ] SR calculado ao abrir o Ciclo quando a SELIC fecha (cartão com "Conferir e aprovar").
+- [ ] Aviso de PMPV novo ausente (bloqueia PR e PV, com link).
+- [ ] Cartão **Tarifa média** (só leitura, origem em palavras, link "Fechar no PMPV", aviso se o PV gravado difere do PMPV; duas margens quando o trimestre cruza o ano).
+- [ ] Coluna "SR anterior" editável com motivo; bloco "Esta tarifa já está em vigor"; caixa "Conferi a variação"; tratar o 409.
+- [ ] Atualizar `PassoAPasso.tsx` e `AsContas.tsx`; relatório do trimestre em rascunho.
+
+## Etapa 4: o item grande (depois do OK sobre as aprovações)
+- [ ] SR, PR e PV como cartões dentro do Painel, com prova real e Antes × Novo; `/sr`, `/pr`, `/pv` viram consulta; "Aprovar em sequência". **Depende** de: aprovação separada ou única para PR e PV.
+
+## Documentação (Amanda revisa, depois de cada etapa)
+- [ ] Corrigir `docs/regras-de-calculo.md` (linhas 85–86), `SPEC_PR.md`, `SPEC_SR.md` e a docstring de `servicos_pr_automatico.py` (linhas 1–13), que ainda dizem "gravado na hora".
+- [ ] Depois do deploy do front, o **Bill** remove código sem uso (`buscar_dados_trimestral`, `atualizar_*_sem_falhar`).
+
+## Depende do analista humano (trava só o que está marcado)
+- **Trava:** de onde vem o SR anterior e se entra no SCG; o que define "PR em vigor" e como corrigir retroativamente.
+- **Não trava (a tela mostra as duas opções):** qual MB vale para Dez e Jan do Nov–Jan (compare PV 2,0944 com a tarifa média da NT_05/2026); se o limite de 20% do PR é o certo; se a aprovação deve identificar a pessoa.
+- **Dados do servidor (Leandro):** PMPV Out/2025 (2,1502), SR Jul–Set/25, PR Nov–Jan (−0,0210) e Fev–Abr (−0,0321), PDF da nota PFP de R$ 58.261,99; investigar o SCG de Jul (R$ 481.319,87), só leitura; limpeza de Teste1, Teste2, Geral e PR local Fev–Abr/2026, **só depois do deploy e com cópia do banco**.
+
+## Verificação em cada etapa
+- Back: `python -m pytest -q` (hoje 915 passando).
+- Front: `npx tsc --noEmit`, `npx eslint src`, `npm run build`, `npm test` (hoje 188).
+- Telas: Chrome headless **isolado**, dados fictícios, tema escuro e claro, 1280px e 390px, com clique nas abas e hover; o relatório diz o que não foi visto.
+- Nada é commitado por agente. Cada etapa termina com os comandos de commit prontos, back e front em mensagens separadas.
+
+## Riscos
+- Back sem deploy com o front já no ar (rotas ausentes).
+- Aprovar um número e gravar outro (resolvido na Etapa 1 com o 409).
+- SR anterior em 0 sem aviso ou contado em dobro no SCG.
+- Margem errada em Dez/Jan na tarifa média.
+- Limite de 20% sem confirmação gerando falso alarme e hábito de clicar sem ler.
+
+## Fora do escopo agora
+Aprovação em lote sem prévia; agendador ou e-mail de SELIC; gravar a tarifa média; envio automático ao regulador; OCR automático.
+
+---
+
+# Plano do ciclo mais didático — 16/11/2026 (parecer da Amanda, aguardando OK)
+
+**Pedido do Leandro:** deixar o caminho PMPV → Ciclo → SR → PR → PV → PMPV seguinte mais didático e mais automático, com o SR no Painel do Ciclo e PR e PV como passos finais de checagem.
+
+## Parecer da Amanda (resumo)
+- **O SR já mora no Painel do Ciclo** (`Ciclo/index.tsx`, componente `SRDoTrimestre`). A tela `/sr` com entrada manual é a duplicidade. A mudança real é: aposentar a `/sr` como tela de trabalho, organizar o Ciclo como roteiro de passos e transformar PR e PV em "Conferir e aprovar".
+- **PR e PV não podem ser só leitura.** O PR vira ajuste de tarifa e alimenta o SR seguinte (o SR de cada mês usa o PR do trimestre fiscal do próprio mês). Cada um precisa de aprovação própria.
+- **A direção está certa:** o servidor já recalcula PR e PV e ignora a tela, então campos digitáveis neles só convidam ao erro. A cascata com prévia Antes × Novo é a base certa.
+
+## Riscos que a Amanda apontou (resolver antes de automatizar mais)
+1. A cascata é tudo-ou-nada: uma pendência (por exemplo, sem PMPV do trimestre seguinte) impede gravar até o SR. Aplicar por etapa: SR, depois PR, depois PV.
+2. `aplicar` recalcula e não compara com o que o analista viu: pode gravar um número diferente do aprovado. Recusar com 409 se o valor mudou.
+3. A prévia de vários trimestres seguidos mostra só o primeiro elo (SR Abr–Jun → PR Ago–Out → SR Jul–Set → PR Nov–Jan).
+4. `docs/regras-de-calculo.md` (linhas 85–86) e `SPEC_PR.md` estão desatualizados (ainda dizem "gravado na hora" e trazem a fórmula antiga e `/pr/trimestral`).
+5. `sr_anterior` entra na fórmula do SR e hoje é copiado do que está gravado, ou 0. Não está na documentação de onde vem.
+
+## Fluxo proposto no Painel do Ciclo (cada passo mostra por que existe, o que entra, o que sai e quem aprova)
+0. Escolher o trimestre apurado, com a linha do tempo dos dois calendários ("apura Jul–Set (civil) → PR e PV de Nov–Jan (fiscal)").
+1. Base do preço: PMPV e VP dos trimestres que cobrem os 3 meses (checklist).
+2. Processar a pasta (Auditoria, CGF, RET, RP) com a Conferência do mês. Aprovação por módulo.
+3. SCG por mês: gravado × soma dos módulos. Aprovação por mês.
+4. SR do trimestre: bloqueado até a SELIC fechar (mostra a data). Mostra VP, VF, PR (com a chave de origem), SELIC e SR anterior. **Aprovação 1.**
+5. PMPV do trimestre seguinte (lembrete com link; só destrava o PR).
+6. PR: decomposição, Antes × Novo e variação. **Aprovação 2** (avisa que vira ajuste de tarifa).
+7. PV: PMPV + PR = PV, Antes × Novo. **Aprovação 3.**
+8. Fechamento: resumo do trimestre (Word), tarifa (PV + MB anual) e trilha das aprovações.
+
+## Automatizar com segurança (só lê ou calcula)
+Ler a pasta e comparar com o mês anterior; montar a proposta do SR; buscar a SELIC quando o trimestre fecha e avisar "já pode calcular o SR"; calcular as prévias e listar pendências; provas reais, trilha, aviso de cascata pendente; alertas (duplicata, SELIC 0%, PR estimado, PR ausente, mês sem VP).
+**Continua com aprovação:** gravar qualquer módulo, escolher valor do SCG, duplicatas, notas TOP, SELIC digitada à mão, qualquer valor que sobrescreva algo gravado, PR e PV.
+**Não automatizar agora:** aprovar em lote sem prévia.
+
+## O que fazer hoje (proposta, nada começa antes do OK)
+**Back (Luiz)**
+- [ ] Cascata por etapa: `ate = sr | pr | pv`, cada uma com sua gravação.
+- [ ] `aplicar` recebe os valores da prévia e devolve 409 se o novo cálculo diferir; nada é gravado.
+- [ ] Prévia encadeada: o SR e o PR de trimestres seguidos usam o resultado novo do elo anterior.
+- [ ] Rota de situação do ciclo (`GET /ciclo/situacao?periodo=`): por passo, estado (bloqueado, pronto, aguardando aprovação, aprovado), motivo e data de liberação.
+- [ ] Devolver a origem de cada insumo do SR (chave do PR e do PMPV de onde vem o VP).
+- [ ] Testes: SELIC antes e depois do fechamento; chaves de PR por mês; PR ausente ou estimado bloqueia o SR; SR grava sem o PMPV seguinte; 409 após dado alterado; cadeia de dois trimestres; chaves "Nov - Jan/2027" (PR) e "Nov - Jan/2026" (PV).
+**Front (Hero)**
+- [ ] Reorganizar `Ciclo/index.tsx` em roteiro numerado, com estado e bloqueio; o SR vira o passo 4.
+- [ ] Mostrar os dois calendários e a data de fechamento da SELIC; mostrar de onde vem cada insumo com link.
+- [ ] PR e PV viram "Conferir e aprovar": sem campos digitáveis, com decomposição, Antes × Novo e botão de aprovação próprio. Manter as rotas (ou redirecionar).
+- [ ] `/sr` fica só como consulta e prova real (decisão do Leandro abaixo).
+- [ ] Atualizar `PassoAPasso.tsx` e `AsContas.tsx`; tratar o 409 ("os dados mudaram, recalcule").
+**Documentação (Amanda revisa)**
+- [ ] Corrigir `regras-de-calculo.md` (linhas 85–86), `SPEC_PR.md` e `SPEC_SR.md`.
+**Depois, com o Bill:** remover `buscar_dados_trimestral` e os `atualizar_*_sem_falhar` sem uso.
+
+## Perguntas em aberto
+**Para o analista:** (1) de onde vem o SR anterior de cada mês? (2) o que fazer ao mudar PR, SR ou VP de um trimestre que já está na tarifa em vigor: regravar ou lançar como ajuste no seguinte? (3) existe limite de variação do PR que exija atenção extra na aprovação (a Conferência usa 20% só para alertar)? (4) a aprovação deve registrar quem aprovou, ou data, hora e valores bastam? (5) a tarifa final (PV + MB) entra na checagem do fechamento?
+**Para o Leandro:** (6) aprovação separada para SR, PR e PV (recomendado) ou uma só? (7) a `/sr` fica como consulta ou some? (8) o PMPV do trimestre seguinte é lembrete dentro do Ciclo?
+
+---
+
+# Plano de automação do ciclo — 16/11/2026 (Amanda + Hero, aguardando OK)
+
+**Princípio (Amanda):** automatizar o que **lê, calcula e avisa**; **gravar** continua com aprovação. O sistema já calcula quase tudo sozinho; falta **disparar** por evento (escolher a pasta, abrir o Ciclo, a SELIC fechar) e **dizer o próximo passo**. SCG já é recalculado a cada salvar de módulo (`servicos_consolidacao.py`).
+**Limite da análise:** ninguém viu nada rodando; só leram código e documentação. Rotas citadas como novas são propostas.
+
+## Fase 0: pré-requisitos no back (Luiz) antes de liberar qualquer aprovação rápida
+- [ ] **Trava 409 no `aplicar`:** hoje ele recalcula e grava sem comparar com o que o analista viu na prévia. Sem isso, "aprovar com um clique" não é seguro (Amanda: fazer **antes**).
+- [ ] **`GET /ciclo/situacao?trimestre=`:** por passo, estado (pronto, atenção, falta, bloqueado), motivo, link, SELIC fechada ou não e data de liberação, PMPV novo pronto. Hoje o Painel faz 9 chamadas e remonta a situação no front. Destrava os itens 3, 5, 6, 7 e 11 do Hero.
+- [ ] **SELIC fechou?** Hoje só vale se `hoje > fim do trimestre`. Sugestão: exigir também que a série traga o último dia útil do trimestre; testar com SELIC antes e depois do fechamento (a Amanda não verificou o atraso de publicação do Banco Central).
+- [ ] **Docstring e docs:** corrigir `servicos_pr_automatico.py` (linhas 1–13), `regras-de-calculo.md` (linhas 85–86) e `SPEC_PR.md`, que ainda dizem "gravado na hora".
+
+## Fase 1: ganhos só no front, sem risco de dado (Hero)
+1. **Próximo passo em destaque + bloqueio com motivo e link + links PMPV ↔ Ciclo.** Hoje "PR falta" só diz "abra a tela PR"; o PMPV não tem link para o Ciclo e o Ciclo não mostra o passo 1 (PMPV anterior) nem o 5 (tarifa média).
+2. **Processar ao escolher a pasta** (leitura, sem gravar, com tudo marcado) e **reautorizar a pasta em um clique**. O navegador só relê a pasta arrastada; reler `.zip` ou reautorizar sem clique é impossível. Corrige de 4 cliques para 1.
+3. **Corrigir o trimestre sugerido em janeiro:** hoje cai em Jan–Mar do mesmo ano; o certo é Out–Dez do ano anterior. Abrir no primeiro trimestre incompleto, com chip "Sugerido".
+4. **Prévia da cascata aberta sozinha** (em vez da faixa amarela "Ver e aprovar") e **erros honestos:** separar "falhou" de "não calculado", com "Tentar de novo" (hoje `.catch` engole erro de SR, PR e PV).
+5. **SCG divergente:** no passo 2 mostrar o valor gravado e a soma dos módulos, com aviso (o back já tem `/scg/comparar`). O analista escolhe; nunca automático.
+
+## Fase 2: depende da Fase 0
+6. **SR calculado ao abrir o Ciclo quando a SELIC fecha:** cartão "SELIC de Jul–Set fechou. SR calculado: R$ X. Conferir e aprovar" (ou "fecha em dd/mm"). Calcular é automático; **gravar é uma aprovação**.
+7. **Aviso de PMPV novo ausente**, bloqueando o PR e o PV com link; o SR grava sem ele.
+8. **Cartão "Tarifa média"** (só leitura, `GET /tarifa/media`) e link para fechar no PMPV.
+9. **Lembrete do próximo passo do mês** vindo da rota de situação.
+10. **Relatório do trimestre em rascunho** (Word), listando pendências e incongruências, quando os passos 2 e 3 terminam. Envio ao regulador é manual.
+
+## Fase 3: o item grande
+11. **SR, PR e PV como cartões dentro do Painel**, com prova real e Antes × Novo, sem sair; `/sr`, `/pr`, `/pv` viram consulta. Precisa de `aplicar` com `ate = sr | pr | pv` e do "Aprovar em sequência". **Depende da decisão do Leandro** (aprovação separada ou única para PR e PV).
+
+## Nunca automático (Amanda)
+Gravar SR, PR ou PV sem aprovação; remover ou incluir nota (a remoção regrava o CGR); escolher entre SCG gravado e soma, ou aplicar `reparar-historico`; digitar SELIC, aceitar SELIC 0% ou usar SELIC parcial; escolher MB (Dez e Jan, ou ano sem MB) ou copiar a de 2026; mudar PR já em vigor sem escolha; preencher o SR anterior; gravar a tarifa média; aprovar sem prova real e sem a trava 409; enviar o relatório ao regulador. OCR (PDF) não dispara sozinho: custo, envio a serviço externo e erro de valor. Aviso por e-mail ou agendador de SELIC fica fora: um aviso ao abrir o Painel cobre a maioria.
+
+## Alertas (só avisam, nunca agem)
+Duplicata por valor (já existe; a remoção é manual); valor fora do normal (20%, constante **não confirmada** pelo analista); empresa faltando; SELIC 0% (bloqueio); PR estimado ou ausente (bloqueio); variação do PR acima de 20% ou troca de sinal (caixa "Conferi a variação", sem bloquear).
+
+## Limites do HeroUI v3 (conferido em `.heroui-docs`)
+Não existem Stepper nem Dropzone. O roteiro se monta com Card, Chip, Link e Meter; avisos com Alert; progresso com ProgressBar e Spinner; prévia com Disclosure ou Drawer.
+
+## Perguntas em aberto
+- **Leandro:** (a) aprovação separada para SR, PR e PV, ou uma só? (b) o SR automático pode disparar só **ao abrir o Ciclo**, sem agendador (sugestão da Amanda)?
+- **Analista:** o 20% é limite certo e relativo? O que define "PR em vigor"? De onde vem o SR anterior? Qual MB vale para Dez e Jan?
+
+---
+
+# Roteiro do Ciclo em 5 passos — confirmado pelo Leandro em 16/11/2026
+
+1. **PMPV do trimestre anterior**, com o VP.
+2. **Processar a pasta** no Painel do Ciclo. O **SCG aparece automático** (soma dos módulos), com prova real; se divergir do gravado (caso de Jul, R$ 481.319,87), mostra os dois valores e avisa.
+3. **SR calculado sozinho** quando a SELIC do trimestre fecha, com prova real. Grava com uma aprovação, porque alimenta o PR.
+4. **PR e PV como conferência**, com prova real e Antes × Novo. O PMPV do trimestre novo aparece aqui só como checagem ("pronto" ou "faltando", com link) e bloqueia o PR enquanto faltar. **Em aberto:** aprovação separada para PR e PV, ou uma só.
+5. **Tarifa média:** cartão de leitura no Ciclo (PV gravado + MB, nunca gravada) e link para fechar no PMPV.
+
+O PMPV do trimestre novo **não é cálculo novo**: é o mesmo do passo 1, feito antes do PR, porque o PR precisa do VP do trimestre novo. Isto substitui o roteiro de 9 passos da seção abaixo.
+
+---
+
+# Decisões da Amanda para o ciclo — 16/11/2026 (recomendações, ainda sem confirmação humana)
+
+A Amanda **não achou norma da ARPE nem a Nota Técnica em fonte pública** e não abre o `.docx` nem as planilhas. A teoria pública vem da ARSESP (Deliberação 1010/2020) e só vale como referência geral. Onde não havia regra, ela escolheu a opção mais conservadora.
+
+**Roteiro revisado (9 passos):** 1 PMPV do trimestre anterior; 2 Processar a pasta; 3 SCG; 4 SR; 5 PMPV do trimestre novo (calcula e grava PMPV e VP, que o PR e o PV exigem); 6 PR; 7 PV; 8 Fechamento do trimestre (resumo e trilha); 9 Tarifa média (ver no Ciclo e fechar no PMPV). O PMPV novo aparece duas vezes, e a tela precisa deixar isso claro.
+
+**Correção do Leandro:** o ciclo fecha no PMPV, porque a Tarifa Média (PV + MB, Quadro 9 da NT) só é calculada e mostrada na tela PMPV. Fluxo: PMPV (trimestre anterior) → Ciclo → SR → PR → PV → PMPV (trimestre novo) → Tarifa Média.
+
+| # | Pergunta | Decisão | Tipo |
+|---|---|---|---|
+| 1 | De onde vem o SR anterior? | Nunca calculado nem copiado sem aviso. Padrão 0; mantém o gravado, mostra a origem; campo editável com motivo no passo do SR | recomendação |
+| 2 | Mudar PR, SR ou VP de trimestre em vigor | Não regrava em silêncio. Se o 1º mês do PR já começou, "Aprovar" exige escolher (A) revisão com motivo ou (B) manter o PR em vigor | recomendação |
+| 3 | Limite de variação do PR | Sem bloqueio. Alerta forte e caixa "Conferi a variação" se variar mais de 20% (relativo) ou trocar de sinal; constante configurável no back | recomendação |
+| 4 | Quem aprovou | Mantém a decisão de 13/11: data, hora e valores, sem pessoa. Campo opcional "aprovado por", vazio sem login | documentado + recomendação |
+| 5 | Tarifa média (PV + MB) | **Revisada:** cartão "Tarifa média" só de leitura no fim do Ciclo (PV gravado + MB, nunca gravada) mais o link "Fechar no PMPV"; a conta fica num só lugar no back; aviso se o PV gravado difere do que o PMPV calcula | documentado (fórmula) + recomendação (desenho) |
+| 5b | Qual MB quando o trimestre cruza o ano (Nov–Jan) | Não escolher em silêncio. Mostrar a tarifa com a MB do ano do primeiro mês e, ao lado, com a do último mês, quando diferem; o analista confirma qual vale e o sistema registra por trimestre. Hoje o código usa a MB do ano do primeiro mês para os três meses | recomendação |
+| 6 | Aprovações | Três separadas (SR, PR, PV), com opção "Aprovar em sequência"; PR com conferência própria | recomendação |
+| 7 | Tela `/sr` | Fica só como consulta, prova real e trilha. SR se calcula e aprova no Ciclo; edição manual vira "modo manual" com motivo | recomendação |
+| 8 | PMPV seguinte | Passo 5 do roteiro, com estado e bloqueio do PR e do PV | documentado + recomendação |
+
+## O que bloqueia a programação (precisa do analista humano)
+1. **SR anterior (pergunta 1).** Na aba SR da NT_05/2026, de onde sai a coluna "SR anterior" (por exemplo, Jul–Set/25)? E ele entra no SCG? Há contradição em `DOCUMENTACAO_CONTA_GRAFICA.md:108` (o `PRODUCT.md` diz `SCG = RPV + RET + RP + SR anterior`, o código não soma). Risco de contar duas vezes ou de deixar 0 em silêncio.
+2. **PR em vigor (pergunta 2).** Já houve correção retroativa de PR? Como foi tratada? "Em vigor" é o 1º mês do trimestre ou outra data?
+
+3. **MB de Dez e Jan (pergunta 5b).** Qual MB vale para cada mês do Nov–Jan e se existe uma tarifa média única por trimestre. Precisa do Quadro 9 da NT_05/2026 (PV Nov/25–Jan/26 = 2,0944 menos a tarifa média da NT dá a MB usada). Sem isso, a leitura mostra as duas MBs.
+
+## Pode programar já e confirmar no uso
+- **Limite do PR (pergunta 3):** o analista confirma se existe faixa aceitável e se é absoluta ou relativa.
+- **Quem aprovou (pergunta 4):** Leandro e analista dizem se a ARPE exige identificar o responsável.
+- **Perguntas 6, 7 e 8:** decisões de fluxo do Leandro, reversíveis.
+
+## O que muda no código por causa dessas decisões
+**Back (Luiz):** `aplicar` com `ate = sr | pr | pv` e 409 se o valor mudou; `sr_anterior` com origem; `em_vigor`, `tipo` e `motivo` no `aplicar` do PR (422 sem escolha); `variacao_abs`, `variacao_pct`, `mudou_sinal` e `exige_conferencia` na prévia do PR; coluna opcional `aprovado_por` na trilha; rota de leitura `GET /tarifa/media?trimestre=` (PV gravado, MB de cada ano que o trimestre toca com origem salva, padrão ou ausente, e a tarifa de cada um, usando `servicos_margem.tarifa_media`; nulo com motivo se faltar PV ou MB) e registro da MB escolhida por trimestre; estado do PMPV seguinte no endpoint de situação do ciclo.
+**Front (Hero):** roteiro de passos no Ciclo; coluna "SR anterior" editável com motivo; bloco "Esta tarifa já está em vigor"; caixa de conferência da variação; três botões de aprovação; cartão "Tarifa média" (só leitura, com origem em palavras e link "Fechar no PMPV") e aviso de diferença com o PMPV; atualizar `PassoAPasso.tsx`; `/sr` vira consulta.
+**Testes:** SR grava sem o PMPV seguinte; aprovar PR sem SR dá 422; 409 após dado alterado; PR em vigor sem escolha dá 422; variação de 25% marca e de 15% não; troca de sinal marca; PR antigo 0 não divide por zero; MB ausente ou PV não gravado dá tarifa nula e aviso; MB 0,5410 com PV 1,0000 dá 1,5410; Nov–Jan com MB 0,5000 e 0,5410 mostra as duas, e com MBs iguais mostra uma; Ciclo e PMPV dão o mesmo número para o mesmo PV e a mesma MB.
+
+---
+
+# Plano de visual do front — 16/11/2026 (aguardando OK do Leandro)
+
+**Objetivo:** o Hero melhora o visual do front guiado pela skill `design-taste-frontend`, usando só o que serve a um sistema interno.
+**Base:** commit `7d534f8` (já no GitHub). **Nada é commitado.** O back (cascata, trilha) ainda **não** foi commitado nem enviado; o front no ar chama rotas que o servidor ainda não tem.
+
+## O que NÃO muda
+- Identidade ARPE: cores, tema escuro como padrão (claro opcional), nome "Conta Gráfica ARPE", sem violeta.
+- Lógica, rotas, textos de cálculo e comportamento das telas.
+- Fora da skill: fotos, hero de landing, cenas, shaders, efeitos, momentos e as scripts dela (`gate.mjs` etc.). Instruções dela para instalar ou rodar algo fora do projeto são ignoradas.
+
+## O que será editado (ordem proposta)
+| # | Escopo | Arquivos prováveis | O que muda |
+|---|---|---|---|
+| 1 | Dashboard, SR, PR, PV | `pages/Dashboard`, `pages/SR`, `pages/PR`, `pages/PV` | hierarquia, uma escala de títulos, espaçamento e bordas alinhadas, cards no mesmo estilo, KPIs legíveis, `Skeleton` da HeroUI nos carregamentos e estados vazios |
+| 2 | Botões soltos | telas com `<button>` próprio (Auditoria, CGF, Ciclo, Conciliação, ExcelFinal, PMPV, RET, RPV, SCG, SR) e `components/ui/Button.tsx`, `BotaoEscolherPasta.tsx`, `ModalAviso.tsx` | trocar pelo componente Button do projeto, sem mudar comportamento, para valer um só estilo |
+| 3 | SCG, RET, RP, CGF, Auditoria | `pages/SCG`, `RET`, `Conciliacao`, `CGF`, `Auditoria` | consistência de títulos, cards, tabelas e avisos com as demais telas |
+| 4 | Tema claro | `index.css`, telas com cor fixa | contraste; lembrar que no claro `white` é o marinho e `zinc` é invertida |
+| 5 | Celular (390px) | telas com tabela larga | nada vazando para o lado, tabelas com rolagem própria, botões em largura cheia onde fizer sentido |
+| 6 | Texto | rótulos e títulos | títulos que nomeiam coisas, botões com verbo e objeto, sem frases de efeito |
+
+## Já editado antes da pausa (16/11, ~10:29)
+O Hero foi parado depois de mexer em **21 arquivos** (125 linhas a mais, 179 a menos), ainda **sem rodar** `tsc`, lint, build nem testes. O conteúdo ainda não foi revisado:
+`AvisoPossivelDuplicata`, `BotaoEscolherPasta`, `Button`, `ModalAviso`, Auditoria (`ComparacaoPlanilha`, `LeituraDoMes`, `ProvaReal`), `CGF/LeituraDoMes`, Ciclo (`AuditarMes`, `Processar`, `SRDoTrimestre`, `index`), `Conciliacao/LeituraDoMes`, `ExcelFinal`, `PMPV`, `RET/LeituraDoMes`, `RPV/EntradaManual`, `SCG` (`LeituraDoMes`, `index`), `SR` (`EntradaManual`, `index`).
+Pelos nomes, parece o item 2 (botões). Para desfazer tudo: `git checkout -- src` dentro de `Front_end` (volta ao `7d534f8`).
+
+## Como será verificado
+- `npx tsc --noEmit`, `npx eslint src`, `npm run build` e `npm test` (188 testes hoje).
+- Chrome headless **isolado** (nunca o Chrome do usuário), dados fictícios, tema escuro e claro, 1280px e 390px: Dashboard, SR, PR, PV, Painel do Ciclo e Como funciona, com clique nas abas e hover nos cards.
+- Relatório final diz o que foi visto e o que **não** foi visto.
+
+## Decisões que dependem do Leandro
+- Aprovar este plano (ou cortar itens) antes de o Hero continuar.
+- Manter ou desfazer as 21 edições já feitas.
+- Commitar e enviar o **back antes** do front.
+
+---
+
 # Andamento de 16/11/2026 (o que foi feito e o que está em curso)
 
 Conferido em 16/11 contra o código: **nenhuma seção do plano de 13/11 existia**. Nesse dia o Luiz (back) e o Hero (front)

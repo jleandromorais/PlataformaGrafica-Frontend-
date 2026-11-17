@@ -9,6 +9,7 @@ import { brl } from "../../utils/format";
 import { m3 } from "../../utils/format";
 import type { Cascata, DetalheDuplicata, PossivelDuplicataValor } from "../../types";
 import { usePreviaCascata } from "./usePreviaCascata";
+import { Button } from "./Button";
 
 /** "nº 255 · R$ 1.000,00 · 1.234 m³ · vence 10/10/2026": o contexto de uma nota, só com o que o back mandou. */
 function textoDoDetalhe(d: DetalheDuplicata | undefined): string {
@@ -61,8 +62,6 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
     }
   };
 
-  const BOTAO = "rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
-
   return (
     <div role="alert" className={`rounded-lg border border-amber-400/40 bg-amber-400/[0.08] px-4 py-3 text-sm text-amber-200 ${className}`}>
       <p className="flex items-center gap-2 font-semibold">
@@ -83,10 +82,9 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
                       <span className="break-all">• {nome}</span>
                       {g.detalhes?.[i] && <span className="text-xs tabular-nums text-amber-100/80">{textoDoDetalhe(g.detalhes[i])}</span>}
                       {podeTirar && id !== undefined && confirmando !== id && (
-                        <button type="button" onClick={() => { setConfirmando(id); setErro(null); }}
-                          className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                        <Button variant="warning" size="sm" onClick={() => { setConfirmando(id); setErro(null); }}>
                           Tirar do cálculo
-                        </button>
+                        </Button>
                       )}
                     </span>
                     {podeTirar && id !== undefined && confirmando === id && (
@@ -94,14 +92,12 @@ export function AvisoPossivelDuplicata({ grupos, periodo, totalDoMes = "total", 
                         Tirar esta nota do {totalDoMes} de <b>{periodo}</b>? O {totalDoMes} gravado do mês e o SCG
                         são recalculados; o SR, o PR e o PV só mudam depois que você aprovar a prévia. Para trazer a nota de volta, processe e grave o mês de novo.
                         <span className="mt-2 flex gap-2">
-                          <button type="button" disabled={tirando === id} onClick={() => void tirar(id)}
-                            className={`${BOTAO} border-amber-300 bg-amber-300 text-black hover:bg-amber-200`}>
+                          <Button variant="solid" size="sm" disabled={tirando === id} onClick={() => void tirar(id)}>
                             {tirando === id ? "Tirando…" : "Sim, tirar"}
-                          </button>
-                          <button type="button" disabled={tirando === id} onClick={() => setConfirmando(null)}
-                            className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                          </Button>
+                          <Button variant="warning" size="sm" disabled={tirando === id} onClick={() => setConfirmando(null)}>
                             Cancelar
-                          </button>
+                          </Button>
                         </span>
                       </span>
                     )}

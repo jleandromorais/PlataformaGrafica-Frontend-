@@ -29,6 +29,7 @@ import type {
   AuditoriaDiferencas, AuditoriaHistoricoLinha, AuditoriaResultado, CGFHistoricoLinha, CGFProcessarResponse,
   ConciliaHistoricoLinha, ConciliaResultado, RETHistoricoLinha, RETResultado,
 } from "../../types";
+import { Button } from "../../components/ui/Button";
 
 type Estado = "pronta" | "bloqueada" | "vazia" | "processando" | "processada" | "erro" | "gravando" | "gravada";
 
@@ -519,23 +520,20 @@ export function ProcessarTrimestre({
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {fase === "previa" && (
-          <button type="button" onClick={processar} disabled={!aProcessar || semArquivos}
-            title={semArquivos ? "Arraste a pasta acima (ou escolha o .zip) para enviar os arquivos" : undefined}
-            className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+          <Button variant="solid" onClick={processar} disabled={!aProcessar || semArquivos}
+            title={semArquivos ? "Arraste a pasta acima (ou escolha o .zip) para enviar os arquivos" : undefined}>
             Processar {aProcessar} etapa(s)-mês
-          </button>
+          </Button>
         )}
         {fase === "revisao" && (
-          <button type="button" onClick={pedirGravar} disabled={!aGravar}
-            className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+          <Button variant="solid" onClick={pedirGravar} disabled={!aGravar}>
             Gravar {aGravar} etapa(s)-mês
-          </button>
+          </Button>
         )}
         {ocupado && (
-          <button type="button" onClick={() => { parar.current = true; }}
-            className="rounded-lg border border-white/[0.15] px-4 py-2.5 text-sm font-medium text-zinc-200 hover:bg-white/[0.05]">
+          <Button variant="ghost" onClick={() => { parar.current = true; }}>
             Parar depois desta
-          </button>
+          </Button>
         )}
         {!ocupado && (
           <button type="button" onClick={onFechar} className="rounded-lg px-4 py-2.5 text-sm font-medium text-zinc-400 hover:text-white">

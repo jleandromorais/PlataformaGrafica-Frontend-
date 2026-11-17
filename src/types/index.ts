@@ -952,6 +952,16 @@ export interface Cascata {
   desatualizado: boolean;
   trimestres: CascataTrimestre[];
   pendencias: string[];
+  ate?: CascataAPartirDe | null;   // back novo: até onde a cascata vai (com "sr", pr_novo e pv_novo vêm null)
+}
+
+/** GET /ciclo/situacao (back novo; o antigo dá 404). Tudo opcional: só o que o Painel usa. */
+export interface SituacaoCiclo {
+  trimestre?: string;
+  selic?: { fechada: boolean; estado: string; fecha_em?: string | null; motivo?: string | null };
+  pmpv_novo?: { existe: boolean; meses?: string[]; meses_sem_vp?: string[] };
+  passos?: { chave: string; titulo?: string; estado: string; motivo?: string | null; rota?: string | null }[];
+  proximo_passo?: string | { chave?: string } | null;
 }
 
 /** Resposta de um Salvar: o back novo traz `cascata`; o antigo não (por isso é opcional). */

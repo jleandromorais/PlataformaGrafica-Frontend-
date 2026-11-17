@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode, Ref } from "react";
 import { classesDoBotao, type Size, type Variant } from "./estilosBotao";
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -6,6 +6,8 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   size?: Size;
   loading?: boolean;
   icon?: ReactNode;
+  /** Referência ao <button> (no React 19 vem como prop comum). */
+  ref?: Ref<HTMLButtonElement>;
   children: ReactNode;
 }
 
@@ -15,13 +17,16 @@ export function Button({
   loading = false,
   icon,
   children,
+  ref,
   className = "",
   disabled,
   ...rest
 }: Props) {
   return (
     <button
+      type="button" // padrão seguro (não envia formulário); quem quiser "submit" passa type e sobrescreve
       {...rest}
+      ref={ref}
       disabled={disabled || loading}
       className={classesDoBotao(variant, size, `disabled:cursor-not-allowed ${variant === "solid" ? "" : "disabled:opacity-50"} ${className}`)}
     >

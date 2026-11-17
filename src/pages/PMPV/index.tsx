@@ -1,7 +1,7 @@
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
+import { ArrowLeft, Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CardFormula } from "../../components/ui/CardFormula";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
@@ -22,6 +22,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { Button } from "../../components/ui/Button";
 
 /** Busca da prova real de uma sessão: a chave é o id da sessão (em texto). Função estável do módulo. */
 const buscarProvaDaSessao = (id: string) => getProvaRealPMPV(Number(id));
@@ -747,7 +748,12 @@ export default function PMPVPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-        <PageHeader modulo="pmpv" />
+        <PageHeader modulo="pmpv" acoes={params.get("de") === "ciclo" ? undefined : (
+          // Aberto pelo Ciclo, a barra do topo já oferece a volta; sem ela, este atalho leva ao Painel.
+          <Link to="/ciclo" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sky-300 hover:text-white">
+            <ArrowLeft size={14} aria-hidden /> Voltar ao Ciclo
+          </Link>
+        )} />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {aviso && <Alert variant="warning" {...partesDoAviso(aviso)} />}
@@ -874,21 +880,15 @@ export default function PMPVPage() {
                     ref={arquivoRef} type="file" accept=".xlsx,.xls,.xlsm" className="hidden"
                     onChange={(e) => e.target.files?.[0] && importar(e.target.files[0])}
                   />
-                  <button
-                    type="button" disabled={!pronto || ocupado !== null}
-                    onClick={() => arquivoRef.current?.click()}
-                    className="flex items-center gap-1.5 rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.06] disabled:opacity-50"
-                  >
+                  <Button variant="ghost" size="sm" disabled={!pronto || ocupado !== null}
+                    onClick={() => arquivoRef.current?.click()}>
                     {ocupado === "importar" ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
                     Importar Memória de Cálculo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => editarLinhas({ ...linhas, [aba]: [...linhas[aba], linhaVazia()] })}
-                    className="flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/15"
-                  >
+                  </Button>
+                  <Button variant="primary" size="sm"
+                    onClick={() => editarLinhas({ ...linhas, [aba]: [...linhas[aba], linhaVazia()] })}>
                     <Plus size={13} /> Empresa
-                  </button>
+                  </Button>
                 </div>
               }
             >
@@ -917,21 +917,15 @@ export default function PMPVPage() {
           <div className="flex flex-col gap-6 xl:col-span-4">
             <Painel title="Calcular e salvar">
               <div className="flex flex-col gap-3">
-                <button
-                  type="button" onClick={() => calcular()} disabled={!pronto || ocupado !== null}
-                  className="flex items-center justify-center gap-2 rounded-lg bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
-                >
+                <Button variant="solid" size="lg" onClick={() => calcular()} disabled={!pronto || ocupado !== null} className="justify-center">
                   {ocupado === "calcular" ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
                   {ocupado === "calcular" ? "Calculando…" : "Calcular PMPV"}
-                </button>
-                <button
-                  type="button" onClick={salvar} disabled={!resultado || ocupado !== null}
-                  title={resultado ? undefined : "Calcule antes de salvar"}
-                  className="flex items-center justify-center gap-2 rounded-lg border border-white/[0.07] bg-white/[0.03] py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40"
-                >
+                </Button>
+                <Button variant="ghost" onClick={salvar} disabled={!resultado || ocupado !== null}
+                  title={resultado ? undefined : "Calcule antes de salvar"} className="justify-center">
                   {ocupado === "salvar" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                   Salvar sessão
-                </button>
+                </Button>
                 <p className="text-xs leading-relaxed text-zinc-500">
                   Salvar grava a sessão, o PMPV de cada mês ({periodos.join(", ") || "—"}) e define este como o trimestre ativo dos outros módulos.
                 </p>
@@ -976,10 +970,9 @@ export default function PMPVPage() {
                           onChange={(e) => { setMargemTexto(e.target.value); setErroMargem(null); }}
                           aria-invalid={erroMargem !== null} aria-describedby={erroMargem ? "margem-erro" : undefined}
                           className={`w-28 ${INPUT} ${erroMargem ? "border-red-500/50" : ""}`} />
-                        <button type="button" onClick={salvarMargem} disabled={salvandoMargem || !margemTexto.trim()}
-                          className="flex items-center gap-1.5 rounded-lg border border-sky-500/25 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/15 disabled:opacity-50">
+                        <Button variant="primary" size="sm" onClick={salvarMargem} disabled={salvandoMargem || !margemTexto.trim()}>
                           {salvandoMargem ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Salvar margem
-                        </button>
+                        </Button>
                         {editandoMargem && (
                           <button type="button" onClick={() => { setEditandoMargem(false); setErroMargem(null); }} disabled={salvandoMargem}
                             className="rounded text-xs text-zinc-400 underline underline-offset-2 hover:text-zinc-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">

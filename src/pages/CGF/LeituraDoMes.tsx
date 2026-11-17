@@ -22,6 +22,7 @@ import type { CGFColunas, CGFHistoricoLinha, CGFProcessarResponse } from "../../
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const INPUT = "rounded-lg border border-white/[0.07] bg-white/[0.03] px-3 py-2 text-sm text-zinc-100 tabular-nums placeholder-zinc-600 transition-colors";
@@ -252,13 +253,10 @@ export function LeituraDoMes() {
                   ))}
                 </div>
               </details>
-              <button
-                type="button" onClick={processar} disabled={!arquivos.length || ocupado !== null}
-                className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
-              >
+              <Button variant="solid" size="lg" onClick={processar} disabled={!arquivos.length || ocupado !== null} className="mt-5 w-full justify-center">
                 {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
                 {ocupado === "processar" ? "Processando…" : "Processar planilhas"}
-              </button>
+              </Button>
               {!arquivos.length && ocupado === null && <p className="mt-2 text-center text-xs text-zinc-400">Escolha as planilhas acima para liberar o processamento.</p>}
             </section>
           </div>
@@ -274,13 +272,10 @@ export function LeituraDoMes() {
                   onChange={(e) => editarPmpv(e.target.value)}
                   className={`${INPUT} w-40`}
                 />
-                <button
-                  type="button" onClick={() => { setCarregandoPmpv(true); buscarPmpv(periodo); }} disabled={carregandoPmpv || !anoValido(ano)}
-                  className="flex items-center gap-2 rounded-lg bg-marinho px-4 py-2 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
-                >
+                <Button variant="solid" onClick={() => { setCarregandoPmpv(true); buscarPmpv(periodo); }} disabled={carregandoPmpv || !anoValido(ano)}>
                   {carregandoPmpv ? <Loader2 size={15} className="animate-spin" /> : <Zap size={15} />}
                   Carregar do banco
-                </button>
+                </Button>
               </div>
               <p className="mt-5 text-2xl font-bold tracking-tight text-emerald-300">
                 CGF em R$: <span className="tabular-nums">{cgfRs !== null ? brl(cgfRs) : "—"}</span>
@@ -325,14 +320,11 @@ export function LeituraDoMes() {
                         ? <span className="text-red-300">Corrija os problemas acima e processe de novo para poder salvar.</span>
                         : cgfRs !== null ? <>CGF de {periodo}: <span className="font-semibold text-emerald-300">{brl(cgfRs)}</span></> : "Informe o PMPV para poder salvar."}
                     </p>
-                    <button
-                      type="button" onClick={salvar} disabled={cgfRs === null || comErro || ocupado !== null}
-                      title={comErro ? "Corrija os problemas acima e processe de novo." : undefined}
-                      className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
-                    >
+                    <Button variant="solid" onClick={salvar} disabled={cgfRs === null || comErro || ocupado !== null}
+                      title={comErro ? "Corrija os problemas acima e processe de novo." : undefined}>
                       {ocupado === "salvar" ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                       Salvar CGF de {periodo}
-                    </button>
+                    </Button>
                   </div>
                 </dl>
               )}

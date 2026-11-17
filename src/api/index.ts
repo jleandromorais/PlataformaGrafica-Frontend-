@@ -9,7 +9,7 @@ import type {
   SCGPeriodo, PRResultado, PRApuracao, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
-  Cascata, CascataAPartirDe, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
+  Cascata, CascataAPartirDe, SituacaoCiclo, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -463,9 +463,20 @@ export const previaCascata = (periodos: string[], aPartirDe: CascataAPartirDe = 
 export const cascataPendente = () =>
   api.get<Cascata>("/cascata/pendente").then((r) => r.data);
 
-/** Depois da aprovação: o servidor recalcula e grava SR → PR → PV. Com pendência responde 422 e nada é gravado. */
-export const aplicarCascata = (periodos: string[], aPartirDe: CascataAPartirDe = "sr") =>
-  api.post<Cascata>("/cascata/aplicar", { periodos, a_partir_de: aPartirDe }).then((r) => r.data);
+/** Depois da aprovação: o servidor recalcula e grava SR → PR → PV. Com pendência responde 422 e nada é gravado.
+ * `esperado` (os trimestres da prévia que o analista viu) faz o back novo responder 409 se o valor mudou desde então;
+ * o back antigo ignora o campo. `ate` grava só até sr, pr ou pv. */
+export const aplicarCascata = (periodos: string[], aPartirDe: CascataAPartirDe = "sr",
+  opcoes: { ate?: CascataAPartirDe; esperado?: Cascata["trimestres"] } = {}) =>
+  api.post<Cascata>("/cascata/aplicar", {
+    periodos, a_partir_de: aPartirDe,
+    ...(opcoes.ate ? { ate: opcoes.ate } : {}),
+    ...(opcoes.esperado ? { esperado: opcoes.esperado.map((t) => ({ periodo: t.periodo, sr_novo: t.sr_novo, pr_novo: t.pr_novo, pv_novo: t.pv_novo })) } : {}),
+  }).then((r) => r.data);
+
+/** Situação do ciclo calculada pelo back. Back antigo (404) ou qualquer falha: null, e o Painel calcula sozinho. */
+export const getSituacaoCiclo = (trimestre: string) =>
+  api.get<SituacaoCiclo>("/ciclo/situacao", { params: { trimestre } }).then((r) => r.data).catch(() => null);
 
 // ─── CONFERÊNCIA DO MÊS E TRILHA ─────────────────────────────────────────────
 

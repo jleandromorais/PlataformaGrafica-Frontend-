@@ -20,6 +20,7 @@ import type { RETHistoricoLinha, RETResultado } from "../../types";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -110,11 +111,10 @@ export function LeituraDoMes() {
                 setErro(p.arquivos.length ? null : "Nenhum PDF nesta pasta.");
               }}
             />
-            <button type="button" onClick={processar} disabled={!pasta?.arquivos.length || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+            <Button variant="solid" size="lg" onClick={processar} disabled={!pasta?.arquivos.length || ocupado !== null} className="w-full justify-center">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? `Lendo ${pasta?.arquivos.length} PDFs…` : "Processar PDFs"}
-            </button>
+            </Button>
             {!pasta?.arquivos.length && ocupado === null && <p className="-mt-1 text-center text-xs text-zinc-400">Escolha a pasta do RET para liberar o processamento.</p>}
           </section>
 
@@ -129,12 +129,11 @@ export function LeituraDoMes() {
                 )}
               </div>
               {resultado && (
-                <button type="button" onClick={salvar} disabled={ocupado !== null || semMes}
-                  title={semMes ? "Há documentos sem mês no caminho" : undefined}
-                  className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+                <Button variant="solid" onClick={salvar} disabled={ocupado !== null || semMes}
+                  title={semMes ? "Há documentos sem mês no caminho" : undefined}>
                   {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
                   Salvar {resultado.meses.length > 1 ? `os ${resultado.meses.length} meses` : resultado.meses[0]?.periodo}
-                </button>
+                </Button>
               )}
             </div>
             {!resultado ? (

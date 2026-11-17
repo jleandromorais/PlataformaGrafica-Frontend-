@@ -241,10 +241,9 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
                   A pasta do mês, que contém uma pasta por empresa (Petrobras, TAG…) com os XML e PDF. Não traga a pasta de uma só empresa.
                 </p>
                 {/* Sem "Escolher a pasta": o seletor do sistema faz o Chrome abrir um aviso que o site não controla. */}
-                <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={lendoPasta}
-                  className="flex items-center gap-2 rounded-lg border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+                <Button variant="primary" ref={botaoZip} onClick={() => inputZip.current?.click()} disabled={lendoPasta}>
                   <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-                </button>
+                </Button>
                 <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
               </AreaSoltarPasta>
               {lendoPasta && (

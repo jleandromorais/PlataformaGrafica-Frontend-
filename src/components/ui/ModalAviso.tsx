@@ -2,6 +2,7 @@ import type { ReactNode, RefObject } from "react";
 import { AlertTriangle, Info, XCircle } from "lucide-react";
 import { Modal } from "./Modal";
 import { Texto } from "./Alert";
+import { Button } from "./Button";
 
 export type VarianteAviso = "info" | "atencao" | "erro";
 
@@ -32,10 +33,9 @@ export function ModalAviso({
     <Modal aberto={aberto} onFechar={onFechar} icone={icone ?? ICONE[variante]} titulo={titulo} voltarFoco={voltarFoco}
       rodape={<>
         {acao && (
-          <button type="button" data-foco-inicial onClick={acao.onClick}
-            className="w-full rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper hover:bg-marinho-claro">
+          <Button variant="solid" data-foco-inicial onClick={acao.onClick} className="w-full">
             {acao.rotulo}
-          </button>
+          </Button>
         )}
         <button type="button" onClick={onFechar} data-foco-inicial={acao ? undefined : true}
           className="w-full rounded-xl px-4 py-2.5 text-sm font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white">

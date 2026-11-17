@@ -1,3 +1,5 @@
+> **DOCUMENTO HISTÓRICO (revisto em 16/11/2026).** Esta spec descreve a primeira tela PR, com campos digitáveis. Hoje o servidor calcula e grava o PR e ignora os números da tela; a rota `POST /pr/trimestral` foi removida. Valem `docs/regras-de-calculo.md` e `Front_end/docs/plano.md`. Rotas atuais: `POST /pr/apurar`, `POST /pr/salvar` (recebe só `periodo`), `DELETE /pr?periodo=` (simula; só apaga com `aplicar=true`), `GET /pr/sr-anteriores` e `GET /cascata/previa`. Fórmula atual: `PR = ROUND((Σ SCG × (1 + SELIC acumulada) + Σ SR com SELIC) / Σ VP; 4)`.
+
 > **Status backend:** `GET /pr/{periodo}`, `POST /pr/trimestral`,
 > `POST /pr/salvar`, `GET /pr/periodos` já implementados e testados
 > (`Src/api/routers/pr.py`, `ServicosPR`). Falta 1 endpoint novo:

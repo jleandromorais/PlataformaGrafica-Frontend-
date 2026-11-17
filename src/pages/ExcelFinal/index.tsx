@@ -6,6 +6,7 @@ import { gerarExcelFinalGeral, gerarMinutaNotaTecnica, getCoberturaExcelFinal } 
 import { mensagemDeErro } from "../../api/client";
 import { salvarArquivo } from "../../utils/download";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -130,11 +131,10 @@ export default function ExcelFinalPage() {
               <p className="mt-1 text-xs text-zinc-500">Cada pessoa baixa a sua cópia, então não tem problema se outra pessoa estiver com o arquivo aberto.</p>
             </div>
           </div>
-          <button type="button" onClick={gerar} disabled={gerando || vazio}
-            className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+          <Button variant="solid" size="lg" onClick={gerar} disabled={gerando || vazio}>
             {gerando ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {gerando ? "Gerando…" : "Gerar e baixar"}
-          </button>
+          </Button>
         </section>
 
         <section className={`${PANEL} flex flex-wrap items-center justify-between gap-5 p-5 sm:p-6`}>
@@ -161,11 +161,10 @@ export default function ExcelFinalPage() {
               </label>
             </div>
           </div>
-          <button type="button" onClick={gerarNT} disabled={gerandoNT || !listaCiclos.length}
-            className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-5 py-3 text-sm font-semibold text-sky-200 transition-colors hover:bg-sky-500/10 disabled:opacity-50">
+          <Button variant="primary" size="lg" onClick={gerarNT} disabled={gerandoNT || !listaCiclos.length}>
             {gerandoNT ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
             {gerandoNT ? "Gerando…" : "Gerar e baixar"}
-          </button>
+          </Button>
         </section>
 
         <section className={`${PANEL} p-5 sm:p-6`}>

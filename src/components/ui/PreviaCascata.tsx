@@ -4,8 +4,9 @@
  * O servidor recalcula tudo na hora de gravar: os números desta tela nunca são enviados para gravar. */
 import { useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
-import { aplicarCascata } from "../../api";
+import { aplicarCascata, previaCascata } from "../../api";
 import { mensagemDeErro } from "../../api/client";
+import { isAxiosError } from "axios";
 import { brl, num } from "../../utils/format";
 import type { Cascata, CascataTrimestre } from "../../types";
 import { Button } from "./Button";
@@ -37,7 +38,7 @@ function linhasDe(t: CascataTrimestre): Linha[] {
 /** Mudou de verdade? Tarifa tem 4 casas; o SR (dinheiro) tolera 1 centavo. */
 const mudou = (l: Linha) => l.novo !== null && (l.antes === null || Math.abs(l.novo - l.antes) > (l.formato === dinheiro ? 0.005 : 0.00005));
 
-export function PreviaCascata({ cascata, aoAplicar, aoFechar, className = "" }: {
+export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, className = "" }: {
   cascata: Cascata | null | undefined;
   /** Chamado depois de gravar (a tela pode recarregar o que mostra). */
   aoAplicar?: (resultado: Cascata) => void;
@@ -47,6 +48,9 @@ export function PreviaCascata({ cascata, aoAplicar, aoFechar, className = "" }: 
 }) {
   const [gravando, setGravando] = useState(false);
   const [gravada, setGravada] = useState<Cascata | null>(null);
+  const [recalculada, setRecalculada] = useState<Cascata | null>(null); // prévia refeita depois de um 409
+  const [mudou409, setMudou409] = useState(false); // os dados mudaram desde a prévia: nada foi gravado
+  const cascata = recalculada ?? cascataDaTela;
 
   if (!cascata) return null;
   const pendencias = [...new Set([...cascata.pendencias, ...cascata.trimestres.flatMap((t) => t.pendencias)])];
@@ -56,16 +60,30 @@ export function PreviaCascata({ cascata, aoAplicar, aoFechar, className = "" }: 
   const aprovar = async () => {
     setGravando(true);
     try {
-      const r = await aplicarCascata(cascata.periodos, cascata.a_partir_de);
+      const r = await aplicarCascata(cascata.periodos, cascata.a_partir_de, { esperado: cascata.trimestres });
       setGravada(r);
       avisarSucesso("SR, PR e PV gravados", `${r.trimestres.length === 1 ? "1 trimestre atualizado" : `${r.trimestres.length} trimestres atualizados`} pelo servidor.`);
       aoAplicar?.(r);
     } catch (e) {
+      // 409: o valor mudou desde a prévia. Nada foi gravado; o analista refaz a prévia e confere de novo.
+      if (isAxiosError(e) && e.response?.status === 409) { setMudou409(true); return; }
       // 422 com as pendências: nada foi gravado.
       // O servidor manda as pendências uma por linha ("- falta o SCG de Set/2026"): cada uma vira um item do toast.
       const linhas = mensagemDeErro(e, "Não foi possível gravar o SR, o PR e o PV. Nada foi gravado.")
         .split(/\r?\n/).map((l) => l.replace(/^\s*-\s*/, "").trim()).filter(Boolean);
       avisarErro("Não gravei a cascata", linhas);
+    } finally {
+      setGravando(false);
+    }
+  };
+
+  const refazer = async () => {
+    setGravando(true);
+    try {
+      setRecalculada(await previaCascata(cascata.periodos, cascata.a_partir_de));
+      setMudou409(false);
+    } catch (e) {
+      avisarErro("Não refiz a prévia", [mensagemDeErro(e, "Tente de novo em instantes.")]);
     } finally {
       setGravando(false);
     }
@@ -128,6 +146,14 @@ export function PreviaCascata({ cascata, aoAplicar, aoFechar, className = "" }: 
           <ul className="mt-1 list-disc space-y-0.5 pl-4 text-xs">
             {pendencias.map((p) => <li key={p}>{p}</li>)}
           </ul>
+        </div>
+      )}
+
+      {mudou409 && (
+        <div role="alert" className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2 text-zinc-200">
+          <p className="text-xs font-semibold text-amber-300">Os dados mudaram desde a prévia. Nada foi gravado.</p>
+          <p className="mt-1 text-xs">Recalcule a prévia, confira os valores novos e aprove de novo.</p>
+          <Button className="mt-2" variant="warning" size="sm" onClick={() => void refazer()} disabled={gravando}>Refazer a prévia</Button>
         </div>
       )}
 

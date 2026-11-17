@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { FolderOpen } from "lucide-react";
+import { Button } from "./Button";
 
 /** Botão "Escolher a pasta": abre o seletor de pasta do sistema (com subpastas), como
  * alternativa a arrastar. O Chrome pode perguntar "Enviar X arquivos para este site?";
@@ -22,10 +23,9 @@ export function BotaoEscolherPasta({ onEscolher, desabilitado, rotulo = "Escolhe
         // value = "": deixa escolher a mesma pasta de novo.
         onChange={(e) => { if (e.target.files) onEscolher(e.target.files); e.target.value = ""; }}
       />
-      <button type="button" onClick={() => input.current?.click()} disabled={desabilitado}
-        className="flex items-center gap-2 rounded-xl border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+      <Button variant="primary" onClick={() => input.current?.click()} disabled={desabilitado}>
         <FolderOpen size={16} aria-hidden /> {rotulo}
-      </button>
+      </Button>
     </>
   );
 }

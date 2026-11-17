@@ -10,6 +10,7 @@ import type { Cascata } from "../../types";
 import { brl, num } from "../../utils/format";
 import { pedidoDeInclusao, podeIncluirNota } from "./incluirNota";
 import { TOL, cgrDaNota, cgrDifere, empresaDa, parearMesmoValor, resumoDaComparacao, separarAvisos, type SecaoDaComparacao } from "./comparacaoResumo";
+import { Button } from "../../components/ui/Button";
 
 /** "Empresa · NF-e · 123 · linha 10 · R$ 1.000,00": a nota numa linha. */
 const textoDaNota = (n: Record<string, unknown>) => {
@@ -423,8 +424,6 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
   );
 }
 
-const BOTAO = "rounded-md border px-2 py-0.5 font-sans text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
-
 /** Uma nota que só está na planilha, com o botão "Incluir esta nota" e a confirmação em duas etapas
  * (mesmo jeito do aviso de possível duplicata). Incluir GRAVA a nota no CGR do mês. */
 function IncluirNota({ nota, texto, periodo, aoIncluir }: {
@@ -463,10 +462,9 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
         {cgrNovo !== null ? (
           <span className="font-sans font-medium text-emerald-300">incluída · CGR do mês agora {brl(cgrNovo)}</span>
         ) : !confirmando && (
-          <button type="button" onClick={() => { setConfirmando(true); setErro(null); }}
-            className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+          <Button variant="warning" size="sm" onClick={() => { setConfirmando(true); setErro(null); }}>
             Incluir esta nota
-          </button>
+          </Button>
         )}
       </span>
 
@@ -483,14 +481,12 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
               className="mt-1 w-full rounded-md border border-amber-300/30 bg-black/20 px-2 py-1 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus-visible:border-amber-300" />
           </label>
           <span className="mt-2 flex flex-wrap gap-2">
-            <button type="button" disabled={!pedido || incluindo} onClick={() => void incluir()}
-              className={`${BOTAO} border-amber-300 bg-amber-300 text-black hover:bg-amber-200`}>
+            <Button variant="solid" size="sm" disabled={!pedido || incluindo} onClick={() => void incluir()}>
               {incluindo ? "Incluindo…" : `Incluir no CGR de ${periodo}`}
-            </button>
-            <button type="button" disabled={incluindo} onClick={() => { setConfirmando(false); setErro(null); }}
-              className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+            </Button>
+            <Button variant="warning" size="sm" disabled={incluindo} onClick={() => { setConfirmando(false); setErro(null); }}>
               Cancelar
-            </button>
+            </Button>
           </span>
           {!motivo.trim() && <p className="mt-1.5 text-zinc-400">Escreva o motivo para liberar o botão.</p>}
         </div>

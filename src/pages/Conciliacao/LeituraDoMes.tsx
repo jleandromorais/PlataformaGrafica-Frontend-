@@ -26,11 +26,10 @@ import type { ConciliaHistoricoLinha, ConciliaItem } from "../../types";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const LABEL = "text-xs font-semibold text-zinc-400";
-const BOTAO_SEC = "flex items-center justify-center gap-2 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5 text-sm font-semibold text-zinc-200 transition-colors hover:bg-white/[0.06] disabled:opacity-40";
-
 type Pasta = { raiz: string; arquivos: ArquivoDaPasta[] };
 
 /** Padrão RP: mesmo desconto de PIS/COFINS (9,25%) que o backend e a planilha "Conta Gráfica". */
@@ -167,12 +166,11 @@ export function LeituraDoMes() {
                 titulo={despesas ? despesas.raiz : "Escolher pasta de despesas"}
                 detalhe={despesas ? `${despesas.arquivos.length} arquivos` : "Opcional"} />
             </div>
-            <button type="button" onClick={processar}
-              disabled={!(receitas?.arquivos.length || despesas?.arquivos.length) || ocupado !== null}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-marinho py-3 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+            <Button variant="solid" size="lg" onClick={processar}
+              disabled={!(receitas?.arquivos.length || despesas?.arquivos.length) || ocupado !== null} className="w-full justify-center">
               {ocupado === "processar" ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
               {ocupado === "processar" ? "Lendo PDFs…" : "Processar e conciliar"}
-            </button>
+            </Button>
             {!(receitas?.arquivos.length || despesas?.arquivos.length) && ocupado === null && <p className="-mt-1 text-center text-xs text-zinc-400">Escolha ao menos uma pasta (receitas ou despesas) para liberar.</p>}
           </section>
 
@@ -207,13 +205,12 @@ export function LeituraDoMes() {
                     />
                   </div>
                   <div className="mt-4 flex flex-wrap justify-end gap-2">
-                    <button type="button" onClick={relatorio} disabled={ocupado !== null || invalidos} className={BOTAO_SEC}>
+                    <Button variant="ghost" onClick={relatorio} disabled={ocupado !== null || invalidos}>
                       {ocupado === "relatorio" ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Relatório Excel
-                    </button>
-                    <button type="button" onClick={salvar} disabled={ocupado !== null || invalidos || !anoValido(ano)}
-                      className="flex items-center gap-2 rounded-xl bg-marinho px-4 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none">
+                    </Button>
+                    <Button variant="solid" onClick={salvar} disabled={ocupado !== null || invalidos || !anoValido(ano)}>
                       {ocupado === "salvar" ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Salvar RP de {periodo}
-                    </button>
+                    </Button>
                   </div>
                 </>
               )}

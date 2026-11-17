@@ -14,6 +14,7 @@ import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
 import { brl, dataHora, num } from "../../utils/format";
 import { contabil, participacao, textoParticipacao } from "./formatoProva";
 import type { EstadoProvaReal } from "./useProvaReal";
+import { Button } from "../../components/ui/Button";
 
 export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }: {
   periodo: string | null;
@@ -164,8 +165,6 @@ export function ProvaReal({ periodo, estado, cardRef, aoMudar, className = "" }:
   );
 }
 
-const BOTAO = "rounded-md border px-2 py-0.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-300 disabled:opacity-50";
-
 /** Notas incluídas à mão a partir da planilha ("Incluir esta nota"), com o motivo e o botão
  * "Tirar do cálculo" (confirmação em duas etapas, como no aviso de possível duplicata). */
 function NotasDigitadas({ notas, periodo, aoConcluir }: {
@@ -202,10 +201,9 @@ function NotasDigitadas({ notas, periodo, aoConcluir }: {
               <span className="text-zinc-100">{n.empresa} {n.numero}</span>
               <b className="tabular-nums">{contabil(n.cgr_liquido)}</b>
               {confirmando !== n.id && (
-                <button type="button" onClick={() => { setConfirmando(n.id); setErro(null); }}
-                  className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                <Button variant="warning" size="sm" onClick={() => { setConfirmando(n.id); setErro(null); }}>
                   Tirar do cálculo
-                </button>
+                </Button>
               )}
             </span>
             <span className="text-xs text-zinc-400">Motivo: {n.motivo || "—"}</span>
@@ -213,14 +211,12 @@ function NotasDigitadas({ notas, periodo, aoConcluir }: {
               <span className="rounded-md border border-amber-300/30 bg-black/20 px-3 py-2 text-xs">
                 Tirar esta nota do CGR de <b>{periodo}</b>? O CGR gravado do mês, o RPV, o SCG e o PR são recalculados.
                 <span className="mt-2 flex gap-2">
-                  <button type="button" disabled={tirando === n.id} onClick={() => void tirar(n.id)}
-                    className={`${BOTAO} border-amber-300 bg-amber-300 text-black hover:bg-amber-200`}>
+                  <Button variant="solid" size="sm" disabled={tirando === n.id} onClick={() => void tirar(n.id)}>
                     {tirando === n.id ? "Tirando…" : "Sim, tirar"}
-                  </button>
-                  <button type="button" disabled={tirando === n.id} onClick={() => setConfirmando(null)}
-                    className={`${BOTAO} border-amber-300/40 text-amber-100 hover:bg-amber-300/10`}>
+                  </Button>
+                  <Button variant="warning" size="sm" disabled={tirando === n.id} onClick={() => setConfirmando(null)}>
                     Cancelar
-                  </button>
+                  </Button>
                 </span>
               </span>
             )}

@@ -24,6 +24,7 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { KpisSCG } from "./KpisSCG";
 import { ProvaRealSCG } from "./ProvaRealSCG";
+import { Button } from "../../components/ui/Button";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const TOLERANCIA = 0.01; // diferenças de centavo por arredondamento não contam
@@ -352,13 +353,10 @@ export default function SCGPage() {
                 <>Primeiro SCG de {periodo}.</>
               )}
             </p>
-            <button
-              type="button" onClick={salvar} disabled={!alterado || salvando || carregando}
-              className="flex items-center gap-2 rounded-xl bg-marinho px-5 py-2.5 text-sm font-semibold text-paper transition-colors hover:bg-marinho-claro disabled:cursor-not-allowed disabled:bg-white/[0.06] disabled:text-zinc-400 disabled:shadow-none"
-            >
+            <Button variant="solid" onClick={salvar} disabled={!alterado || salvando || carregando}>
               {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
               Salvar SCG de {periodo}
-            </button>
+            </Button>
           </div>
         </section>
 

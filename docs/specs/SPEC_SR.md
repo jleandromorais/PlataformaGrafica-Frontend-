@@ -1,3 +1,5 @@
+> **DOCUMENTO HISTÓRICO (revisto em 16/11/2026).** O SR é calculado e aprovado no Painel do Ciclo (`SRDoTrimestre`); `/sr` fica como consulta e prova real. O PR de cada mês é o do trimestre da tarifa do **próprio mês** (a regra de 3 meses antes estava errada, corrigida em 12/11). A SELIC é a acumulada até o fim do trimestre civil, só existe depois que ele fecha, e SELIC 0% é recusada. Se faltar PR, VP, VF ou SELIC, o SR não é calculado. Não há auto-save: o efeito em PR e PV é prévia e só grava na aprovação. De onde vem o `SR anterior` está em aberto.
+
 > **Status backend (2026-08-04):** os 4 endpoints do §4 estão implementados
 > e smoke-testados contra `pmpv_data.db` real (`Src/api/routers/sr.py`):
 > `POST /sr/trimestre/carregar`, `POST /sr/trimestre/calcular`,

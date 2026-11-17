@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileArchive, FileText, FolderOpen,
+  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileArchive, FileText, FolderOpen, Lock, Scale,
 } from "lucide-react";
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
@@ -10,7 +10,7 @@ import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui
 import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, gerarRelatorioTrimestral, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
-  getHistoricoRET, getHistoricoSCG, getPR, getPVTrimestre,
+  getHistoricoRET, getHistoricoSCG, getPMPVMensal, getPR, getPVTrimestre, getSituacaoCiclo,
 } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -30,10 +30,15 @@ import { ehZip, lerZipDaPasta } from "../../utils/zipCiclo";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { EsqueletoLista } from "../../components/ui/EsqueletoLista";
 import type {
-  AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha,
+  AuditoriaHistoricoLinha, CGFHistoricoLinha, ConciliaHistoricoLinha, PRApuracao, PVTrimestre, RETHistoricoLinha, SituacaoCiclo,
   SCGHistoricoLinha,
 } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { Button } from "../../components/ui/Button";
+import { classesDoBotao } from "../../components/ui/estilosBotao";
+import { DivergenciaSCG } from "./DivergenciaSCG";
+import { calcularProximoPasso, proximoDoBack, type ChavePasso, type DestinoBloqueio } from "./proximoPasso";
+import { trimestreSugerido } from "./trimestreSugerido";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -64,19 +69,24 @@ interface Dados {
   pr: PRApuracao | null;
   prSalvo: number | null;
   pv: PVTrimestre | null;
+  situacao: SituacaoCiclo | null; // GET /ciclo/situacao; null no back antigo (o Painel calcula sozinho)
+  pmpv: number[]; // PMPV de cada mês apurado (0 = não salvo ou não consegui consultar)
 }
 
 async function carregar(meses: string[], mesesPR: string[]): Promise<Dados> {
   const label = FISCAIS[mesesPR[0].split("/")[0]];
   const vazio = <T,>(p: Promise<T>, padrao: T) => p.catch(() => padrao);
-  const [auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv] = await Promise.all([
+  const [auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv, pmpv, situacao] = await Promise.all([
     getHistoricoAuditoria(), getHistoricoCGF(), getHistoricoRET(), getHistoricoConcilia(), getHistoricoSCG(),
     vazio(buscarTrimestreSR(`${meses[0]}_${meses[2]}`), []),
     vazio<PRApuracao | null>(apurarPR(mesesPR), null),
     vazio<number | null>(getPR(`${label}/${mesesPR[2].split("/")[1]}`).then((r) => r.pr), null),
     vazio<PVTrimestre | null>(getPVTrimestre(label, Number(mesesPR[0].split("/")[1])), null),
+    // Mesmo critério do Processar: sem PMPV salvo (ou sem resposta), conta como faltando.
+    Promise.all(meses.map((m) => getPMPVMensal(m).then((r) => r.pmpv || 0).catch(() => 0))),
+    getSituacaoCiclo(`${meses[0]}_${meses[2]}`),
   ]);
-  return { auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv };
+  return { auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv, pmpv, situacao };
 }
 
 /** Toast ao terminar de ler a pasta (ou o .zip): mesmos números do mapa. Só para pasta trazida
@@ -102,17 +112,20 @@ function avisarPastaCarregada(raiz: string, nomes: string[], meses: string[]) {
 // ── Etapas do ciclo ───────────────────────────────────────────────────────────
 
 interface Etapa_ {
+  chave: ChavePasso;
   titulo: string;
   descricao: string;
   situacao: Situacao;
   detalhe: ReactNode;
   link: string; // tela da etapa já no período certo (S2)
   extra?: ReactNode; // ação dentro do cartão (ex.: "Auditar <mês>" na Auditoria CGR)
+  mesesQueFaltam?: string[]; // etapas mensais: entra na frase "Bloqueado: falta o SCG de Jul"
+  soLink?: boolean; // só leva a uma tela (tarifa média): não conta como pronta nem vira "Próximo"
 }
 
 function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valor: (l: T) => string,
   alerta?: (l: T) => string | null, linkDoMes?: (m: string) => string,
-): { situacao: Situacao; detalhe: ReactNode; pendente?: string } {
+): { situacao: Situacao; detalhe: ReactNode; pendente?: string; mesesQueFaltam: string[] } {
   const linhas = meses.map((m) => ({ m, l: lista.find((x) => x.periodo === m) }));
   const alertas = linhas.map(({ l }) => (l && alerta ? alerta(l) : null));
   const faltam = linhas.filter(({ l }) => !l).length;
@@ -123,6 +136,7 @@ function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valo
     situacao: faltam ? "falta" : alertas.some(Boolean) ? "atencao" : "ok",
     // 1º mês, em ordem, que falta ou tem ⚠: é onde o "Fazer agora" abre.
     pendente: linhas.find(({ l }, i) => !l || alertas[i])?.m,
+    mesesQueFaltam: linhas.filter(({ l }) => !l).map(({ m }) => m),
     detalhe: (
       <>
         <div className="flex flex-wrap gap-2">
@@ -149,40 +163,44 @@ function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valo
 }
 
 /** Etapa mensal: "Fazer agora" abre no 1º mês pendente; cada chip de mês abre aquele mês. */
-function etapaMensal<T extends { periodo: string }>(titulo: string, descricao: string, rota: string, lista: T[],
+function etapaMensal<T extends { periodo: string }>(chave: ChavePasso, titulo: string, descricao: string, rota: string, lista: T[],
   meses: string[], valor: (l: T) => string, alerta?: (l: T) => string | null): Etapa_ {
   const linkDoMes = (m: string) => linkDoCiclo(rota, meses[0], { chave: "periodo", valor: m });
   const { pendente, ...resto } = porMes(lista, meses, valor, alerta, linkDoMes);
-  return { titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
+  return { chave, titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
 }
 
-function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactNode): Etapa_[] {
+function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactNode, divergenciaScg: ReactNode): Etapa_[] {
   const faixaPR = `${mesesPR[0]} a ${mesesPR[2]}`;
   const srTotal = d.srSalvo.reduce((s, l) => s + Number(l.sr_selic ?? 0), 0);
   const prDifere = d.pr && d.prSalvo !== null && Math.abs(d.prSalvo - d.pr.pr) > 1e-9;
   const pvDifere = d.pv?.salvo && Math.abs(d.pv.salvo.pv - d.pv.pv) > 1e-9;
   const trimestrePR = { chave: "trimestre" as const, valor: mesesPR[0] };
+  const pmpvLista = meses.map((m, i) => ({ periodo: m, pmpv: d.pmpv[i] })).filter((l) => l.pmpv > 0);
   return [
-    { ...etapaMensal("Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
+    // Passo 1 do roteiro: o PMPV dos meses apurados (o CGF usa). A tela PMPV volta ao Painel pelo ?de=ciclo.
+    { chave: "pmpv" as const, titulo: "PMPV do trimestre apurado", descricao: `Preço médio e VP de ${meses[0]} a ${meses[2]}; o CGF usa`,
+      link: linkDoCiclo("/pmpv", meses[0]), ...porMes(pmpvLista, meses, (l) => num(l.pmpv, 4)) },
+    { ...etapaMensal("auditoria", "Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
       (l) => brl(l.cgr_gravado)), extra: auditarMes },
-    etapaMensal("CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
+    etapaMensal("cgf", "CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
       (l) => brl(l.cgf_rs), (l) => (l.volume_devolucoes ? null : "Devoluções = 0: confira se a planilha de devoluções entrou.")),
     // RET não tem seletor de mês: o período vem dos próprios arquivos.
-    { titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo("/ret", meses[0]),
+    { chave: "ret" as const, titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo("/ret", meses[0]),
       ...porMes(d.ret, meses, (l) => brl(l.ret_gravado)) },
-    etapaMensal("RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", "/conciliacao", d.concilia,
+    etapaMensal("rp", "RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", "/conciliacao", d.concilia,
       meses, (l) => brl(l.rp_gravado),
       (l) => (Math.abs(l.rp_dos_itens - l.rp_gravado) > 1 ? "O RP gravado difere da soma dos itens." : null)),
-    etapaMensal("SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", "/scg", d.scg, meses,
-      (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)),
+    { ...etapaMensal("scg", "SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", "/scg", d.scg, meses,
+      (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)), extra: divergenciaScg },
     {
-      titulo: "SR — Saldo Remanescente", descricao: "Quadro 6 do trimestre, com SELIC",
+      chave: "sr" as const, titulo: "SR — Saldo Remanescente", descricao: "Quadro 6 do trimestre, com SELIC",
       link: linkDoCiclo("/sr", meses[0], { chave: "trimestre", valor: meses[0] }),
       situacao: d.srSalvo.length ? "ok" : "falta",
       detalhe: d.srSalvo.length ? <span>Salvo · total {brl(srTotal)}</span> : <span>Ainda não salvo para este trimestre.</span>,
     },
     {
-      titulo: `PR — Parcela de Recuperação de ${faixaPR}`, descricao: "Quadro 7: (SCG + SR com SELIC) ÷ VP",
+      chave: "pr" as const, titulo: `PR — Parcela de Recuperação de ${faixaPR}`, descricao: "Quadro 7: (SCG + SR com SELIC) ÷ VP",
       link: linkDoCiclo("/pr", meses[0], trimestrePR),
       situacao: !d.pr || d.pr.pendencias.length ? "falta" : prDifere || d.prSalvo === null ? "atencao" : "ok",
       detalhe: !d.pr ? <span>Não consegui calcular agora: abra a tela PR para ver o motivo.</span> : d.pr.pendencias.length ? (
@@ -192,12 +210,19 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
       ),
     },
     {
-      titulo: `PV — Preço de Venda de ${faixaPR}`, descricao: "Quadro 8: PMPV + PR",
+      chave: "pv" as const, titulo: `PV — Preço de Venda de ${faixaPR}`, descricao: "Quadro 8: PMPV + PR",
       link: linkDoCiclo("/pv", meses[0], trimestrePR),
       situacao: !d.pv ? "falta" : !d.pv.salvo || pvDifere ? "atencao" : "ok",
       detalhe: !d.pv ? <span>Não consegui consultar agora: abra a tela PV para ver o motivo.</span> : (
         <span>Atual {num(d.pv.pv, 4)} · {!d.pv.salvo ? "ainda não salvo" : pvDifere ? `salvo ${num(d.pv.salvo.pv, 4)} (diferente — salve de novo)` : "salvo"}</span>
       ),
+    },
+    // Passo 5 do roteiro: só leitura aqui; a tarifa média (PV + MB) se fecha no PMPV.
+    {
+      chave: "tarifa" as const, titulo: "Tarifa média", soLink: true, situacao: "falta" as const,
+      descricao: "PV + margem de distribuição (MB); a tarifa nunca é gravada aqui",
+      link: linkDoCiclo("/pmpv", meses[0]),
+      detalhe: <span>{d.pv?.salvo ? `PV gravado de ${num(d.pv.salvo.pv, 4)}. Veja e feche a tarifa média na tela PMPV.` : "Grave o PV do trimestre novo para fechar a tarifa média no PMPV."}</span>,
     },
   ];
 }
@@ -208,6 +233,12 @@ const ICONE: Record<Situacao, ReactNode> = {
   falta: <CircleDashed size={18} className="text-zinc-500" aria-label="Falta" />,
 };
 
+/** Texto do botão que leva à tela que resolve o bloqueio. */
+const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
+  pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
+  rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Abrir o SR", pr: "Abrir o PR", pv: "Abrir o PV", tarifa: "Abrir o PMPV",
+};
+
 // ── Página ────────────────────────────────────────────────────────────────────
 
 export default function CicloPage() {
@@ -215,8 +246,9 @@ export default function CicloPage() {
   // "Voltar ao Painel" das telas reabre o mesmo trimestre (?trimestre=Abr/2026, 1º mês).
   const daUrl = usePeriodoDaUrl("trimestre");
   const inicio = daUrl && daUrl.mes % 3 === 0 ? daUrl : null;
-  const [ano, setAno] = useState(inicio?.ano ?? hoje.getFullYear());
-  const [tri, setTri] = useState(inicio ? inicio.mes / 3 : Math.max(0, Math.floor(hoje.getMonth() / 3) - 1));
+  const sugerido = trimestreSugerido(hoje); // o último trimestre terminado (em janeiro, Out–Dez do ano anterior)
+  const [ano, setAno] = useState(inicio?.ano ?? sugerido.ano);
+  const [tri, setTri] = useState(inicio ? inicio.mes / 3 : sugerido.tri);
   const meses = useMemo(() => [0, 1, 2].map((i) => `${MESES[tri * 3 + i]}/${ano}`), [ano, tri]);
   const mesesPR = useMemo(() => mesesDoPRDoCivil(meses[2]), [meses]);
   useManterPeriodoNaUrl("trimestre", meses[0]);
@@ -292,9 +324,22 @@ export default function CicloPage() {
     setTri(novoTri);
   };
 
+  const mesesScgDivergentes = dados ? meses.filter((m) => dados.scg.find((l) => l.periodo === m)?.diverge) : [];
   const lista = dados ? etapas(dados, meses, mesesPR,
-    <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} onGravado={() => setVersao((v) => v + 1)} />) : [];
-  const prontas = lista.filter((e) => e.situacao === "ok").length;
+    <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} onGravado={() => setVersao((v) => v + 1)} />,
+    mesesScgDivergentes.length ? <DivergenciaSCG meses={mesesScgDivergentes} cicloInicio={meses[0]} versao={versao} /> : null) : [];
+  const contaveis = lista.filter((e) => !e.soLink);
+  const prontas = contaveis.filter((e) => e.situacao === "ok").length;
+  // Próximo passo e bloqueios: calculados aqui com o que o Painel já carregou (depois vêm de GET /ciclo/situacao).
+  const local = calcularProximoPasso({
+    passos: lista.map((e) => ({ chave: e.chave, situacao: e.situacao, mesesQueFaltam: e.mesesQueFaltam, soLink: e.soLink })),
+    pmpvNovoPronto: dados?.situacao?.pmpv_novo ? dados.situacao.pmpv_novo.existe : dados?.pv ? dados.pv.pmpv > 0 : null,
+    rotuloPmpvNovo: `${mesesPR[0].split("/")[0]} a ${mesesPR[2]}`,
+  });
+  const bloqueios = local.bloqueios;
+  const proximo = proximoDoBack(local.proximo, dados?.situacao?.proximo_passo,
+    Object.fromEntries(lista.map((e) => [e.chave, e.situacao])));
+  const linkDoDestino = (d: DestinoBloqueio) => d === "pmpv_novo" ? linkDoCiclo("/pmpv", meses[0]) : lista.find((e) => e.chave === d)?.link ?? "#";
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
   /** Pasta nova (arrastada, escolhida ou .zip): descarta a prévia antiga dela e guarda os nomes (e a chave). */
@@ -423,11 +468,11 @@ export default function CicloPage() {
           <p className="w-full text-sm text-zinc-400">
             Apura <b className="text-zinc-200">{meses[0]} a {meses[2]}</b> → define o PR e o PV de{" "}
             <b className="text-zinc-200">{mesesPR[0]} a {mesesPR[2]}</b>
-            {dados && !carregando && <span className="ml-2 text-zinc-500">· {prontas} de {lista.length} etapas prontas</span>}
+            {dados && !carregando && <span className="ml-2 text-zinc-500">· {prontas} de {contaveis.length} etapas prontas</span>}
           </p>
           {dados && (
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.05]" aria-hidden>
-              <div className="h-full rounded-full bg-emerald-400/70 transition-all" style={{ width: `${(prontas / lista.length) * 100}%` }} />
+              <div className="h-full rounded-full bg-emerald-400/70 transition-all" style={{ width: `${(prontas / contaveis.length) * 100}%` }} />
             </div>
           )}
         </section>
@@ -444,10 +489,9 @@ export default function CicloPage() {
               {/* Sem "Escolher a pasta" de propósito: o seletor de pasta do sistema faz o Chrome abrir
                   o aviso "Quer carregar N ficheiros para este site?", que nenhum site consegue esconder
                   nem estilizar. Arrastar ou usar o .zip não dispara esse aviso. */}
-              <button ref={botaoZip} type="button" onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}
-                className="flex items-center gap-2 rounded-lg border border-sky-500/40 px-4 py-2 text-sm font-semibold text-sky-200 hover:bg-sky-500/10 disabled:opacity-50">
+              <Button variant="primary" ref={botaoZip} onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}>
                 <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-              </button>
+              </Button>
               <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
                 onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
               <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
@@ -502,31 +546,53 @@ export default function CicloPage() {
             <EsqueletoEtapas />
           ) : (
             <ol className="divide-y divide-white/[0.05]">
-              {lista.map((e, i) => (
-                <li key={e.titulo} className="flex flex-wrap items-start gap-4 px-5 py-4">
-                  <span className="mt-0.5 flex items-center gap-3">
-                    <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{i + 1}</span>
-                    {ICONE[e.situacao]}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-zinc-100">{e.titulo}</p>
-                    <p className="text-xs text-zinc-500">{e.descricao}</p>
-                    <div className="mt-2 text-sm text-zinc-300">{e.detalhe}</div>
-                    {e.extra}
-                  </div>
-                  <Link to={e.link}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok"
-                      ? "text-zinc-400 hover:text-white" : "bg-sky-500/15 text-sky-200 hover:bg-sky-500/25"}`}>
-                    {e.situacao === "ok" ? "Ver" : "Fazer agora"}
-                  </Link>
-                </li>
-              ))}
+              {lista.map((e, i) => {
+                const ehProximo = e.chave === proximo;
+                const bloqueio = bloqueios[e.chave];
+                return (
+                  <li key={e.titulo} aria-current={ehProximo ? "step" : undefined}
+                    className={`flex flex-wrap items-start gap-4 px-5 py-4 ${ehProximo ? "border-l-4 border-sky-400 bg-sky-500/[0.06] pl-4" : ""}`}>
+                    <span className="mt-0.5 flex items-center gap-3">
+                      <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{i + 1}</span>
+                      {e.soLink ? <Scale size={18} className="text-zinc-400" aria-hidden /> : ICONE[e.situacao]}
+                    </span>
+                    <div className="min-w-0 flex-1 basis-60">
+                      <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-100">
+                        {e.titulo}
+                        {ehProximo && <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-200">Próximo</span>}
+                      </p>
+                      <p className="text-xs text-zinc-500">{e.descricao}</p>
+                      <div className="mt-2 text-sm text-zinc-300">{e.detalhe}</div>
+                      {bloqueio && (
+                        <p className="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-amber-200">
+                          <Lock size={14} className="mt-1 shrink-0" aria-hidden />
+                          <span>Bloqueado: {bloqueio.motivo}.</span>
+                        </p>
+                      )}
+                      {e.extra}
+                    </div>
+                    {bloqueio ? (
+                      <Link to={linkDoDestino(bloqueio.destino)} className={classesDoBotao("ghost", "md")}>
+                        {ROTULO_DESTINO[bloqueio.destino]}
+                      </Link>
+                    ) : ehProximo ? (
+                      <Link to={e.link} className={classesDoBotao("solid", "md")}>Fazer agora</Link>
+                    ) : (
+                      <Link to={e.link}
+                        className={`inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok" || e.soLink
+                          ? "text-zinc-400 hover:text-white" : "text-sky-300 hover:text-sky-200"}`}>
+                        {e.soLink ? "Abrir o PMPV" : e.situacao === "ok" ? "Ver" : "Fazer agora"}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
               <li className="flex flex-wrap items-center gap-4 px-5 py-4">
                 <span className="mt-0.5 flex items-center gap-3">
                   <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{lista.length + 1}</span>
                   <FileText size={18} className="text-sky-300" />
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-60">
                   <p className="font-semibold text-zinc-100">Entregas</p>
                   <p className="text-xs text-zinc-500">Minuta da Nota Técnica, relatório do trimestre e Excel Final do ciclo</p>
                   <p className={`mt-1 text-xs ${planilhaRel ? "text-emerald-400" : "text-amber-300"}`}>
@@ -535,14 +601,12 @@ export default function CicloPage() {
                       : "Sem planilha, o relatório só confere o sistema com ele mesmo. Escolha a planilha em “Comparar com a planilha” para ver o que falta."}
                   </p>
                 </div>
-                <button type="button" onClick={gerarNT} disabled={gerandoNT}
-                  className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-200 hover:bg-sky-500/25 disabled:opacity-50">
+                <Button variant="primary" size="sm" onClick={gerarNT} disabled={gerandoNT}>
                   {gerandoNT ? "Gerando…" : "Baixar minuta da NT"}
-                </button>
-                <button type="button" onClick={gerarRelatorio} disabled={gerandoRel}
-                  className="rounded-lg bg-sky-500/15 px-3 py-1.5 text-sm font-medium text-sky-200 hover:bg-sky-500/25 disabled:opacity-50">
+                </Button>
+                <Button variant="primary" size="sm" onClick={gerarRelatorio} disabled={gerandoRel}>
                   {gerandoRel ? "Gerando…" : "Baixar relatório do trimestre"}
-                </button>
+                </Button>
                 <Link to="/excel-final" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Excel Final</Link>
               </li>
             </ol>
@@ -651,10 +715,9 @@ function MapaPasta({ mapa, meses, raiz, total, processar, aberto }: {
         </div>
       )}
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        <button type="button" disabled={!processar} onClick={processar}
-          className="rounded-lg bg-marinho px-5 py-2.5 text-sm font-semibold text-paper disabled:opacity-50">
+        <Button variant="solid" disabled={!processar} onClick={processar}>
           {aberto ? "Recomeçar o Processar" : `Processar ${meses[0]} a ${meses[2]}`}
-        </button>
+        </Button>
         <span className="text-xs text-zinc-500">
           Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Auditoria, CGF, RET e RP.
         </span>

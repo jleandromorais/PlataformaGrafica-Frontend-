@@ -369,20 +369,18 @@ export default function SRPage() {
               <>
                 <b>{srDuplicado.map((l) => l.mes).join(", ")}</b>: o "SR trim. anterior" é o próprio SR do mês, então ele está
                 sendo somado duas vezes. Esse campo é só para saldo de um trimestre <b>anterior</b>.
-                <button type="button" onClick={limparSrDuplicado}
-                  className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                <Button variant="warning" size="sm" onClick={limparSrDuplicado} className="ml-2">
                   Apagar SR trim. anterior {srDuplicado.length > 1 ? "desses meses" : "desse mês"}
-                </button>
+                </Button>
               </>
             ),
             selicDiferente.length > 0 && (
               <>
                 <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC digitada é diferente da do Banco Central
                 ({selicDiferente.map((l) => `${num(l.selic_mensal, 6)}% × ${num(selicBC[l.mes], 6)}%`).join("; ")}).
-                <button type="button" onClick={usarSelicBC}
-                  className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+                <Button variant="warning" size="sm" onClick={usarSelicBC} className="ml-2">
                   Usar a SELIC do Banco Central
-                </button>
+                </Button>
               </>
             ),
           ]} />
@@ -391,10 +389,9 @@ export default function SRPage() {
         {selic.estado === "erro" && (
           <Alert variant="warning">
             {selic.mensagem}
-            <button type="button" onClick={buscarSelicDeNovo}
-              className="ml-2 rounded-md border border-amber-300/40 px-2 py-0.5 text-xs font-semibold text-amber-200 hover:bg-amber-300/10">
+            <Button variant="warning" size="sm" onClick={buscarSelicDeNovo} className="ml-2">
               Tentar de novo
-            </button>
+            </Button>
           </Alert>
         )}
 
