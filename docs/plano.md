@@ -1,3 +1,15 @@
+**21/11 — Spec `docs/specs/SPEC_FLUXO_UNICO.md` APROVADA (12 decisões, todas conforme a recomendação). Fase 1 feita (sem commit); faltam as fases 2 a 5.**
+
+## Feito em 21/11 (Leandro CG, sem commit): FASE 1 do Fluxo único
+- `/` agora redireciona para `/ciclo` (Painel do Ciclo é a página inicial; login e cadastro já mandavam para `/`). O Dashboard está em `/visao-geral`, nome "Visão geral", com o texto novo e o botão "Abrir o Painel do Ciclo" (`router/index.tsx`, `router/rotas.ts`, `Dashboard/index.tsx`).
+- Menu na ordem de uso, sem números: Início (Painel, Como funciona) / Passos do trimestre (PMPV, Auditoria CGR, CGF, RET, RP, SCG, SR, PR, PV) / Consulta e entrega (Visão geral, RPV, Excel Final). Saíram os títulos "Conta Gráfica" e "Módulo 3" (`modulos.ts`).
+- `proposito` de Auditoria, CGF, RET, RP e RPV corrigido (não diz mais "Leia"/"Salve"); as 5 `descricao` repetidas saíram das telas, a fonte é só `modulos.ts`.
+- Estados vazios de Auditoria, CGF, RET e RP: "Nenhum {sigla} gravado ainda", o passo do Painel onde se grava e o botão "Abrir o Painel do Ciclo" (`components/ui/SemGravacaoAinda.tsx`). RPV: texto "calcula sozinho", sem botão.
+- Bug 6a corrigido: a planilha escolhida no Painel vale só para o trimestre em que foi escolhida e é zerada ao trocar de trimestre (`Ciclo/planilhaDoTrimestre.ts`, 4 testes).
+- Removidos 7 arquivos mortos (2.445 linhas): `pages/{Auditoria,CGF,RET,Conciliacao,SCG}/LeituraDoMes.tsx` e `pages/{RPV,SR}/EntradaManual.tsx`, mais os comentários que os citavam.
+- Testes novos: `modulos.test.ts` (rotas, menu, textos) e `planilhaDoTrimestre.test.ts`. Vitest: 218 passam; `periodos.test.ts` continua sem rodar (react-router-dom, já falhava). `tsc -b`, `eslint src` e `vite build` limpos. Navegador NÃO verificado.
+- **Falta:** fase 2 (`etapasDoCiclo.ts`, menu numerado, `PageHeader` "Passo N de 9" e setas com `?de=ciclo`, `rotulos.ts`, "Como funciona" com 4 fases e menção a "Módulo 3"), fase 3 (topo do Painel), fase 4 (confirmação ao gravar), fase 5 (PR/PV no Painel). Botão "Ler e gravar no Painel" no cabeçalho das telas de consulta entra com o `PageHeader` da fase 2.
+
 ## Feito em 21/11 (Leandro Dev, sem commit): dois achados da auditoria de UX
 - **PMPV pelo Painel (bug confirmado):** a tela PMPV nunca lia `?ciclo=`; abria sempre no rascunho ou no trimestre do mês de hoje. O bloqueio "falta o PMPV do trimestre novo (Ago a Out)" e o passo "PMPV do trimestre apurado" caíam no mesmo lugar. Agora o link leva `?trimestre=Ago - Out&ano=2026` (`linkDoPMPV` e `trimestreDoPMPVNaUrl` em `utils/periodos.ts`, 12 testes em `periodosPMPV.test.ts`), o PMPV abre nesse trimestre (edições não salvas de outro trimestre ficam guardadas) e o botão diz "Abrir o PMPV de Ago a Out". O passo apurado abre no trimestre do ciclo do 1º mês que falta; a "Tarifa média" abre no trimestre novo.
 - **Nome do SR:** o oficial é **Saldo Remanescente** (Nota Técnica, Quadro 6, Excel Final, planilha). "Saldo regulatório" removido de `PRODUCT.md`, do agente do back, de `repositories.py` e de `main_dashboard.py`.

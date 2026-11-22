@@ -2,8 +2,7 @@
  *
  * A tela não lê planilhas nem grava: isso fica no Painel do Ciclo (Processar).
  * Aqui o analista vê COMO o CGF é calculado (card da fórmula) e a CONTA ABERTA do mês
- * escolhido (prova real), e escolhe o mês clicando na tabela "Histórico gravado".
- * A leitura antiga pela própria tela está guardada em ./LeituraDoMes.tsx. */
+ * escolhido (prova real), e escolhe o mês clicando na tabela "Histórico gravado". */
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "../../components/ui/Alert";
 import { CardFormula } from "../../components/ui/CardFormula";
@@ -12,6 +11,7 @@ import { Paginacao } from "../../components/ui/Paginacao";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
 import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SemGravacaoAinda } from "../../components/ui/SemGravacaoAinda";
 import { getHistoricoCGF, getProvaRealCGF } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, dataHora, num } from "../../utils/format";
@@ -70,8 +70,7 @@ export default function CGFPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="cgf"
-          descricao="Como o CGF é calculado e a prova real de cada mês. Para ler as planilhas de NF e gravar um mês, use o Painel do Ciclo." />
+        <PageHeader modulo="cgf" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -137,7 +136,7 @@ export default function CGFPage() {
                   );
                 })}
                 {historicoCarregado && historico.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum CGF gravado.</td></tr>
+                  <tr><td colSpan={6}><SemGravacaoAinda sigla="CGF" passo="3, CGF" /></td></tr>
                 )}
               </tbody>
             </table>

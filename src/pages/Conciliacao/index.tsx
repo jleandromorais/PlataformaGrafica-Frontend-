@@ -3,8 +3,7 @@
  * A tela não lê PDFs nem grava: isso fica no Painel do Ciclo (Processar).
  * Aqui o analista vê COMO o RP é calculado (card da fórmula), a CONTA ABERTA do mês escolhido
  * e todas as notas dele (prova real, com as notas repetidas em destaque), e escolhe o mês
- * clicando na tabela "RP gravado". A leitura antiga pela própria tela está guardada em
- * ./LeituraDoMes.tsx. */
+ * clicando na tabela "RP gravado". */
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "../../components/ui/Alert";
 import { CardFormula } from "../../components/ui/CardFormula";
@@ -13,6 +12,7 @@ import { Paginacao } from "../../components/ui/Paginacao";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
 import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SemGravacaoAinda } from "../../components/ui/SemGravacaoAinda";
 import { getHistoricoConcilia, getProvaRealRP } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -71,8 +71,7 @@ export default function ConciliacaoPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="conciliacao"
-          descricao="Como o RP é calculado e a prova real de cada mês, com todas as notas. Para ler os PDFs de penalidades e gravar um mês, use o Painel do Ciclo." />
+        <PageHeader modulo="conciliacao" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -149,7 +148,7 @@ export default function ConciliacaoPage() {
                     </tr>
                   );
                 })}
-                {historicoCarregado && historico.length === 0 && <tr><td colSpan={6} className="px-4 py-8 text-center text-zinc-500">Nenhum RP gravado.</td></tr>}
+                {historicoCarregado && historico.length === 0 && <tr><td colSpan={6}><SemGravacaoAinda sigla="RP" passo="5, RP" /></td></tr>}
               </tbody>
             </table>
           </div>

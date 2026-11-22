@@ -35,7 +35,7 @@ const LINHAS: Linha[] = [
   { nome: "Excel Final e Nota Técnica", to: MODULOS.excel.to,
     serve: "As entregas do ciclo: a planilha consolidada e a minuta do documento.",
     dados: "Os meses já gravados.", grava: "Não grava: só gera os arquivos." },
-  { nome: "Dashboard", to: MODULOS.dashboard.to,
+  { nome: "Visão geral", to: MODULOS.dashboard.to,
     serve: "Visão geral dos meses gravados.", dados: "O que já está gravado.", grava: "Não grava." },
 ];
 

@@ -2,8 +2,7 @@
  *
  * A tela não recebe valores digitados: o RPV é recalculado sozinho quando o CGR (Auditoria)
  * e o CGF são gravados. Aqui o analista vê COMO o RPV é calculado (card da fórmula) e a CONTA
- * ABERTA do mês escolhido (prova real), e escolhe o mês clicando na tabela "Histórico".
- * A entrada manual de CGR e CGF está guardada em ./EntradaManual.tsx. */
+ * ABERTA do mês escolhido (prova real), e escolhe o mês clicando na tabela "Histórico". */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert } from "../../components/ui/Alert";
 import { CardFormula } from "../../components/ui/CardFormula";
@@ -66,8 +65,7 @@ export default function RPVPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="rpv"
-          descricao="Como o RPV é calculado e a prova real de cada mês. O RPV é recalculado sozinho quando o CGR (Auditoria) e o CGF são gravados." />
+        <PageHeader modulo="rpv" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
 
@@ -125,7 +123,7 @@ export default function RPVPage() {
                   );
                 })}
                 {historicoCarregado && historico.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Nenhum período salvo ainda.</td></tr>
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-zinc-500">Nenhum RPV calculado ainda. Ele se calcula sozinho quando o CGR e o CGF são gravados no Painel do Ciclo.</td></tr>
                 )}
               </tbody>
             </table>

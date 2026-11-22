@@ -2,8 +2,7 @@
  *
  * A tela não lê notas nem grava: isso fica no Painel do Ciclo (Processar e "Auditar mês").
  * Aqui o analista vê COMO o CGR é calculado (card da fórmula) e a CONTA ABERTA do mês
- * escolhido (prova real), e escolhe o mês clicando na tabela "Meses auditados".
- * A leitura antiga pela própria tela está guardada em ./LeituraDoMes.tsx. */
+ * escolhido (prova real), e escolhe o mês clicando na tabela "Meses auditados". */
 import { useEffect, useRef, useState } from "react";
 import { SeloEmExibicao } from "../../components/ui/SeloEmExibicao";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
@@ -16,6 +15,7 @@ import { MESES_ABREV } from "../../utils/periodos";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SemGravacaoAinda } from "../../components/ui/SemGravacaoAinda";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 import { Paginacao } from "../../components/ui/Paginacao";
 import { usePaginacao } from "../../utils/paginacao";
@@ -64,8 +64,7 @@ export default function AuditoriaPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="auditoria"
-          descricao="Como o CGR é calculado e a prova real de cada mês. Para ler as notas e gravar um mês, use o Painel do Ciclo." />
+        <PageHeader modulo="auditoria" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -151,7 +150,7 @@ export default function AuditoriaPage() {
                     </tr>
                   );
                 })}
-                {historicoCarregado && historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum mês auditado.</td></tr>}
+                {historicoCarregado && historico.length === 0 && <tr><td colSpan={4}><SemGravacaoAinda sigla="CGR" passo="2, Auditoria CGR" /></td></tr>}
               </tbody>
             </table>
           </div>

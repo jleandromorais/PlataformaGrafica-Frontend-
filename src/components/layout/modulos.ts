@@ -4,6 +4,7 @@ import {
   Route, BookOpen, type LucideIcon,
 } from "lucide-react";
 import { GLOSSARIO, type Sigla } from "../../utils/glossario";
+import { ROTA_INICIAL, ROTA_VISAO_GERAL } from "../../router/rotas";
 
 /** Uma tela da plataforma: menu, cabeçalho e "próxima etapa" leem daqui. */
 export interface Modulo {
@@ -21,23 +22,24 @@ const m = (key: string, to: string, icon: LucideIcon, nome: string, sigla?: Sigl
   ({ key, to, icon, nome, sigla, proposito });
 
 export const MODULOS = {
-  ciclo: m("ciclo", "/ciclo", Route, "Painel do Ciclo", undefined,
+  ciclo: m("ciclo", ROTA_INICIAL, Route, "Painel do Ciclo", undefined,
     "Tudo o que o trimestre precisa, na ordem: o que já está pronto, o que falta e onde fazer."),
-  dashboard: m("dashboard", "/", LayoutDashboard, "Dashboard"),
+  dashboard: m("dashboard", ROTA_VISAO_GERAL, LayoutDashboard, "Visão geral", undefined,
+    "Resultados gravados, mês a mês. Para trabalhar o trimestre, use o Painel do Ciclo."),
   comofunciona: m("comofunciona", "/como-funciona", BookOpen, "Como funciona", undefined,
     "Entenda o caminho do ciclo, as contas e como conferir cada número, antes de começar."),
   pmpv: m("pmpv", "/pmpv", Calculator, GLOSSARIO.PMPV.nome, "PMPV",
     "Calcule o preço médio de venda do trimestre com os preços e volumes de cada empresa."),
   auditoria: m("auditoria", "/auditoria", FileSearch, "Auditoria CGR", undefined,
-    "Leia as notas de compra do mês (NF-e e CT-e) para chegar ao custo realizado do gás."),
+    "Consulte o CGR gravado de cada mês e abra a conta (prova real). Para ler as notas (NF-e e CT-e) e gravar, use o Painel do Ciclo."),
   cgf: m("cgf", "/cgf", BarChart2, GLOSSARIO.CGF.nome, "CGF",
-    "Leia as planilhas de NF do mês para chegar ao volume e ao custo faturados."),
+    "Consulte o CGF gravado e a conta de cada mês. Para ler as planilhas de NF e gravar, use o Painel do Ciclo."),
   rpv: m("rpv", "/rpv", PieChart, GLOSSARIO.RPV.nome, "RPV",
-    "Compare o custo realizado (CGR) com o faturado (CGF) do mês e salve a diferença."),
+    "O RPV é CGR − CGF e se calcula sozinho quando o CGR e o CGF são gravados. Aqui você só consulta."),
   ret: m("ret", "/ret", Zap, GLOSSARIO.RET.nome, "RET",
-    "Leia os PDFs de encargos de transporte (EAT e EC) e salve o RET de cada mês."),
+    "Consulte o RET gravado de cada mês e abra a conta. Para ler os PDFs de encargos (EAT e EC) e gravar, use o Painel do Ciclo."),
   conciliacao: m("conciliacao", "/conciliacao", FileText, GLOSSARIO.RP.nome, "RP",
-    "Leia as notas de penalidade do mês (receitas e despesas) e salve o saldo."),
+    "Consulte o RP gravado de cada mês, com todas as notas. Para ler os PDFs de penalidades e gravar, use o Painel do Ciclo."),
   scg: m("scg", "/scg", Layers, GLOSSARIO.SCG.nome, "SCG",
     "Junte RPV, RET e RP do mês, escolha o valor certo onde houver divergência e salve."),
   sr: m("sr", "/sr", Activity, GLOSSARIO.SR.nome, "SR",
@@ -57,9 +59,9 @@ export const ORDEM_DO_CICLO: ChaveModulo[] = [
   "pmpv", "auditoria", "cgf", "rpv", "ret", "conciliacao", "scg", "sr", "pr", "pv", "excel",
 ];
 
+/** Menu na ordem de uso: onde começar, os passos do trimestre e, por fim, consulta e entrega. */
 export const GRUPOS_DO_MENU: { titulo?: string; itens: ChaveModulo[] }[] = [
-  { itens: ["dashboard", "comofunciona", "pmpv", "ciclo"] },
-  { titulo: "Conta Gráfica", itens: ["auditoria", "cgf", "rpv", "ret", "conciliacao", "scg", "sr"] },
-  { titulo: "Módulo 3 · Consolidação", itens: ["pr", "pv"] },
-  { titulo: "Exportação", itens: ["excel"] },
+  { titulo: "Início", itens: ["ciclo", "comofunciona"] },
+  { titulo: "Passos do trimestre", itens: ["pmpv", "auditoria", "cgf", "ret", "conciliacao", "scg", "sr", "pr", "pv"] },
+  { titulo: "Consulta e entrega", itens: ["dashboard", "rpv", "excel"] },
 ];

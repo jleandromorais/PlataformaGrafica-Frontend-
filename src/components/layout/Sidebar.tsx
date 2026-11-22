@@ -81,7 +81,6 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
                   <li key={to}>
                     <NavLink
                       to={to}
-                      end={to === "/"}
                       title={sigla ? dicaDe(sigla) : undefined}
                       onClick={onFechar}
                       className={({ isActive }) =>

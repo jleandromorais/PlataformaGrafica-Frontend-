@@ -1,4 +1,5 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import { ROTA_INICIAL } from "./rotas";
 import { Layout } from "../components/layout/Layout";
 import { RequireAuth, SomenteVisitante } from "../auth/RequireAuth";
 import LoginPage from "../pages/Auth/Login";
@@ -33,7 +34,8 @@ export const router = createBrowserRouter([
     path: "/",
     element: <Layout />,
     children: [
-      { index: true,        element: <DashboardPage /> },
+      { index: true,        element: <Navigate to={ROTA_INICIAL} replace /> },
+      { path: "visao-geral", element: <DashboardPage /> },
       { path: "como-funciona", element: <ComoFuncionaPage /> },
       { path: "pmpv",       element: <PMPVPage /> },
       { path: "cgf",        element: <CGFPage /> },

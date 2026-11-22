@@ -2,8 +2,7 @@
  *
  * A tela não lê PDFs nem grava: isso fica no Painel do Ciclo (Processar).
  * Aqui o analista vê COMO o RET é calculado (card da fórmula) e a CONTA ABERTA do mês
- * escolhido (prova real), e escolhe o mês clicando na tabela "RET gravado".
- * A leitura antiga pela própria tela está guardada em ./LeituraDoMes.tsx. */
+ * escolhido (prova real), e escolhe o mês clicando na tabela "RET gravado". */
 import { useEffect, useRef, useState } from "react";
 import { Alert } from "../../components/ui/Alert";
 import { CardFormula } from "../../components/ui/CardFormula";
@@ -12,6 +11,7 @@ import { Paginacao } from "../../components/ui/Paginacao";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
 import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { SemGravacaoAinda } from "../../components/ui/SemGravacaoAinda";
 import { getHistoricoRET, getProvaRealRET } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { brl, dataHora, num } from "../../utils/format";
@@ -67,8 +67,7 @@ export default function RETPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="ret"
-          descricao="Como o RET é calculado e a prova real de cada mês. Para ler os PDFs de encargos e gravar um mês, use o Painel do Ciclo." />
+        <PageHeader modulo="ret" />
 
         {erro && <Alert variant="error">{erro}</Alert>}
 
@@ -132,7 +131,7 @@ export default function RETPage() {
                     </tr>
                   );
                 })}
-                {historicoCarregado && historico.length === 0 && <tr><td colSpan={4} className="px-4 py-8 text-center text-zinc-500">Nenhum RET gravado.</td></tr>}
+                {historicoCarregado && historico.length === 0 && <tr><td colSpan={4}><SemGravacaoAinda sigla="RET" passo="4, RET" /></td></tr>}
               </tbody>
             </table>
           </div>

@@ -29,7 +29,10 @@ import {
   Search,
 } from "lucide-react";
 
+import { Link } from "react-router-dom";
 import { Select } from "../../components/ui/Input";
+import { classesDoBotao } from "../../components/ui/estilosBotao";
+import { MODULOS } from "../../components/layout/modulos";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Alert } from "../../components/ui/Alert";
 import { AvisoCascataPendente } from "../../components/ui/AvisoCascataPendente";
@@ -376,17 +379,23 @@ export default function DashboardPage() {
           modulo="dashboard"
           titulo="Visão geral"
           descricao={
-            ultimoMes && (
-              <>
-                Período mais recente:{" "}
-                <span className="font-medium text-white">
-                  {ultimoMes.periodo}
-                </span>
-              </>
-            )
+            <>
+              {MODULOS.dashboard.proposito}
+              {ultimoMes && (
+                <>
+                  {" "}Período mais recente:{" "}
+                  <span className="font-medium text-white">
+                    {ultimoMes.periodo}
+                  </span>
+                </>
+              )}
+            </>
           }
           acoes={
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Link to={MODULOS.ciclo.to} className={classesDoBotao("primary", "md")}>
+                Abrir o Painel do Ciclo
+              </Link>
               <Select
                 aria-label="Filtrar por ano"
                 value={ano}

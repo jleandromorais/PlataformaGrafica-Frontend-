@@ -39,6 +39,7 @@ import { classesDoBotao } from "../../components/ui/estilosBotao";
 import { DivergenciaSCG } from "./DivergenciaSCG";
 import { calcularProximoPasso, proximoDoBack, type ChavePasso, type DestinoBloqueio } from "./proximoPasso";
 import { trimestreSugerido } from "./trimestreSugerido";
+import { escolherPlanilha, planilhaDoTrimestre, type PlanilhaEscolhida } from "./planilhaDoTrimestre";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -280,7 +281,8 @@ export default function CicloPage() {
   const [gerandoNT, setGerandoNT] = useState(false);
   const [gerandoRel, setGerandoRel] = useState(false);
   // Planilha escolhida no "Comparar com a planilha": o relatório do trimestre compara as notas com ela.
-  const [planilhaRel, setPlanilhaRel] = useState<File | null>(null);
+  const [planilhaEscolhida, setPlanilhaEscolhida] = useState<PlanilhaEscolhida<File> | null>(null);
+  const planilhaRel = planilhaDoTrimestre(planilhaEscolhida, meses[0]);
 
   // Ao abrir a tela: traz de volta a última pasta (os nomes, para o mapa). Se ela foi
   // arrastada e o navegador ainda dá a permissão SEM perguntar, relê os arquivos; senão,
@@ -322,6 +324,7 @@ export default function CicloPage() {
   const irPara = (novoAno: number, novoTri: number) => {
     setCarregando(true);
     setProcessando(false);
+    setPlanilhaEscolhida(null); // a planilha de um trimestre não vale para outro
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -535,7 +538,7 @@ export default function CicloPage() {
         {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
         {!carregando && dados && (
           <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
-            aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={setPlanilhaRel} />
+            aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={(f) => setPlanilhaEscolhida(escolherPlanilha(f, meses[0]))} />
         )}
 
         {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
