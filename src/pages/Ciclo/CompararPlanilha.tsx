@@ -19,6 +19,7 @@ import { brl, num } from "../../utils/format"; // brl = "R$ 1.000,00"; num = nú
 import { abrirArquivo, carregarNaMemoria, type ArquivoDaPastaCiclo } from "../../utils/pasta";
 import { arquivosDaCelula, classificar, envioDaAuditoria } from "../../utils/pastaCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
+import { ID_PASTA } from "./blocoProximoPasso";
 import { ComparacaoPlanilha } from "../Auditoria/ComparacaoPlanilha"; // o quadro de resultado, o mesmo da tela da Auditoria
 import { TOL, parearMesmoValor, resumoDaComparacao, separarAvisos } from "../Auditoria/comparacaoResumo";
 import { avisarAtencao, avisarEnviando, avisarSucesso, concluirAviso, fecharAviso } from "../../components/ui/avisos"; // avisos no canto da tela (toast)
@@ -40,9 +41,8 @@ type Fase = "escolher" | "lendo" | "processando" | "resultado" | "erro";
 // "Set/2026" -> "Set". Usado nos botões ("Comparar Set").
 const mesCurto = (periodo: string) => periodo.split("/")[0];
 
-// Rola a página até a seção "Importar da pasta do ciclo" (o id fica no index.tsx do Painel).
-const irParaImportar = () =>
-  document.getElementById("importar-pasta")?.scrollIntoView({ behavior: "smooth", block: "start" });
+// Leva até o bloco "Processar a pasta" (abre se estiver recolhido). O id vem de blocoProximoPasso.
+const irParaImportar = () => { irParaSecao(ID_PASTA); };
 
 // Aviso no canto quando a comparação termina. Usa o mesmo resumo do quadro de resultado
 // (resumoDaComparacao), para o aviso e o quadro nunca discordarem.
@@ -222,7 +222,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
         Antes de seguir para o SR, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas do mês
-        {" "}vêm da pasta do ciclo trazida lá em cima, são lidas de novo e comparadas com a planilha; a comparação
+        {" "}vêm da pasta do ciclo trazida no bloco “Processar a pasta”, são lidas de novo e comparadas com a planilha; a comparação
         {" "}<b className="text-zinc-200">não grava nada</b>. Só o botão
         {" "}<b className="text-zinc-200">Incluir esta nota</b> (nota que está só na planilha) grava a nota no CGR do mês.
       </p>
@@ -230,7 +230,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
       <div className="mt-4 space-y-4">
         {/* PASSO 1 — a planilha. O <input> de arquivo fica escondido; o botão bonito clica nele. */}
         <div>
-          <p className="mb-2 text-xs font-medium text-zinc-500">1. Planilha da Conta Gráfica</p>
+          <p className="mb-2 text-xs font-medium text-zinc-500">1. Planilha oficial do trimestre <span className="font-normal text-zinc-500">(o relatório do trimestre usa esta mesma)</span></p>
           <input ref={inputPlanilha} type="file" accept=".xlsx,.xls" className="hidden" tabIndex={-1} aria-hidden
             // Trocou a planilha: o resultado antigo não vale mais. e.target.value = "" deixa escolher o mesmo arquivo de novo.
             onChange={(e) => {

@@ -1,28 +1,39 @@
 /** Aviso geral no topo do Painel do Ciclo e do Dashboard: há trimestre com SR, PR ou PV desatualizado
  * (GET /cascata/pendente)? Mostra quantos e abre a prévia para aprovar ali mesmo. Se o servidor for antigo
  * (sem a rota) ou nada estiver pendente, não aparece. Não grava nada sozinho. */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import { cascataPendente } from "../../api";
 import type { Cascata } from "../../types";
 import { Button } from "./Button";
 import { PreviaCascata } from "./PreviaCascata";
 
-export function AvisoCascataPendente({ className = "" }: { className?: string }) {
+export function AvisoCascataPendente({ className = "", aoMudar }: {
+  className?: string;
+  /** Diz à página se há algo esperando aprovação (o bloco "Próximo passo" do Painel usa). */
+  aoMudar?: (pendente: boolean) => void;
+}) {
   const [pendente, setPendente] = useState<Cascata | null>(null);
   const [aberto, setAberto] = useState(false);
+  const avisar = useRef(aoMudar);
+  useEffect(() => { avisar.current = aoMudar; });
 
   useEffect(() => {
     let vivo = true;
     cascataPendente()
-      .then((c) => { if (vivo) setPendente(c.desatualizado || c.pendencias.length > 0 ? c : null); })
+      .then((c) => {
+        if (!vivo) return;
+        const p = c.desatualizado || c.pendencias.length > 0 ? c : null;
+        setPendente(p);
+        avisar.current?.(!!p);
+      })
       .catch(() => { /* sem a rota (back antigo) ou fora do ar: o aviso é um extra, não atrapalha a tela */ });
     return () => { vivo = false; };
   }, []);
 
   if (!pendente) return null;
   if (aberto) {
-    return <PreviaCascata cascata={pendente} className={className} aoFechar={() => setAberto(false)} aoAplicar={() => setPendente(null)} />;
+    return <PreviaCascata cascata={pendente} className={className} aoFechar={() => setAberto(false)} aoAplicar={() => { setPendente(null); aoMudar?.(false); }} />;
   }
   const n = pendente.trimestres.length;
   return (

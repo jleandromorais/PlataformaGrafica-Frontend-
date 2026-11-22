@@ -1,14 +1,12 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileArchive, FileText, FolderOpen, Lock, Scale,
-} from "lucide-react";
+import { Calculator, ChevronLeft, ChevronRight, FileArchive, FileSpreadsheet, FolderOpen, Lock } from "lucide-react";
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
-import { Alert } from "../../components/ui/Alert";
 import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos";
-import { faixaDosMeses, rotuloDoPeriodo } from "../../utils/rotulos";
+import { faixaDosMeses, rotuloCurtoDoTrimestre, rotuloDoPeriodo } from "../../utils/rotulos";
 import { etapaDaChave, numeroDaEtapa, rotaDaEtapa } from "../../utils/etapasDoCiclo";
+import { irParaSecao } from "../../components/ui/useIrParaSecao";
 import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, gerarRelatorioTrimestral, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
@@ -17,13 +15,23 @@ import {
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
-import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
+import { NOMES_ETAPA, mapaDoTrimestre, type Etapa, type Situacao } from "../../utils/pastaCiclo";
 import { linkDoPMPV, mesesDoPRDoCivil } from "../../utils/periodos";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
 import { SRDoTrimestre } from "./SRDoTrimestre";
 import { ConferenciaDoMes } from "./ConferenciaDoMes";
+import { MapaPasta } from "./MapaPasta";
+import { ICONE } from "./situacaoUI";
+import { ProximoPassoBloco } from "./ProximoPassoBloco";
+import { SubpassoRecolhivel } from "./SubpassoRecolhivel";
+import { DetalheDoPMPV } from "./DetalheDoPMPV";
+import { AoFechar } from "./AoFechar";
+import { trimestresDoCicloTocados } from "./trimestresDoCicloTocados";
+import {
+  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PROCESSAR, ID_SR, blocoDoProximoPasso, idDoPasso, type AcaoDoBloco, type BlocoProximoPasso,
+} from "./blocoProximoPasso";
 import { AvisoCascataPendente } from "../../components/ui/AvisoCascataPendente";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
@@ -179,13 +187,14 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
   const prDifere = d.pr && d.prSalvo !== null && Math.abs(d.prSalvo - d.pr.pr) > 1e-9;
   const pvDifere = d.pv?.salvo && Math.abs(d.pv.salvo.pv - d.pv.pv) > 1e-9;
   const trimestrePR = { chave: "trimestre" as const, valor: mesesPR[0] };
-  const pmpvLista = meses.map((m, i) => ({ periodo: m, pmpv: d.pmpv[i] })).filter((l) => l.pmpv > 0);
-  // O PMPV é por trimestre do ciclo: abre no trimestre do 1º mês apurado que ainda falta.
-  const pmpvPendente = meses.find((m) => !pmpvLista.some((l) => l.periodo === m)) ?? meses[0];
+  // O PMPV é por trimestre do ciclo e o apurado é civil: cada trimestre do ciclo que cobre um mês apurado é um item.
+  const tocados = trimestresDoCicloTocados(meses, d.pmpv);
+  const pmpvPendente = tocados.find((t) => !t.pronto)?.mesesQueFaltam[0] ?? meses[0];
   return [
-    // Passo 1 do roteiro: o PMPV dos meses apurados (o CGF usa). A tela PMPV volta ao Painel pelo ?de=ciclo.
-    { chave: "pmpv" as const, titulo: "PMPV do trimestre apurado", descricao: `Preço médio e VP de ${meses[0]} a ${meses[2]}; o CGF usa`,
-      link: linkDoPMPV(meses[0], pmpvPendente), ...porMes(pmpvLista, meses, (l) => num(l.pmpv, 4)) },
+    // Passo 1 do roteiro: o PMPV dos meses apurados (o CGF usa), um item por trimestre do ciclo. A tela PMPV volta ao Painel pelo ?de=ciclo.
+    { chave: "pmpv" as const, titulo: etapaDaChave("pmpv").nome, descricao: "Cada trimestre do ciclo que cobre um mês apurado tem o seu PMPV (e o VP); o CGF usa",
+      link: linkDoPMPV(meses[0], pmpvPendente), situacao: tocados.every((t) => t.pronto) ? "ok" as const : "falta" as const,
+      mesesQueFaltam: tocados.flatMap((t) => t.mesesQueFaltam), detalhe: <DetalheDoPMPV trimestres={tocados} cicloInicio={meses[0]} /> },
     { ...etapaMensal("auditoria", "Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", d.auditoria, meses,
       (l) => brl(l.cgr_gravado)), extra: auditarMes },
     etapaMensal("cgf", "CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", d.cgf, meses,
@@ -232,12 +241,6 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
   ];
 }
 
-const ICONE: Record<Situacao, ReactNode> = {
-  ok: <CheckCircle2 size={18} className="text-emerald-400" aria-label="Pronto" />,
-  atencao: <AlertTriangle size={18} className="text-amber-300" aria-label="Precisa de atenção" />,
-  falta: <CircleDashed size={18} className="text-zinc-500" aria-label="Falta" />,
-};
-
 /** Texto do botão que leva à tela que resolve o bloqueio. */
 const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
   pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV do trimestre novo", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
@@ -260,7 +263,9 @@ export default function CicloPage() {
 
   const [dados, setDados] = useState<Dados | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);              // a carga da situação falhou (aparece no bloco "Próximo passo")
+  const [erroEntrega, setErroEntrega] = useState<string | null>(null);  // minuta ou relatório não saiu (aparece em "Ao fechar")
+  const [aguardandoAprovacao, setAguardandoAprovacao] = useState(false); // há SR, PR ou PV desatualizado esperando aprovação
   const [caminhos, setCaminhos] = useState<string[] | null>(null);
   // Os arquivos da pasta escolhida (caminho sem a pasta raiz → File), para o "Processar" enviar.
   const [arquivos, setArquivos] = useState<Map<string, ArquivoDaPastaCiclo>>(new Map());
@@ -327,6 +332,7 @@ export default function CicloPage() {
     setCarregando(true);
     setProcessando(false);
     setPlanilhaEscolhida(null); // a planilha de um trimestre não vale para outro
+    setErroEntrega(null);
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -428,7 +434,7 @@ export default function CicloPage() {
       salvarArquivo(await gerarMinutaNotaTecnica(meses[2]),
         `Minuta_NT_Repasse_${mesesPR[0].replace("/", "-")}_a_${mesesPR[2].replace("/", "-")}.docx`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gerar a minuta da Nota Técnica."));
+      setErroEntrega(mensagemDeErro(e, "Não foi possível gerar a minuta da Nota Técnica."));
     } finally {
       setGerandoNT(false);
     }
@@ -441,22 +447,46 @@ export default function CicloPage() {
       salvarArquivo(await gerarRelatorioTrimestral(meses[2], planilhaRel),
         `Relatorio_Trimestral_${meses[0].replace("/", "-")}_a_${meses[2].replace("/", "-")}.docx`);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gerar o relatório do trimestre."));
+      setErroEntrega(mensagemDeErro(e, "Não foi possível gerar o relatório do trimestre."));
     } finally {
       setGerandoRel(false);
     }
   };
+
+  // ── Bloco "Próximo passo" (o texto e o botão de cada situação moram em blocoDoProximoPasso) ──
+  const tocados = dados ? trimestresDoCicloTocados(meses, dados.pmpv) : [];
+  const trimestrePMPVPendente = tocados.find((t) => !t.pronto)?.trimestre;
+  const bloco: BlocoProximoPasso | null = carregando ? null : blocoDoProximoPasso({
+    erro: !!erro, proximo, bloqueios,
+    passos: lista.map((e) => ({ chave: e.chave, situacao: e.situacao, mesesQueFaltam: e.mesesQueFaltam, soLink: e.soLink })),
+    temPasta: !!caminhos, temArquivos: arquivos.size > 0, nomePasta, aguardandoAprovacao,
+    selic: dados?.situacao?.selic,
+    rotulos: { apurado: rotuloDoPeriodo(meses), ciclo: rotuloDoPeriodo(mesesPR),
+      pmpvPendente: trimestrePMPVPendente ? rotuloCurtoDoTrimestre(trimestrePMPVPendente) : null },
+    linkDe: linkDoDestino,
+  });
+
+  const executarAcao = (a: AcaoDoBloco) => {
+    if (a.tipo === "recarregar") { setErro(null); setCarregando(true); setVersao((v) => v + 1); return; }
+    if (a.tipo === "rolar") { irParaSecao(a.alvo); return; }
+    if (a.tipo === "abrir-processar") {
+      if (!processando) setProcessando(true);
+      const blocoDaPasta = document.getElementById(ID_PASTA);
+      if (blocoDaPasta instanceof HTMLDetailsElement) blocoDaPasta.open = true;
+      window.setTimeout(() => irParaSecao(ID_PROCESSAR), 120); // espera o Processar aparecer
+    }
+  };
+
+  const abrePasta = proximo === "auditoria" || proximo === "cgf" || proximo === "ret" || proximo === "rp" || processando;
+  const tarifa = lista.find((e) => e.chave === "tarifa");
+  const bloqueioTarifa = bloqueios.tarifa;
 
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1100px] flex-col gap-6">
         <PageHeader modulo="ciclo" />
 
-        {erro && <Alert variant="error">{erro}</Alert>}
-
-        {/* Algum SR, PR ou PV ficou para trás da última mudança? Aviso geral, com a prévia para aprovar. A chave refaz a busca depois de gravar. */}
-        <AvisoCascataPendente key={versao} />
-
+        {/* 1. Trimestre: tudo abaixo depende dele. */}
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ano anterior" onClick={() => irPara(ano - 1, tri)}
@@ -484,88 +514,31 @@ export default function CicloPage() {
           )}
         </section>
 
-        {/* Importar da pasta (o id deixa o "Comparar com a planilha" rolar a página até aqui) */}
-        <section id="importar-pasta" className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
-          <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Importar da pasta do ciclo</h2>
-          <p className="mt-1 max-w-2xl text-sm text-zinc-400">
-            Traga a pasta onde ficam as notas do ano (ex.: <b>{nomePasta}</b>). O sistema lê <b>só os nomes</b> dos arquivos,
-            sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
-          </p>
-          <div className="mt-4">
-            <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
-              {/* Sem "Escolher a pasta" de propósito: o seletor de pasta do sistema faz o Chrome abrir
-                  o aviso "Quer carregar N ficheiros para este site?", que nenhum site consegue esconder
-                  nem estilizar. Arrastar ou usar o .zip não dispara esse aviso. */}
-              <Button variant="primary" ref={botaoZip} onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}>
-                <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
-              </Button>
-              <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
-                onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
-              <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
-            </AreaSoltarPasta>
-          </div>
-          <ModalAviso aberto={!!avisoLeitura} onFechar={() => setAvisoLeitura(null)} voltarFoco={botaoZip}
-            variante={avisoLeitura?.variante} titulo={avisoLeitura?.titulo ?? ""}
-            acao={avisoLeitura?.acao === "zip"
-              ? { rotulo: "Escolher o .zip da pasta", onClick: () => { setAvisoLeitura(null); inputZip.current?.click(); } }
-              : undefined}>
-            {avisoLeitura?.texto ?? ""}
-          </ModalAviso>
-          {ocupadoPasta && (
-            <div className="mt-5">
-              <p className="text-sm text-zinc-400">Lendo os nomes dos arquivos…</p>
-              <EsqueletoLista linhas={4} className="mt-4" texto="Lendo os arquivos da pasta" />
-            </div>
-          )}
-          {semArquivos && !ocupadoPasta && (
-            <p className="mt-4 rounded-lg bg-amber-400/[0.06] px-4 py-3 text-sm text-amber-200">
-              Lembrei a pasta <b>{raiz}</b> da última vez e o mapa abaixo é dela. Para processar, traga a pasta de novo
-              (arrastando, escolhendo a pasta ou o .zip): o navegador não guarda os arquivos depois de recarregar a página.
-            </p>
-          )}
-          {/* Conferência do mês: total de cada etapa x mês anterior, antes de processar e gravar. */}
-          {mapa && !ocupadoPasta && <ConferenciaDoMes key={meses[0]} meses={meses} versao={versao} />}
-          {mapa && !ocupadoPasta && (
-            <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} aberto={processando}
-              processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
-          )}
-          {mapa && !ocupadoPasta && processando && dados && (
-            <ProcessarTrimestre key={`${raiz}-${meses[0]}-${rodada}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
-              memoria={memoriaProcessar(raiz, meses[0])} retomar={retomar} semArquivos={semArquivos}
-              auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
-          )}
-        </section>
+        {/* 2. O que fazer agora: um bloco, um botão. */}
+        <ProximoPassoBloco bloco={bloco} detalheDoErro={erro} onAcao={executarAcao}
+          onVerMotivo={(b) => b.verMotivo && irParaSecao(idDoPasso(b.verMotivo))} />
 
-        {/* Auditoria antes do SR (ordem do ciclo): comparar o CGR de um mês contra a planilha (opcional, não grava) */}
-        {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
-        {!carregando && dados && (
-          <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
-            aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={(f) => setPlanilhaEscolhida(escolherPlanilha(f, meses[0]))} />
-        )}
+        {/* 3. Algum SR, PR ou PV ficou para trás da última mudança? Aviso com a prévia para aprovar (a fase 4 o troca pelo bloco "Aguardando sua aprovação"). A chave refaz a busca depois de gravar. */}
+        <div id={ID_APROVACAO} className="scroll-mt-4 empty:hidden">
+          <AvisoCascataPendente key={versao} aoMudar={setAguardandoAprovacao} />
+        </div>
 
-        {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
-        <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
-
-        {/* Etapas */}
+        {/* 4. Passos do trimestre, na ordem. Cada passo mostra o estado; o trabalho fica nos blocos recolhidos logo abaixo. */}
         <section className={`${PANEL} overflow-hidden`}>
           <h2 className="border-b border-white/[0.07] px-5 py-4 text-base font-semibold text-white">Passos do trimestre</h2>
           {carregando ? (
             <EsqueletoEtapas />
           ) : (
             <ol className="divide-y divide-white/[0.05]">
-              {lista.map((e) => {
+              {lista.filter((e) => e.chave !== "tarifa").map((e) => {
                 const ehProximo = e.chave === proximo;
                 const bloqueio = bloqueios[e.chave];
                 return (
-                  <Fragment key={e.titulo}>
-                  {e.chave === "tarifa" && (
-                    <li aria-hidden className="bg-white/[0.02] px-5 py-2 text-xs font-semibold text-zinc-400">Ao fechar</li>
-                  )}
-                  <li aria-current={ehProximo ? "step" : undefined}
-                    className={`flex flex-wrap items-start gap-4 px-5 py-4 ${ehProximo ? "border-l-4 border-sky-400 bg-sky-500/[0.06] pl-4" : ""}`}>
+                  <li key={e.titulo} id={idDoPasso(e.chave)} aria-current={ehProximo ? "step" : undefined}
+                    className={`flex scroll-mt-4 flex-wrap items-start gap-4 px-5 py-4 ${ehProximo ? "border-l-4 border-sky-400 bg-sky-500/[0.06] pl-4" : ""}`}>
                     <span className="mt-0.5 flex items-center gap-3">
                       <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{numeroDaEtapa(e.chave)}</span>
-                      {e.soLink ? <Scale size={18} className="text-zinc-400" aria-hidden /> : ICONE[e.situacao]}
+                      {ICONE[e.situacao]}
                     </span>
                     <div className="min-w-0 flex-1 basis-60">
                       <p className="flex flex-wrap items-center gap-2 font-semibold text-zinc-100">
@@ -587,43 +560,94 @@ export default function CicloPage() {
                         {bloqueio.destino === "pmpv_novo" ? `Abrir o PMPV de ${mesesPR[0].split("/")[0]} a ${mesesPR[2].split("/")[0]}` : ROTULO_DESTINO[bloqueio.destino]}
                       </Link>
                     ) : ehProximo ? (
-                      <Link to={e.link} className={classesDoBotao("solid", "md")}>Fazer agora</Link>
-                    ) : (
+                      <span className="self-center text-xs text-sky-200">Use o botão do bloco acima</span>
+                    ) : e.chave === "pmpv" ? null : (
                       <Link to={e.link}
-                        className={`inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok" || e.soLink
+                        className={`inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok"
                           ? "text-zinc-400 hover:text-white" : "text-sky-300 hover:text-sky-200"}`}>
-                        {e.soLink ? "Abrir o PMPV" : e.situacao === "ok" ? "Ver" : "Fazer agora"}
+                        {e.situacao === "ok" ? "Ver" : "Fazer agora"}
                       </Link>
                     )}
                   </li>
-                  </Fragment>
                 );
               })}
-              <li className="flex flex-wrap items-center gap-4 px-5 py-4">
-                <span className="mt-0.5 flex items-center gap-3">
-                  <span className="w-5" aria-hidden />
-                  <FileText size={18} className="text-sky-300" />
-                </span>
-                <div className="min-w-0 flex-1 basis-60">
-                  <p className="font-semibold text-zinc-100">{etapaDaChave("entregas").nome.split(" (")[0]}</p>
-                  <p className="text-xs text-zinc-500">Minuta da Nota Técnica, relatório do trimestre e Excel Final do ciclo</p>
-                  <p className={`mt-1 text-xs ${planilhaRel ? "text-emerald-400" : "text-amber-300"}`}>
-                    {planilhaRel
-                      ? `O relatório compara as notas com a planilha ${planilhaRel.name}.`
-                      : "Sem planilha, o relatório só confere o sistema com ele mesmo. Escolha a planilha em “Comparar com a planilha” para ver o que falta."}
-                  </p>
-                </div>
-                <Button variant="primary" size="sm" onClick={gerarNT} disabled={gerandoNT}>
-                  {gerandoNT ? "Gerando…" : "Baixar minuta da NT"}
-                </Button>
-                <Button variant="primary" size="sm" onClick={gerarRelatorio} disabled={gerandoRel}>
-                  {gerandoRel ? "Gerando…" : "Baixar relatório do trimestre"}
-                </Button>
-                <Link to="/excel-final" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Excel Final</Link>
-              </li>
             </ol>
           )}
         </section>
+
+        {/* 5. Blocos de trabalho, cada um subordinado ao passo que serve: recolhidos, e o do próximo passo abre sozinho. */}
+        <div className="flex flex-col gap-3">
+          <SubpassoRecolhivel id={ID_PASTA} titulo="Processar a pasta" passos="passos 2 a 5" icone={<FolderOpen size={16} />} abrirPorPadrao={abrePasta}>
+            <section className={`${PANEL} p-5 sm:p-6`}>
+              <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Importar da pasta do ciclo</h2>
+              <p className="mt-1 max-w-2xl text-sm text-zinc-400">
+                Traga a pasta onde ficam as notas do ano (ex.: <b>{nomePasta}</b>). O sistema lê <b>só os nomes</b> dos arquivos,
+                sem enviar nada, e mostra o que encontrou para cada etapa de {meses[0]} a {meses[2]}.
+              </p>
+              <div className="mt-4">
+                <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
+                  {/* Sem "Escolher a pasta" de propósito: o seletor de pasta do sistema faz o Chrome abrir
+                      o aviso "Quer carregar N ficheiros para este site?", que nenhum site consegue esconder
+                      nem estilizar. Arrastar ou usar o .zip não dispara esse aviso. */}
+                  <Button variant="primary" ref={botaoZip} onClick={() => inputZip.current?.click()} disabled={ocupadoPasta}>
+                    <FileArchive size={16} aria-hidden /> ou escolha o .zip da pasta
+                  </Button>
+                  <input ref={inputZip} type="file" accept=".zip,application/zip" className="hidden" tabIndex={-1} aria-hidden
+                    onChange={(e) => { escolherZip(e.target.files?.[0]); e.target.value = ""; }} />
+                  <p className="text-xs text-zinc-500">Assim o Chrome não precisa pedir permissão.</p>
+                </AreaSoltarPasta>
+              </div>
+              <ModalAviso aberto={!!avisoLeitura} onFechar={() => setAvisoLeitura(null)} voltarFoco={botaoZip}
+                variante={avisoLeitura?.variante} titulo={avisoLeitura?.titulo ?? ""}
+                acao={avisoLeitura?.acao === "zip"
+                  ? { rotulo: "Escolher o .zip da pasta", onClick: () => { setAvisoLeitura(null); inputZip.current?.click(); } }
+                  : undefined}>
+                {avisoLeitura?.texto ?? ""}
+              </ModalAviso>
+              {ocupadoPasta && (
+                <div className="mt-5">
+                  <p className="text-sm text-zinc-400">Lendo os nomes dos arquivos…</p>
+                  <EsqueletoLista linhas={4} className="mt-4" texto="Lendo os arquivos da pasta" />
+                </div>
+              )}
+              {/* Conferência do mês: total de cada etapa x mês anterior, antes de processar e gravar. */}
+              {mapa && !ocupadoPasta && <ConferenciaDoMes key={meses[0]} meses={meses} versao={versao} />}
+              {mapa && !ocupadoPasta && (
+                <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} aberto={processando} lembrada={semArquivos}
+                  processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
+              )}
+              {mapa && !ocupadoPasta && processando && dados && (
+                <div id={ID_PROCESSAR} className="scroll-mt-4">
+                  <ProcessarTrimestre key={`${raiz}-${meses[0]}-${rodada}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
+                    memoria={memoriaProcessar(raiz, meses[0])} retomar={retomar} semArquivos={semArquivos}
+                    auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
+                </div>
+              )}
+            </section>
+          </SubpassoRecolhivel>
+
+          {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
+          <SubpassoRecolhivel id={ID_COMPARAR} titulo="Comparar com a planilha" passos="opcional, passo 2" icone={<FileSpreadsheet size={16} />} abrirPorPadrao={false}>
+            {!carregando && dados ? (
+              <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
+                aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={(f) => setPlanilhaEscolhida(escolherPlanilha(f, meses[0]))} />
+            ) : (
+              <p className="px-2 py-3 text-sm text-zinc-400">Disponível quando a situação do trimestre carregar.</p>
+            )}
+          </SubpassoRecolhivel>
+
+          {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
+          <SubpassoRecolhivel id={ID_SR} titulo="SR do trimestre" passos="passo 7" icone={<Calculator size={16} />} abrirPorPadrao={proximo === "sr"}>
+            <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
+          </SubpassoRecolhivel>
+        </div>
+
+        {/* 6. Ao fechar: tarifa média e entregas, sem número. */}
+        <AoFechar carregando={carregando} erro={erroEntrega} planilha={planilhaRel?.name ?? null}
+          onEscolherPlanilha={() => irParaSecao(ID_COMPARAR)}
+          onGerarNT={gerarNT} gerandoNT={gerandoNT} onGerarRelatorio={gerarRelatorio} gerandoRelatorio={gerandoRel}
+          tarifa={{ detalhe: tarifa?.detalhe, link: tarifa?.link ?? "#",
+            bloqueio: bloqueioTarifa ? { motivo: bloqueioTarifa.motivo, link: linkDoDestino(bloqueioTarifa.destino), rotulo: ROTULO_DESTINO[bloqueioTarifa.destino] } : undefined }} />
       </div>
     </div>
   );
@@ -652,88 +676,6 @@ function EsqueletoEtapas() {
           <Skeleton className="h-7 w-12" />
         </div>
       ))}
-    </div>
-  );
-}
-
-// ── Mapa da pasta ─────────────────────────────────────────────────────────────
-
-function MapaPasta({ mapa, meses, raiz, total, processar, aberto }: {
-  mapa: ReturnType<typeof mapaDoTrimestre>; meses: string[]; raiz: string; total: number;
-  processar?: () => void; // ausente: Painel ainda carregando
-  aberto: boolean;        // Processar já aberto abaixo: o botão vira "Recomeçar"
-}) {
-  const [aberta, setAberta] = useState<CelulaMapa | null>(null);
-  const etapasMapa: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
-  const celula = (e: Etapa, m: string) => mapa.celulas.find((c) => c.etapa === e && c.periodo === m)!;
-  const problemas = mapa.celulas.filter((c) => c.situacao !== "ok").length;
-  return (
-    <div className="mt-5">
-      <p className="text-sm text-zinc-400">
-        <b className="text-zinc-200">{raiz}</b>: {num(total)} arquivos lidos ·{" "}
-        {problemas ? <span className="text-amber-200">{problemas} ponto(s) para conferir</span> : <span className="text-emerald-300">tudo encontrado</span>}
-        {" "}· {num(mapa.ignorados)} de outros meses ignorados
-      </p>
-      {mapa.semMes.length > 0 && (
-        <p className="mt-1 text-sm text-amber-200">
-          ⚠ {mapa.semMes.length === 1 ? "Esta pasta não tem" : "Estas pastas não têm"} o mês no nome e não foram usadas:{" "}
-          {mapa.semMes.map((p) => `“${p.split("/").pop()}”`).join(", ")}. Renomeie com mês e ano (ex.: “09 set-26 NFs”).
-        </p>
-      )}
-      <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[36rem] text-sm">
-          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
-            <tr>
-              <th className="px-4 py-2.5 text-left font-semibold">Etapa</th>
-              {meses.map((m) => <th key={m} className="px-3 py-2.5 text-left font-semibold">{m}</th>)}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/[0.05]">
-            {etapasMapa.map((e) => (
-              <tr key={e}>
-                <td className="px-4 py-2.5 text-zinc-200">{NOMES_ETAPA[e]}</td>
-                {meses.map((m) => {
-                  const c = celula(e, m);
-                  return (
-                    <td key={m} className="px-3 py-2">
-                      <button type="button" onClick={() => setAberta(aberta === c ? null : c)}
-                        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-left ${aberta === c ? "bg-white/[0.06]" : "hover:bg-white/[0.04]"}`}>
-                        {ICONE[c.situacao]}
-                        <span className={c.situacao === "falta" ? "text-zinc-500" : "text-zinc-200"}>
-                          {c.situacao === "falta" ? "não achei" : `${num(c.arquivos)} arquivo(s)`}
-                        </span>
-                      </button>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {aberta && (
-        <div className="mt-3 rounded-xl border border-white/[0.07] bg-white/[0.02] p-4 text-sm">
-          <p className="font-semibold text-zinc-100">{NOMES_ETAPA[aberta.etapa]} · {aberta.periodo}</p>
-          {aberta.conjuntos.length > 0 && (
-            <ul className="mt-2 space-y-0.5 text-xs text-zinc-400">
-              {aberta.conjuntos.map((c) => <li key={c} className="break-all">📁 {c || "(direto na pasta escolhida)"}</li>)}
-            </ul>
-          )}
-          {aberta.avisos.map((a) => <p key={a} className="mt-2 text-amber-200">⚠ {a}</p>)}
-          {aberta.notas.map((a) => <p key={a} className="mt-2 text-zinc-500">{a}</p>)}
-          {aberta.situacao === "falta" && (
-            <p className="mt-2 text-zinc-400">Não encontrei arquivos desta etapa para {aberta.periodo}. Confira se a pasta do mês existe e tem os arquivos.</p>
-          )}
-        </div>
-      )}
-      <div className="mt-4 flex flex-wrap items-center gap-3">
-        <Button variant="solid" disabled={!processar} onClick={processar}>
-          {aberto ? "Recomeçar o Processar" : `Processar ${meses[0]} a ${meses[2]}`}
-        </Button>
-        <span className="text-xs text-zinc-500">
-          Envia estes arquivos para cada etapa, mostra o resultado e só grava o que você confirmar. Auditoria, CGF, RET e RP.
-        </span>
-      </div>
     </div>
   );
 }
