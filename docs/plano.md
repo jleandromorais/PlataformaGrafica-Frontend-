@@ -3,10 +3,26 @@
 ## PLANO DE 23/11 (segunda)
 **Ontem (22/11):** deploy conferido, minuta e relatório baixados em produção e testados com dados reais; passo 1 a 9 percorrido, deu certo.
 
+0. **Graphify no trabalho (antes de tudo, uns 5 minutos):**
+   - [ ] `pip install graphifyy` (se `graphify --help` não for reconhecido, use `python -m graphify`).
+   - [ ] `git pull origin main` nos dois repositórios (back primeiro). Confira que existe `graphify-out/graph.json` em cada um.
+   - [ ] Dentro de cada pasta: `graphify god-nodes` (arquivos mais ligados) e `graphify explain "DatabasePMPV"`.
+   - [ ] Antes de mexer em período/trimestre: `graphify affected "normalizar_periodo()"` (o que quebra se mudar).
+   - [ ] Se o código mudou desde 22/11: `graphify update .` na pasta (não precisa de chave de API).
+   - [ ] Não rodar `graphify claude install` nem `graphify hook install` ainda.
 1. **Dados reais do servidor (Leandro faz, o agente guia):** corrigir o PMPV de Out/2025 e os PRs que estavam errados; definir onde fica o backup do banco (Railway) e fazer o primeiro. Hoje não há cópia.
 2. **Lista do que confundiu no teste:** Leandro anota o que travou ou confundiu do passo 1 ao 9; Leandro CG corrige (back primeiro, depois front, com teste). Ainda não visto contra o back real: Processar até o fim, 409/422 ao aprovar em sequência, tema claro de `/sr` e `/pv`, foco por teclado, campo `etapas` do back real.
 3. **Pendências antigas:** José (alerta verde e "auditar mês" automático) e plano da Daluz.
 4. **Se sobrar tempo:** reduzir as 11 chamadas do `carregar` do Painel (só o estado vem do back); aplicar `<Sigla>` em tabelas e nas outras telas; abrir o Word da minuta ao lado da NT 15/2026 e conferir quadro por quadro (o conteúdo ainda não foi comparado).
+
+## Feito em 22/11 (Leandro): GRAPHIFY instalado e grafo do código gerado nos dois repositórios
+- **O que é:** ferramenta que lê o código e monta um grafo (quem chama quem). Só código, sem LLM e sem chave de API. Instalado com `pip install graphifyy` (versão 0.9.115; `uv` e `pipx` não existem nesta máquina).
+- **Como foi gerado:** `graphify extract . --code-only`, dentro de cada repositório (a pasta raiz `Conta grafica` não é repositório git).
+- **O que subiu para o GitHub:** só `graphify-out/graph.json` e `graphify-out/manifest.json`. Back: commit `chore(graphify): adiciona o grafo de codigo do back`. Front: `77a3977`. Ficaram de fora `cache/` (8,6 MB no back) e `converted/` (nome de nota fiscal).
+- **O que o grafo mostrou:** back, o centro é `DatabasePMPV` (402 conexões), depois `ServicosConsolidacao` (113), `normalizar_periodo()` (85) e `is_periodo_valido()` (68). Front: `brl()` (101), `num()` (76), `mensagemDeErro()` (67); páginas mais ligadas `CicloPage()` (61) e `PMPVPage()` (58).
+- **Para usar no trabalho:** `pip install graphifyy`, `git pull` nos dois repositórios e, dentro de cada pasta: `graphify god-nodes`, `graphify explain "DatabasePMPV"`, `graphify affected "normalizar_periodo()"` (mostra o que quebra se a função mudar; útil antes de mexer em período/trimestre). O grafo é uma foto de 22/11: depois de mudar código, `graphify update .`.
+- **Não feito, de propósito:** `graphify claude install` (mexe no `CLAUDE.md` e instala hook em toda chamada de ferramenta) e `graphify hook install` (hooks de git). Decidir depois de usar o grafo.
+- **Falta:** decidir se `graphify-out/cache/` e `converted/` entram no `.gitignore` dos dois repositórios (hoje aparecem como não rastreados).
 
 ## Feito em 22/11 (Leandro CG, commit `73ae079` no back): ERRO "sem conexão" ao gerar a minuta da NT
 - **Causa 1:** `nota-tecnica` e `relatorio-trimestral` tomavam os 3 meses de `obter_periodos_trimestre`, que lê o "trimestre ativo" do banco (feito para o Excel Final) e devolve UM mês quando o trimestre pedido não é o ativo. O Quadro 5 do `.docx` espera 3 meses e estourava com `IndexError` (todo trimestre de 2025 em dados locais). Agora as duas rotas usam `trimestre_civil_do_periodo` (`Src/common/periodos.py`), só pelo calendário (Mar/2025 = Jan, Fev, Mar).
