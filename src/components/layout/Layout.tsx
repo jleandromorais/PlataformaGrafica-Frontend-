@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, Outlet, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Menu } from "lucide-react";
 import { Sidebar, Brand } from "./Sidebar";
-import { deslocaPeriodo, lerPeriodo } from "../../utils/periodos";
+import { deslocaPeriodo, lerPeriodo, linkDoPainel } from "../../utils/periodos";
 
 /** Tela aberta pelo "Fazer agora" do Painel do Ciclo: volta ao mesmo trimestre. */
 function VoltarAoPainel() {
@@ -11,7 +11,7 @@ function VoltarAoPainel() {
   if (params.get("de") !== "ciclo" || !ciclo || !lerPeriodo(ciclo)) return null;
   return (
     <div className="border-b border-white/[0.06] bg-sky-500/[0.06] px-4 py-2 sm:px-8 lg:px-10">
-      <Link to={`/ciclo?trimestre=${encodeURIComponent(ciclo)}`}
+      <Link to={linkDoPainel(ciclo)}
         className="inline-flex items-center gap-1.5 text-sm font-medium text-sky-200 hover:text-white">
         <ArrowLeft size={14} /> Voltar ao Painel do Ciclo ({ciclo} a {deslocaPeriodo(ciclo, 2)})
       </Link>

@@ -2,8 +2,10 @@
  * Função pura: recebe o que o Painel já carregou. Quando o back tiver GET /ciclo/situacao,
  * troque só a origem destes dados; a tela continua igual. */
 
-export type ChavePasso =
-  | "pmpv" | "auditoria" | "cgf" | "ret" | "rp" | "scg" | "sr" | "pr" | "pv" | "tarifa";
+import type { ChaveEtapa } from "../../utils/etapasDoCiclo";
+
+/** Os passos que o Painel mostra: as chaves vêm da lista única (`utils/etapasDoCiclo.ts`), menos RPV e Entregas. */
+export type ChavePasso = Exclude<ChaveEtapa, "rpv" | "entregas">;
 
 /** Para onde o link do bloqueio leva: um passo do Painel, ou o PMPV do trimestre novo. */
 export type DestinoBloqueio = ChavePasso | "pmpv_novo";

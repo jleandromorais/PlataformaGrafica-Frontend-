@@ -29,7 +29,7 @@ import { rotuloDoTrimestre, trimestreDoFormulario } from "./estadoProva";
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 // SR segue o trimestre civil (Jan–Mar …), não o do PMPV/PR (Nov–Jan …).
-const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
+const TRIMESTRES = ["Jan a Mar", "Abr a Jun", "Jul a Set", "Out a Dez"];
 
 /** Busca da prova real: a chave é "Jan/2026_Mar/2026#versão" (a versão sobe ao salvar, para buscar de novo).
  * Função estável do módulo, como pede o hook. */

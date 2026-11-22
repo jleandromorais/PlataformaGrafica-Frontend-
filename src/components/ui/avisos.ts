@@ -82,13 +82,3 @@ export function concluirAviso(
     description, variant: tipo, isLoading: false, timeout: tipo === "danger" ? TEMPO_ERRO : TEMPO,
   });
 }
-
-/** "Jul a Set/2026" (ou "Jan/2026 a Mar/2026" se mudar o ano) para o título do aviso. */
-export function faixaDosMeses(meses: string[]): string {
-  if (!meses.length) return "";
-  const primeiro = meses[0];
-  const ultimo = meses[meses.length - 1];
-  if (meses.length === 1) return primeiro;
-  const [m1, a1] = primeiro.split("/");
-  return a1 === ultimo.split("/")[1] ? `${m1} a ${ultimo}` : `${primeiro} a ${ultimo}`;
-}

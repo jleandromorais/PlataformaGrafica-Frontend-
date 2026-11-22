@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Sigma } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Route, Sigma } from "lucide-react";
 import { moduleColor } from "../../theme";
-import { MODULOS, ORDEM_DO_CICLO, type ChaveModulo } from "./modulos";
+import { etapaDoModulo, rotuloDaEtapa } from "../../utils/etapasDoCiclo";
+import { linkDoPainel } from "../../utils/periodos";
+import { classesDoBotao } from "../ui/estilosBotao";
+import { MODULOS, type ChaveModulo } from "./modulos";
 
 interface Props {
   modulo: ChaveModulo;
@@ -16,15 +19,15 @@ interface Props {
   acoes?: ReactNode;
 }
 
-/** Cabeçalho único das telas: o que é, o que fazer aqui e, nas etapas do ciclo,
- * onde esta tela fica na ordem, com atalho para a anterior e a próxima. */
+/** Cabeçalho único das telas: o que é, o que fazer aqui e, nas etapas do ciclo, em que passo
+ * estamos ("Passo 4 de 9", da lista única) e o botão que leva ao Painel do Ciclo, no mesmo trimestre. */
 export function PageHeader({ modulo, titulo, descricao, formula, acoes }: Props) {
   const mod = MODULOS[modulo];
   const Icon = mod.icon;
   const nome = titulo ?? (mod.sigla ? `${mod.sigla} — ${mod.nome}` : mod.nome);
-  const idx = ORDEM_DO_CICLO.indexOf(modulo);
-  const anterior = idx > 0 ? MODULOS[ORDEM_DO_CICLO[idx - 1]] : null;
-  const proxima = idx >= 0 && idx < ORDEM_DO_CICLO.length - 1 ? MODULOS[ORDEM_DO_CICLO[idx + 1]] : null;
+  const etapa = etapaDoModulo(modulo);
+  const [params] = useSearchParams();
+  const painel = linkDoPainel(params.get("ciclo"));
   const texto = descricao ?? mod.proposito;
 
   return (
@@ -45,36 +48,21 @@ export function PageHeader({ modulo, titulo, descricao, formula, acoes }: Props)
         </div>
       </div>
 
-      {(acoes || idx >= 0) && (
+      {(acoes || etapa) && (
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {acoes}
-          {idx >= 0 && (
-            <nav aria-label="Etapas do ciclo" className="flex items-center gap-1 rounded-xl border border-white/[0.07] bg-white/[0.02] p-1">
-              <PassoLink alvo={anterior} direcao="anterior" />
-              <span className="px-2 text-xs font-medium tabular-nums text-zinc-400">
-                Etapa {idx + 1} de {ORDEM_DO_CICLO.length}
+          {etapa && (
+            <nav aria-label="Lugar no ciclo" className="flex flex-wrap items-center gap-2">
+              <span className="rounded-md bg-sky-500/15 px-2.5 py-1 text-xs font-semibold tabular-nums text-sky-200">
+                {rotuloDaEtapa(etapa.chave)}
               </span>
-              <PassoLink alvo={proxima} direcao="proxima" />
+              <Link to={painel} className={classesDoBotao(etapa.gravaNoPainel ? "primary" : "ghost", "md")}>
+                <Route size={15} aria-hidden />{etapa.gravaNoPainel ? "Ler e gravar no Painel" : "Painel do Ciclo"}
+              </Link>
             </nav>
           )}
         </div>
       )}
     </header>
-  );
-}
-
-function PassoLink({ alvo, direcao }: { alvo: (typeof MODULOS)[ChaveModulo] | null; direcao: "anterior" | "proxima" }) {
-  const Seta = direcao === "anterior" ? ChevronLeft : ChevronRight;
-  if (!alvo) {
-    return <span className="flex h-10 w-10 items-center justify-center text-zinc-700" aria-hidden><Seta size={16} /></span>;
-  }
-  const rotulo = `${direcao === "anterior" ? "Etapa anterior" : "Próxima etapa"}: ${alvo.sigla ?? alvo.nome}`;
-  return (
-    <Link to={alvo.to} title={rotulo} aria-label={rotulo}
-      className="flex h-10 items-center gap-1 rounded-lg px-2.5 text-xs font-semibold text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-white">
-      {direcao === "anterior" && <Seta size={15} />}
-      <span>{alvo.sigla ?? alvo.nome.split(" ")[0]}</span>
-      {direcao === "proxima" && <Seta size={15} />}
-    </Link>
   );
 }

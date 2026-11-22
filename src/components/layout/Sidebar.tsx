@@ -4,6 +4,7 @@ import { X, LogOut, Moon, Sun } from "lucide-react";
 import { useTema } from "../../utils/tema";
 import { moduleColor } from "../../theme";
 import { useAuth } from "../../auth/AuthContext";
+import { numeroDoModulo, etapaDoModulo } from "../../utils/etapasDoCiclo";
 import { GRUPOS_DO_MENU, MODULOS } from "./modulos";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
@@ -77,6 +78,8 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
               <ul className="space-y-0.5">
                 {g.itens.map((key) => {
                   const { to, icon: Icon, nome, sigla } = MODULOS[key];
+                  const numero = numeroDoModulo(key);
+                  const automatico = etapaDoModulo(key)?.tipo === "automatico";
                   return (
                   <li key={to}>
                     <NavLink
@@ -93,6 +96,11 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
                     >
                       {({ isActive }) => (
                         <>
+                          {numero !== null && (
+                            <span className="mt-0.5 w-3 shrink-0 text-right text-xs font-semibold tabular-nums text-zinc-500">
+                              <span className="sr-only">Passo </span>{numero}
+                            </span>
+                          )}
                           <Icon
                             size={16}
                             className={`mt-0.5 shrink-0 transition-colors duration-150 ${
@@ -101,7 +109,10 @@ export function Sidebar({ aberto, onFechar }: SidebarProps) {
                           />
                           {sigla ? (
                             <span className="min-w-0 leading-tight">
-                              <span className="block font-semibold">{sigla}</span>
+                              <span className="block font-semibold">
+                                {sigla}
+                                {automatico && <span className="ml-1.5 text-[0.68rem] font-normal text-zinc-500">calculado sozinho</span>}
+                              </span>
                               <span className={`block text-[0.72rem] font-normal ${isActive ? "text-zinc-300" : "text-zinc-500 group-hover:text-zinc-400"}`}>
                                 {nome}
                               </span>

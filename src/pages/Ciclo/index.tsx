@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleDashed, FileArchive, FileText, FolderOpen, Lock, Scale,
@@ -6,7 +6,9 @@ import {
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { Alert } from "../../components/ui/Alert";
-import { avisarAtencao, avisarSucesso, faixaDosMeses } from "../../components/ui/avisos";
+import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos";
+import { faixaDosMeses, rotuloDoPeriodo } from "../../utils/rotulos";
+import { etapaDaChave, numeroDaEtapa, rotaDaEtapa } from "../../utils/etapasDoCiclo";
 import { avisoDaSoltura, lerPastaSolta, type Soltura } from "../../utils/soltarPasta";
 import {
   apurarPR, buscarTrimestreSR, gerarMinutaNotaTecnica, gerarRelatorioTrimestral, getHistoricoAuditoria, getHistoricoCGF, getHistoricoConcilia,
@@ -49,7 +51,7 @@ const memoriaProcessar = (raiz: string, inicio: string) => `ciclo:processar:${ra
 /** Nomes dos arquivos (o mapa só usa os nomes) e, no Chrome/Edge, a chave para reler a pasta. */
 interface PastaGuardada { raiz: string; caminhos: string[]; chave?: ChavePasta }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-const TRIMESTRES = ["Jan – Mar", "Abr – Jun", "Jul – Set", "Out – Dez"];
+const TRIMESTRES = ["Jan a Mar", "Abr a Jun", "Jul a Set", "Out a Dez"];
 const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
 
 /** Por que a pasta não abriu, em janela: o que fazer vira o botão principal. */
@@ -164,9 +166,9 @@ function porMes<T extends { periodo: string }>(lista: T[], meses: string[], valo
 }
 
 /** Etapa mensal: "Fazer agora" abre no 1º mês pendente; cada chip de mês abre aquele mês. */
-function etapaMensal<T extends { periodo: string }>(chave: ChavePasso, titulo: string, descricao: string, rota: string, lista: T[],
+function etapaMensal<T extends { periodo: string }>(chave: ChavePasso, titulo: string, descricao: string, lista: T[],
   meses: string[], valor: (l: T) => string, alerta?: (l: T) => string | null): Etapa_ {
-  const linkDoMes = (m: string) => linkDoCiclo(rota, meses[0], { chave: "periodo", valor: m });
+  const linkDoMes = (m: string) => linkDoCiclo(rotaDaEtapa(chave), meses[0], { chave: "periodo", valor: m });
   const { pendente, ...resto } = porMes(lista, meses, valor, alerta, linkDoMes);
   return { chave, titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
 }
@@ -184,27 +186,27 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
     // Passo 1 do roteiro: o PMPV dos meses apurados (o CGF usa). A tela PMPV volta ao Painel pelo ?de=ciclo.
     { chave: "pmpv" as const, titulo: "PMPV do trimestre apurado", descricao: `Preço médio e VP de ${meses[0]} a ${meses[2]}; o CGF usa`,
       link: linkDoPMPV(meses[0], pmpvPendente), ...porMes(pmpvLista, meses, (l) => num(l.pmpv, 4)) },
-    { ...etapaMensal("auditoria", "Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
+    { ...etapaMensal("auditoria", "Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", d.auditoria, meses,
       (l) => brl(l.cgr_gravado)), extra: auditarMes },
-    etapaMensal("cgf", "CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
+    etapaMensal("cgf", "CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", d.cgf, meses,
       (l) => brl(l.cgf_rs), (l) => (l.volume_devolucoes ? null : "Devoluções = 0: confira se a planilha de devoluções entrou.")),
     // RET não tem seletor de mês: o período vem dos próprios arquivos.
-    { chave: "ret" as const, titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo("/ret", meses[0]),
+    { chave: "ret" as const, titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo(rotaDaEtapa("ret"), meses[0]),
       ...porMes(d.ret, meses, (l) => brl(l.ret_gravado)) },
-    etapaMensal("rp", "RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", "/conciliacao", d.concilia,
+    etapaMensal("rp", "RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", d.concilia,
       meses, (l) => brl(l.rp_gravado),
       (l) => (Math.abs(l.rp_dos_itens - l.rp_gravado) > 1 ? "O RP gravado difere da soma dos itens." : null)),
-    { ...etapaMensal("scg", "SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", "/scg", d.scg, meses,
+    { ...etapaMensal("scg", "SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", d.scg, meses,
       (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)), extra: divergenciaScg },
     {
       chave: "sr" as const, titulo: "SR — Saldo Remanescente", descricao: "Quadro 6 do trimestre, com SELIC",
-      link: linkDoCiclo("/sr", meses[0], { chave: "trimestre", valor: meses[0] }),
+      link: linkDoCiclo(rotaDaEtapa("sr"), meses[0], { chave: "trimestre", valor: meses[0] }),
       situacao: d.srSalvo.length ? "ok" : "falta",
       detalhe: d.srSalvo.length ? <span>Salvo · total {brl(srTotal)}</span> : <span>Ainda não salvo para este trimestre.</span>,
     },
     {
       chave: "pr" as const, titulo: `PR — Parcela de Recuperação de ${faixaPR}`, descricao: "Quadro 7: (SCG + SR com SELIC) ÷ VP",
-      link: linkDoCiclo("/pr", meses[0], trimestrePR),
+      link: linkDoCiclo(rotaDaEtapa("pr"), meses[0], trimestrePR),
       situacao: !d.pr || d.pr.pendencias.length ? "falta" : prDifere || d.prSalvo === null ? "atencao" : "ok",
       detalhe: !d.pr ? <span>Não consegui calcular agora: abra a tela PR para ver o motivo.</span> : d.pr.pendencias.length ? (
         <span>{d.pr.pendencias.join(" ")}</span>
@@ -214,7 +216,7 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
     },
     {
       chave: "pv" as const, titulo: `PV — Preço de Venda de ${faixaPR}`, descricao: "Quadro 8: PMPV + PR",
-      link: linkDoCiclo("/pv", meses[0], trimestrePR),
+      link: linkDoCiclo(rotaDaEtapa("pv"), meses[0], trimestrePR),
       situacao: !d.pv ? "falta" : !d.pv.salvo || pvDifere ? "atencao" : "ok",
       detalhe: !d.pv ? <span>Não consegui consultar agora: abra a tela PV para ver o motivo.</span> : (
         <span>Atual {num(d.pv.pv, 4)} · {!d.pv.salvo ? "ainda não salvo" : pvDifere ? `salvo ${num(d.pv.salvo.pv, 4)} (diferente — salve de novo)` : "salvo"}</span>
@@ -463,7 +465,7 @@ export default function CicloPage() {
             <button type="button" aria-label="Próximo ano" onClick={() => irPara(ano + 1, tri)}
               className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronRight size={16} /></button>
           </div>
-          <div role="radiogroup" aria-label="Trimestre apurado" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
+          <div role="radiogroup" aria-label="Trimestre civil apurado" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
             {TRIMESTRES.map((t, i) => (
               <button key={t} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
                 className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -471,9 +473,9 @@ export default function CicloPage() {
             ))}
           </div>
           <p className="w-full text-sm text-zinc-400">
-            Apura <b className="text-zinc-200">{meses[0]} a {meses[2]}</b> → define o PR e o PV de{" "}
-            <b className="text-zinc-200">{mesesPR[0]} a {mesesPR[2]}</b>
-            {dados && !carregando && <span className="ml-2 text-zinc-500">· {prontas} de {contaveis.length} etapas prontas</span>}
+            Apura <b className="text-zinc-200">{rotuloDoPeriodo(meses, "civil")}</b> → define o PR e o PV de{" "}
+            <b className="text-zinc-200">{rotuloDoPeriodo(mesesPR, "ciclo")}</b>
+            {dados && !carregando && <span className="ml-2 text-zinc-500">· {prontas} de {contaveis.length} passos prontos</span>}
           </p>
           {dados && (
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/[0.05]" aria-hidden>
@@ -546,19 +548,23 @@ export default function CicloPage() {
 
         {/* Etapas */}
         <section className={`${PANEL} overflow-hidden`}>
-          <h2 className="border-b border-white/[0.07] px-5 py-4 text-base font-semibold text-white">Etapas do ciclo</h2>
+          <h2 className="border-b border-white/[0.07] px-5 py-4 text-base font-semibold text-white">Passos do trimestre</h2>
           {carregando ? (
             <EsqueletoEtapas />
           ) : (
             <ol className="divide-y divide-white/[0.05]">
-              {lista.map((e, i) => {
+              {lista.map((e) => {
                 const ehProximo = e.chave === proximo;
                 const bloqueio = bloqueios[e.chave];
                 return (
-                  <li key={e.titulo} aria-current={ehProximo ? "step" : undefined}
+                  <Fragment key={e.titulo}>
+                  {e.chave === "tarifa" && (
+                    <li aria-hidden className="bg-white/[0.02] px-5 py-2 text-xs font-semibold text-zinc-400">Ao fechar</li>
+                  )}
+                  <li aria-current={ehProximo ? "step" : undefined}
                     className={`flex flex-wrap items-start gap-4 px-5 py-4 ${ehProximo ? "border-l-4 border-sky-400 bg-sky-500/[0.06] pl-4" : ""}`}>
                     <span className="mt-0.5 flex items-center gap-3">
-                      <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{i + 1}</span>
+                      <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{numeroDaEtapa(e.chave)}</span>
                       {e.soLink ? <Scale size={18} className="text-zinc-400" aria-hidden /> : ICONE[e.situacao]}
                     </span>
                     <div className="min-w-0 flex-1 basis-60">
@@ -590,15 +596,16 @@ export default function CicloPage() {
                       </Link>
                     )}
                   </li>
+                  </Fragment>
                 );
               })}
               <li className="flex flex-wrap items-center gap-4 px-5 py-4">
                 <span className="mt-0.5 flex items-center gap-3">
-                  <span className="w-5 text-right text-xs tabular-nums text-zinc-500">{lista.length + 1}</span>
+                  <span className="w-5" aria-hidden />
                   <FileText size={18} className="text-sky-300" />
                 </span>
                 <div className="min-w-0 flex-1 basis-60">
-                  <p className="font-semibold text-zinc-100">Entregas</p>
+                  <p className="font-semibold text-zinc-100">{etapaDaChave("entregas").nome.split(" (")[0]}</p>
                   <p className="text-xs text-zinc-500">Minuta da Nota Técnica, relatório do trimestre e Excel Final do ciclo</p>
                   <p className={`mt-1 text-xs ${planilhaRel ? "text-emerald-400" : "text-amber-300"}`}>
                     {planilhaRel
@@ -629,7 +636,7 @@ export default function CicloPage() {
 function EsqueletoEtapas() {
   return (
     <div role="status" className="divide-y divide-white/[0.05]">
-      <span className="sr-only">Consultando as etapas do ciclo…</span>
+      <span className="sr-only">Consultando os passos do trimestre…</span>
       {[0, 1, 2, 3, 4].map((i) => (
         <div key={i} className="flex items-start gap-4 px-5 py-4">
           <Skeleton className="mt-0.5 ml-8 h-[18px] w-[18px] rounded-full" />

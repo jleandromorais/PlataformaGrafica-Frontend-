@@ -169,10 +169,10 @@ export default function ComoFuncionaPage() {
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex w-full max-w-[1100px] flex-col gap-10">
         <PageHeader modulo="comofunciona"
-          descricao="O mês em cinco passos. O resto fica nas abas, para consultar quando precisar." />
+          descricao="O trimestre em nove passos. O resto fica nas abas, para consultar quando precisar." />
 
         <section aria-labelledby="passos-t" className="flex flex-col gap-4">
-          <Titulo id="passos-t">O mês, passo a passo</Titulo>
+          <Titulo id="passos-t">O trimestre, passo a passo</Titulo>
           <PassoAPasso />
         </section>
 

@@ -12,6 +12,7 @@ import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { PRApuracao } from "../../types";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { rotuloCurtoDoTrimestre, rotuloDoPeriodo } from "../../utils/rotulos";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
 
@@ -176,7 +177,7 @@ export default function PRPage() {
               <button key={t.label} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
                 className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                   tri === i ? "bg-pink-500/20 text-pink-200" : "text-zinc-400 hover:text-zinc-100"}`}>
-                {t.label.replace(" - ", " – ")}
+                {rotuloCurtoDoTrimestre(t.label)}
               </button>
             ))}
           </div>
@@ -283,7 +284,7 @@ export default function PRPage() {
         {/* Alterações do PR deste trimestre: quando mudou, de quanto para quanto (só lê). */}
         {dados && (
           <section className={`${PANEL} px-5 pb-5`}>
-            <AlteracoesDaTrilha periodos={[chave]} rotulo={chave} tabela="pr_resultados" versao={prSalvo} />
+            <AlteracoesDaTrilha periodos={[chave]} rotulo={rotuloDoPeriodo(meses, "ciclo")} tabela="pr_resultados" versao={prSalvo} />
           </section>
         )}
 

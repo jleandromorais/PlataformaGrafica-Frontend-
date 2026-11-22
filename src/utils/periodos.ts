@@ -1,3 +1,5 @@
+import { ROTA_INICIAL } from "../router/rotas";
+
 /** Abreviações de mês usadas nos períodos "Mmm/AAAA" (iguais às do backend). */
 export const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -15,6 +17,11 @@ export function deslocaPeriodo(p: string, n: number): string {
   const [m, a] = p.split("/");
   const t = Number(a) * 12 + MESES_ABREV.indexOf(m) + n;
   return `${MESES_ABREV[t % 12]}/${Math.floor(t / 12)}`;
+}
+
+/** Endereço do Painel do Ciclo, no trimestre `ciclo` (1º mês, "Abr/2026") quando for um período válido. */
+export function linkDoPainel(ciclo: string | null | undefined): string {
+  return lerPeriodo(ciclo) ? `${ROTA_INICIAL}?trimestre=${encodeURIComponent(ciclo!)}` : ROTA_INICIAL;
 }
 
 /** Os 3 meses de um trimestre fiscal pelo 1º mês: ("Nov", 2025) → ["Nov/2025", "Dez/2025", "Jan/2026"]. */

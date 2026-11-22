@@ -1,7 +1,7 @@
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
+import { Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp, Loader2, Scale } from "lucide-react";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CardFormula } from "../../components/ui/CardFormula";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
@@ -11,7 +11,8 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
-import { avisarEnviando, avisarSucesso, concluirAviso, faixaDosMeses } from "../../components/ui/avisos";
+import { avisarEnviando, avisarSucesso, concluirAviso } from "../../components/ui/avisos";
+import { faixaDosMeses } from "../../utils/rotulos";
 import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, getSessaoDoTrimestrePMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
 import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
@@ -765,12 +766,7 @@ export default function PMPVPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-6">
-        <PageHeader modulo="pmpv" acoes={params.get("de") === "ciclo" ? undefined : (
-          // Aberto pelo Ciclo, a barra do topo já oferece a volta; sem ela, este atalho leva ao Painel.
-          <Link to="/ciclo" className="inline-flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-sky-300 hover:text-white">
-            <ArrowLeft size={14} aria-hidden /> Voltar ao Ciclo
-          </Link>
-        )} />
+        <PageHeader modulo="pmpv" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         {aviso && <Alert variant="warning" {...partesDoAviso(aviso)} />}
