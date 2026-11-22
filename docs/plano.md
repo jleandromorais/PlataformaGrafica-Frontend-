@@ -1,5 +1,13 @@
 **22/11 — Fluxo único completo (fases 1 a 5 e pontos em aberto). Back: `73ae079` já no ar. Front: `dca533f` commitado, falta o push; o `<Sigla>` (siglas.ts, Sigla.tsx, Layout, PageHeader, PRDoTrimestre, ProximoPassoBloco, Ciclo/index, ComoFunciona, glossario) ainda sem commit.**
 
+## PLANO DE 23/11 (segunda)
+**Ontem (22/11):** deploy conferido, minuta e relatório baixados em produção e testados com dados reais; passo 1 a 9 percorrido, deu certo.
+
+1. **Dados reais do servidor (Leandro faz, o agente guia):** corrigir o PMPV de Out/2025 e os PRs que estavam errados; definir onde fica o backup do banco (Railway) e fazer o primeiro. Hoje não há cópia.
+2. **Lista do que confundiu no teste:** Leandro anota o que travou ou confundiu do passo 1 ao 9; Leandro CG corrige (back primeiro, depois front, com teste). Ainda não visto contra o back real: Processar até o fim, 409/422 ao aprovar em sequência, tema claro de `/sr` e `/pv`, foco por teclado, campo `etapas` do back real.
+3. **Pendências antigas:** José (alerta verde e "auditar mês" automático) e plano da Daluz.
+4. **Se sobrar tempo:** reduzir as 11 chamadas do `carregar` do Painel (só o estado vem do back); aplicar `<Sigla>` em tabelas e nas outras telas; abrir o Word da minuta ao lado da NT 15/2026 e conferir quadro por quadro (o conteúdo ainda não foi comparado).
+
 ## Feito em 22/11 (Leandro CG, commit `73ae079` no back): ERRO "sem conexão" ao gerar a minuta da NT
 - **Causa 1:** `nota-tecnica` e `relatorio-trimestral` tomavam os 3 meses de `obter_periodos_trimestre`, que lê o "trimestre ativo" do banco (feito para o Excel Final) e devolve UM mês quando o trimestre pedido não é o ativo. O Quadro 5 do `.docx` espera 3 meses e estourava com `IndexError` (todo trimestre de 2025 em dados locais). Agora as duas rotas usam `trimestre_civil_do_periodo` (`Src/common/periodos.py`), só pelo calendário (Mar/2025 = Jan, Fev, Mar).
 - **Causa 2:** erro 500 inesperado saía sem cabeçalho de CORS (o handler de `Exception` fica fora do `CORSMiddleware`), então o navegador derrubava a resposta e o site dizia "sem conexão". `instalar_captura_de_erro_inesperado` (`Src/api/errors.py`, ligado em `main.py` antes do CORS) devolve o 500 por dentro do CORS, com a mensagem e o código de 8 caracteres.
