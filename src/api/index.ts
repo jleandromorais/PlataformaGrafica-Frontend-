@@ -7,7 +7,7 @@ import type {
   CGFCalcularRsResponse, CGFColunas, CGFHistoricoLinha, CGFProcessarResponse, CGFVolumes, AuditoriaResultado, AuditoriaItem, AuditoriaHistoricoLinha, AuditoriaDiferencas, ProvaRealAuditoria, ProvaRealCGF, ProvaRealRPV, ProvaRealPMPV, PVHistoricoTrimestre, ProvaRealPV, PMPVMargem, SRProposta, ProvaRealRET, ProvaRealRP, ProvaRealSCG, ProvaRealSR, SRHistoricoTrimestre,
   ConciliaResultado, ConciliaItem, ConciliaHistoricoLinha, RETResultado, RETDocumento, RETHistoricoLinha,
   SCGPeriodo, PRResultado, PRApuracao, PRSrAnterior, DashboardResponse,
-  SRSessaoPMPV, SROrigemPR, SRLinhaEntrada, SRLinhaCalculada, SRTrimestreCalculo, SRSelic,
+  SRSessaoPMPV, SROrigemPR, SRLinhaCalculada, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
   Cascata, CascataAPartirDe, SituacaoCiclo, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
 } from "../types";
@@ -406,11 +406,6 @@ export const carregarTrimestreSR = (sessaoId: number, labelsMeses: string[]) =>
       sessao_id: sessaoId,
       labels_meses: labelsMeses,
     })
-    .then((r) => r.data);
-
-export const calcularTrimestreSR = (linhas: SRLinhaEntrada[]) =>
-  api
-    .post<SRTrimestreCalculo>("/sr/trimestre/calcular", { linhas })
     .then((r) => r.data);
 
 /** Monta o SR do trimestre com VP, VF, PR e SELIC buscados pelo back e compara com o gravado.

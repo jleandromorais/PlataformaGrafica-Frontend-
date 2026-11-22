@@ -306,7 +306,7 @@ export default function SRPage() {
 
         <section className={`${PANEL} overflow-hidden`}>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[54rem] text-sm">
+            <table className="w-full min-w-[44rem] text-sm">
               <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
                 <tr>
                   <th className="px-4 py-3 text-left font-semibold">Mês</th>
@@ -318,9 +318,9 @@ export default function SRPage() {
                   </th>
                   <th className="px-2 py-3 text-right font-semibold">SELIC (%)</th>
                   <th className="px-2 py-3 text-right font-semibold" title="Saldo remanescente de um trimestre anterior, somado ao SR do mês. Vazio se não houver.">
-                    SR trim. anterior
+                    <span className="ml-auto block max-w-[5.5rem]">SR trim. anterior</span>
                   </th>
-                  <th className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 text-right font-semibold">SR do mês</th>
+                  <th className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-3 py-3 text-right font-semibold">SR do mês</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
@@ -350,7 +350,7 @@ export default function SRPage() {
                         )}
                       </td>
                       <td className="px-2 py-2.5 text-right tabular-nums text-zinc-300">{l.sr_anterior ? num(l.sr_anterior, 2) : "—"}</td>
-                      <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-2 text-right">
+                      <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-3 py-2 text-right">
                         <span className={`block whitespace-nowrap font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</span>
                         <span className="block whitespace-nowrap text-[0.7rem] tabular-nums text-zinc-500">sem SELIC {brl(l.sr_parcela)}</span>
                       </td>
@@ -363,7 +363,7 @@ export default function SRPage() {
                   <td colSpan={7} className="px-4 py-3 text-right text-sm font-semibold text-zinc-400">
                     SR do trimestre
                   </td>
-                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>
+                  <td className={`sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-3 py-3 whitespace-nowrap text-right text-lg font-bold tabular-nums ${cor(total)}`}>
                     {carregando ? <Skeleton className="ml-auto h-6 w-32" /> : brl(total)}
                   </td>
                 </tr>

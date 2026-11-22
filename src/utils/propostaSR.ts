@@ -51,31 +51,3 @@ export function faixaDoTrimestre(labels: string[]): string {
 export function tituloDaDivergencia(n: number): string {
   return `Há divergência em ${n === 1 ? "1 mês" : `${n} meses`}.`;
 }
-
-/** Uma linha da tabela editável da tela /sr (o que o analista digitou ou o sistema preencheu). */
-export type LinhaEditadaSR = Pick<SRPropostaLinha, "mes" | "vp" | "vf" | "pr" | "selic_mensal" | "sr_anterior" | "sr_selic">;
-
-export interface ConferenciaDaTabelaSR {
-  /** Já existe SR gravado: gravar o substitui. */
-  substitui: boolean;
-  totalGravado: number | null;
-  /** Meses em que a tabela difere do gravado (a mesma checagem do card do SR no Painel). */
-  motivosPorMes: { mes: string; motivos: string[] }[];
-  /** A proposta não veio (falha de rede ou do servidor): não dá para comparar. */
-  naoConferiu: boolean;
-}
-
-/** A tela /sr grava uma tabela editável. Antes de gravar, compara a tabela com o SR gravado (o `gravado` de cada
- * linha da proposta do servidor), com as mesmas colunas e tolerâncias do card do Painel. Os alertas do servidor
- * (PR estimado, sem VP...) falam dos valores que o SISTEMA propôs, não do que foi digitado: ficam de fora. Sem a
- * proposta, a janela é obrigatória (`naoConferiu`). */
-export function conferirTabelaSR(linhas: LinhaEditadaSR[], proposta: SRProposta | null): ConferenciaDaTabelaSR {
-  if (!proposta) return { substitui: true, totalGravado: null, motivosPorMes: [], naoConferiu: true };
-  const motivosPorMes = linhas.flatMap((l) => {
-    const doServidor = proposta.linhas.find((p) => p.mes === l.mes);
-    if (!doServidor) return [];
-    const motivos = motivosDoMes({ ...doServidor, ...l, alertas: [] });
-    return motivos.length ? [{ mes: l.mes, motivos }] : [];
-  });
-  return { substitui: proposta.total_gravado !== null, totalGravado: proposta.total_gravado, motivosPorMes, naoConferiu: false };
-}

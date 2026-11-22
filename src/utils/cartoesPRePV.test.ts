@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chaveDoPR, chaveDoPV, prSubstitui, pvSubstitui, rotuloDoCartao } from "./cartoesPRePV";
+import { avisosDeDivergenciaDoPV, chaveDoPR, chaveDoPV, prSubstitui, pvSubstitui, rotuloDoCartao } from "./cartoesPRePV";
 
 describe("chaves gravadas do PR e do PV (não mudam)", () => {
   it("PR usa o ano do ÚLTIMO mês, PV o do 1º", () => {
@@ -38,5 +38,23 @@ describe("rótulo do cartão", () => {
   it("diz o passo e a faixa dos meses reais", () => {
     expect(rotuloDoCartao("pr", ["Nov/2026", "Dez/2026", "Jan/2027"])).toBe("PR de Nov/2026 a Jan/2027");
     expect(rotuloDoCartao("pv", ["Fev/2026", "Mar/2026", "Abr/2026"])).toBe("PV de Fev a Abr/2026");
+  });
+});
+
+describe("avisosDeDivergenciaDoPV: o aviso de rotina não é divergência", () => {
+  const rotina = "O PV salvo (2,1000) difere do atual pelos módulos (2,2000): PMPV ou PR mudaram depois. Confira e salve de novo para atualizar.";
+  const real = "O PMPV está diferente entre os meses (Nov/2026 = 2,1, Dez/2026 = 2,2). Usei o de Nov/2026; confira.";
+
+  it("só o aviso 'PV salvo difere', com a troca já mostrada na janela: nenhuma divergência", () => {
+    expect(avisosDeDivergenciaDoPV([rotina], true)).toEqual([]);
+  });
+  it("aviso real continua divergência, mesmo ao lado do de rotina", () => {
+    expect(avisosDeDivergenciaDoPV([rotina, real], true)).toEqual([real]);
+  });
+  it("na dúvida, diverge: o aviso de rotina sem troca visível (substitui falso) não é descartado", () => {
+    expect(avisosDeDivergenciaDoPV([rotina], false)).toEqual([rotina]);
+  });
+  it("texto desconhecido do servidor é divergência", () => {
+    expect(avisosDeDivergenciaDoPV(["PR de Nov - Jan/2026 não foi salvo: rode o módulo PR."], true)).toHaveLength(1);
   });
 });

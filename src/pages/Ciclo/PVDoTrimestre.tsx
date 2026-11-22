@@ -8,6 +8,7 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
+import { ComSiglas } from "../../components/ui/Sigla";
 import { Button } from "../../components/ui/Button";
 import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -16,7 +17,7 @@ import { avisarSucesso } from "../../components/ui/avisos";
 import { salvarPVTrimestre } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
-import { chaveDoPV, pvSubstitui, rotuloDoCartao } from "../../utils/cartoesPRePV";
+import { avisosDeDivergenciaDoPV, chaveDoPV, pvSubstitui, rotuloDoCartao } from "../../utils/cartoesPRePV";
 import { linkDoCiclo } from "../../utils/periodoNaUrl";
 import { faixaDosMeses } from "../../utils/rotulos";
 import type { PVTrimestre } from "../../types";
@@ -46,13 +47,15 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
   const gravado = pv?.salvo?.pv ?? null;
   const substitui = !!pv && pvSubstitui(gravado, pv.pv);
   const avisos = pv?.avisos ?? [];
+  /** Divergência de verdade: o aviso de rotina "PV salvo difere" não conta (a janela já mostra antes/depois). */
+  const divergencias = avisosDeDivergenciaDoPV(avisos, substitui);
   const semPMPV = !!pv && pv.pmpv === 0;
   const podeGravar = !!pv && !semPMPV && !carregando && !gravando;
 
   /** O botão: pede confirmação quando troca um PV já gravado ou há aviso em amarelo; senão grava direto. */
   const pedirGravacao = () => {
     if (!pv) return;
-    if (precisaJanela({ substitui, diverge: avisos.length > 0 })) setConfirmar(true);
+    if (precisaJanela({ substitui, diverge: divergencias.length > 0 })) setConfirmar(true);
     else void gravar();
   };
 
@@ -77,7 +80,7 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
     <section aria-labelledby="pv-ciclo-titulo" className={`${PANEL} p-5 sm:p-6`}>
       <h2 id="pv-ciclo-titulo" className="text-base font-semibold text-white">PV — Preço de Venda de {faixaDosMeses(mesesPR)}</h2>
       <p className="mt-1 text-sm text-zinc-400">
-        PV = PMPV + PR do mesmo trimestre ({faixa}). Gravar repete o valor nos 3 meses, como o Excel Final lê. Nada é gravado até você confirmar.
+        <ComSiglas>{`PV = PMPV + PR do mesmo trimestre (${faixa}). Gravar repete o valor nos 3 meses, como o Excel Final lê. Nada é gravado até você confirmar.`}</ComSiglas>
       </p>
 
       {erro && <Alert variant="error" className="mt-4 whitespace-pre-line">{erro}</Alert>}
@@ -117,7 +120,7 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
 
           <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
             oque={`o ${rotulo}`} rotuloAcao="Gravar o PV" afeta={AFETADOS_DA_TELA.pv} onConfirmar={() => void gravar()}
-            diverge={avisos.length > 0} motivos={avisos}
+            diverge={divergencias.length > 0} motivos={divergencias}
             linhas={[{ rotulo: "PV (R$/m³)", antes: gravado === null ? null : tarifa(gravado), depois: tarifa(pv.pv) }]} />
         </div>
       )}

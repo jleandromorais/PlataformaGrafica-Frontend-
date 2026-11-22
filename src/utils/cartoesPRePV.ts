@@ -28,3 +28,12 @@ export const pvSubstitui = (gravado: number | null, novo: number) => gravado !==
 
 /** "PR de Nov/2026 a Jan/2027", "PV de Fev a Abr/2026". */
 export const rotuloDoCartao = (passo: "pr" | "pv", mesesPR: string[]) => `${passo.toUpperCase()} de ${faixaDosMeses(mesesPR)}`;
+
+/** Avisos do servidor que são DIVERGÊNCIA a confirmar. O único de rotina é "O PV salvo (x) difere do atual
+ * pelos módulos (y)": ele só diz que gravar troca o valor, e isso a janela já mostra na linha antes/depois.
+ * Conservador: só some quando a troca é visível (`substitui`) e o texto é exatamente esse; qualquer outro
+ * aviso, ou texto novo do servidor, continua divergência. */
+export function avisosDeDivergenciaDoPV(avisos: string[], substitui: boolean): string[] {
+  const ehRotina = (a: string) => /^O PV salvo \([^)]*\) difere do atual pelos módulos \([^)]*\):/.test(a);
+  return substitui ? avisos.filter((a) => !ehRotina(a)) : avisos;
+}
