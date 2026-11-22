@@ -16,7 +16,7 @@ import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa, type Situacao } from "../../utils/pastaCiclo";
-import { mesesDoPRDoCivil } from "../../utils/periodos";
+import { linkDoPMPV, mesesDoPRDoCivil } from "../../utils/periodos";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
@@ -177,10 +177,12 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
   const pvDifere = d.pv?.salvo && Math.abs(d.pv.salvo.pv - d.pv.pv) > 1e-9;
   const trimestrePR = { chave: "trimestre" as const, valor: mesesPR[0] };
   const pmpvLista = meses.map((m, i) => ({ periodo: m, pmpv: d.pmpv[i] })).filter((l) => l.pmpv > 0);
+  // O PMPV é por trimestre do ciclo: abre no trimestre do 1º mês apurado que ainda falta.
+  const pmpvPendente = meses.find((m) => !pmpvLista.some((l) => l.periodo === m)) ?? meses[0];
   return [
     // Passo 1 do roteiro: o PMPV dos meses apurados (o CGF usa). A tela PMPV volta ao Painel pelo ?de=ciclo.
     { chave: "pmpv" as const, titulo: "PMPV do trimestre apurado", descricao: `Preço médio e VP de ${meses[0]} a ${meses[2]}; o CGF usa`,
-      link: linkDoCiclo("/pmpv", meses[0]), ...porMes(pmpvLista, meses, (l) => num(l.pmpv, 4)) },
+      link: linkDoPMPV(meses[0], pmpvPendente), ...porMes(pmpvLista, meses, (l) => num(l.pmpv, 4)) },
     { ...etapaMensal("auditoria", "Auditoria CGR", "NF de compra de gás e CT-e da TAG de cada mês", "/auditoria", d.auditoria, meses,
       (l) => brl(l.cgr_gravado)), extra: auditarMes },
     etapaMensal("cgf", "CGF — Volume Faturado", "Planilhas de NF faturadas, canceladas e devolvidas", "/cgf", d.cgf, meses,
@@ -221,7 +223,7 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
     {
       chave: "tarifa" as const, titulo: "Tarifa média", soLink: true, situacao: "falta" as const,
       descricao: "PV + margem de distribuição (MB); a tarifa nunca é gravada aqui",
-      link: linkDoCiclo("/pmpv", meses[0]),
+      link: linkDoPMPV(meses[0], mesesPR[0]),
       detalhe: <span>{d.pv?.salvo ? `PV gravado de ${num(d.pv.salvo.pv, 4)}. Veja e feche a tarifa média na tela PMPV.` : "Grave o PV do trimestre novo para fechar a tarifa média no PMPV."}</span>,
     },
   ];
@@ -235,7 +237,7 @@ const ICONE: Record<Situacao, ReactNode> = {
 
 /** Texto do botão que leva à tela que resolve o bloqueio. */
 const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
-  pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
+  pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV do trimestre novo", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
   rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Abrir o SR", pr: "Abrir o PR", pv: "Abrir o PV", tarifa: "Abrir o PMPV",
 };
 
@@ -339,7 +341,7 @@ export default function CicloPage() {
   const bloqueios = local.bloqueios;
   const proximo = proximoDoBack(local.proximo, dados?.situacao?.proximo_passo,
     Object.fromEntries(lista.map((e) => [e.chave, e.situacao])));
-  const linkDoDestino = (d: DestinoBloqueio) => d === "pmpv_novo" ? linkDoCiclo("/pmpv", meses[0]) : lista.find((e) => e.chave === d)?.link ?? "#";
+  const linkDoDestino = (d: DestinoBloqueio) => d === "pmpv_novo" ? linkDoPMPV(meses[0], mesesPR[0]) : lista.find((e) => e.chave === d)?.link ?? "#";
   const mapa = caminhos ? mapaDoTrimestre(caminhos, meses) : null;
 
   /** Pasta nova (arrastada, escolhida ou .zip): descarta a prévia antiga dela e guarda os nomes (e a chave). */
@@ -573,7 +575,7 @@ export default function CicloPage() {
                     </div>
                     {bloqueio ? (
                       <Link to={linkDoDestino(bloqueio.destino)} className={classesDoBotao("ghost", "md")}>
-                        {ROTULO_DESTINO[bloqueio.destino]}
+                        {bloqueio.destino === "pmpv_novo" ? `Abrir o PMPV de ${mesesPR[0].split("/")[0]} a ${mesesPR[2].split("/")[0]}` : ROTULO_DESTINO[bloqueio.destino]}
                       </Link>
                     ) : ehProximo ? (
                       <Link to={e.link} className={classesDoBotao("solid", "md")}>Fazer agora</Link>

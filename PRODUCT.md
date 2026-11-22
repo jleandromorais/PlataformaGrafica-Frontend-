@@ -45,7 +45,7 @@ O sucesso tem duas partes:
 
 ## Capabilities and Constraints
 
-- **Módulos:** Dashboard, PMPV, Auditoria CGR, CGF (volume faturado), RPV, RET (encargos), RP (conciliação de penalidades), SCG (consolidação), SR (saldo regulatório), PR, PV, Excel Final e Ciclo.
+- **Módulos:** Dashboard, PMPV, Auditoria CGR, CGF (volume faturado), RPV, RET (encargos), RP (conciliação de penalidades), SCG (consolidação), SR (Saldo Remanescente), PR, PV, Excel Final e Ciclo.
 - **Termos fixos:** os termos e siglas seguem a Nota Técnica: CGR = Σ compra sem tributos das NF-e e dos CT-e de gasoduto; SCG = RPV + RET + RP + SRant; PR = SCG / VP; PV = PMPV + PR.
 - **Dados sigilosos:** valores e notas da Copergás são restritos. Tudo fica atrás de login e nada pode ficar público.
 - **Comparação de valores:** precisa apontar divergências por nota e por supridor, com valores, e não apenas "bate / não bate".

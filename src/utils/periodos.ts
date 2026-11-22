@@ -40,3 +40,34 @@ export function chavesDoPV(chave: string | null): string[] | null {
 /** Os 3 meses do PR que o trimestre civil apurado define: começam 2 meses depois
  * do fim dele (Abr–Jun/26 → Ago, Set, Out/26; Out–Dez/26 → Fev, Mar, Abr/27). */
 export const mesesDoPRDoCivil = (ultimoMesCivil: string) => [2, 3, 4].map((n) => deslocaPeriodo(ultimoMesCivil, n));
+
+const INICIOS_FISCAIS = [1, 4, 7, 10]; // Fev, Mai, Ago, Nov (crescente)
+
+/** Trimestre do ciclo (Nov–Jan, Fev–Abr, Mai–Jul, Ago–Out) que contém o mês "Mmm/AAAA".
+ * `ano` é o do 1º mês do trimestre (Jan/2027 → "Nov - Jan", ano 2026), como o PMPV guarda. */
+export function trimestreFiscalDoMes(periodo: string): { trimestre: string; ano: number } | null {
+  const p = lerPeriodo(periodo);
+  if (!p) return null;
+  const inicio = [...INICIOS_FISCAIS].reverse().find((i) => i <= p.mes);
+  const ano = inicio === undefined ? p.ano - 1 : p.ano;
+  const m0 = inicio ?? 10;
+  return { trimestre: `${MESES_ABREV[m0]} - ${MESES_ABREV[(m0 + 2) % 12]}`, ano };
+}
+
+/** Endereço do PMPV aberto no trimestre do ciclo que contém `mes`. O PMPV escolhe o
+ * trimestre por `?trimestre=Ago - Out&ano=2026`; `?ciclo=` só serve à volta ao Painel. */
+export function linkDoPMPV(cicloInicio: string, mes: string) {
+  const t = trimestreFiscalDoMes(mes);
+  const p = new URLSearchParams();
+  if (t) { p.set("trimestre", t.trimestre); p.set("ano", String(t.ano)); }
+  p.set("de", "ciclo");
+  p.set("ciclo", cicloInicio);
+  return `/pmpv?${p}`;
+}
+
+/** Trimestre pedido na URL do PMPV, se existe entre os `rotulos` da API e o ano é válido; senão null. */
+export function trimestreDoPMPVNaUrl(params: URLSearchParams, rotulos: string[]): { trimestre: string; ano: number } | null {
+  const trimestre = params.get("trimestre");
+  const ano = Number(params.get("ano"));
+  return trimestre && rotulos.includes(trimestre) && Number.isInteger(ano) && anoValido(ano) ? { trimestre, ano } : null;
+}

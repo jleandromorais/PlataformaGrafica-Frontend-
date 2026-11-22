@@ -5,6 +5,7 @@ import { ArrowLeft, Calculator, Save, Upload, Plus, Trash2, Database, TrendingUp
 import { Conferencia } from "../../components/ui/Conferencia";
 import { CardFormula } from "../../components/ui/CardFormula";
 import { PeriodoClicavel } from "../../components/ui/PeriodoClicavel";
+import { trimestreDoPMPVNaUrl } from "../../utils/periodos";
 import { useProvaRealDoMes } from "../../components/ui/useProvaRealDoMes";
 import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
@@ -360,6 +361,7 @@ export default function PMPVPage() {
   // Sessão aberta na prova real (histórico clicável). Vem de ?sessao=ID, senão a mais recente;
   // ao salvar uma sessão nova, a prova real abre nela.
   const [params, setParams] = useSearchParams();
+  const [paramsIniciais] = useState(params); // o link do Painel só vale ao abrir a tela
   const [escolhida, setEscolhida] = useState<number | null>(() => Number(params.get("sessao")) || null);
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.id === escolhida) });
   const arquivoRef = useRef<HTMLInputElement>(null);
@@ -422,12 +424,27 @@ export default function PMPVPage() {
             setResultado(null);
             prBase.current = null;
           }
+          // O link do Painel do Ciclo (?trimestre=Ago - Out&ano=2026) manda no que abre. Se havia
+          // edições não salvas de outro trimestre, elas ficam guardadas para quando a pessoa voltar.
+          const pedido = trimestreDoPMPVNaUrl(paramsIniciais, t.map((x) => x.label));
+          if (pedido) {
+            if (valido?.sujo && guardado && (guardado !== pedido.trimestre || valido.ano !== pedido.ano)) {
+              const meses = t.find((x) => x.label === guardado)?.meses ?? [];
+              chaveCarregada.current = periodosDe(meses, valido.ano).join(",");
+              sujo.current = true;
+              pularCarga.current = null;
+            }
+            setAno(pedido.ano);
+            setTrimestre(pedido.trimestre);
+            return;
+          }
           setTrimestre(guardado ?? trimestreDoMesAtual(t));
         })
         .catch((e) => {
           setErro(mensagemDeErro(e, "Não foi possível carregar os trimestres fiscais."));
           setFalhouTrimestres(true);
         }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- só ao abrir a tela (paramsIniciais não muda)
   }, []);
 
   // Busca a margem do ano quando ele muda. Só vale a resposta do ano atual (anti-corrida).

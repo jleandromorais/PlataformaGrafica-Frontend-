@@ -1,3 +1,8 @@
+## Feito em 21/11 (Leandro Dev, sem commit): dois achados da auditoria de UX
+- **PMPV pelo Painel (bug confirmado):** a tela PMPV nunca lia `?ciclo=`; abria sempre no rascunho ou no trimestre do mês de hoje. O bloqueio "falta o PMPV do trimestre novo (Ago a Out)" e o passo "PMPV do trimestre apurado" caíam no mesmo lugar. Agora o link leva `?trimestre=Ago - Out&ano=2026` (`linkDoPMPV` e `trimestreDoPMPVNaUrl` em `utils/periodos.ts`, 12 testes em `periodosPMPV.test.ts`), o PMPV abre nesse trimestre (edições não salvas de outro trimestre ficam guardadas) e o botão diz "Abrir o PMPV de Ago a Out". O passo apurado abre no trimestre do ciclo do 1º mês que falta; a "Tarifa média" abre no trimestre novo.
+- **Nome do SR:** o oficial é **Saldo Remanescente** (Nota Técnica, Quadro 6, Excel Final, planilha). "Saldo regulatório" removido de `PRODUCT.md`, do agente do back, de `repositories.py` e de `main_dashboard.py`.
+- **Já falhava antes:** `src/utils/periodos.test.ts` não roda (react-router-dom em CommonJS no vitest); os testes dele (linkDoCiclo etc.) não executam.
+
 # Resumo da semana — 06 a 13/11/2026
 
 Fonte: `git log` do front (48 commits) e do back (29 commits) desde 06/11. Em uma frase: o sistema
