@@ -8,13 +8,16 @@
 import { GLOSSARIO, tituloDe } from "../../utils/glossario";
 import { etapaDaChave, rotuloDaEtapa } from "../../utils/etapasDoCiclo";
 import { ID_APROVACAO } from "../../utils/aprovacao";
+import { ID_CARTAO } from "../../utils/gravarNoPainel";
 import type { Bloqueio, ChavePasso, DestinoBloqueio, EntradaPasso, ResultadoCiclo } from "./proximoPasso";
 
 // Ids dos blocos da página: os botões "rolar" levam até eles.
 export const ID_PASTA = "importar-pasta";         // bloco recolhível "Processar a pasta" (área de soltar)
 export const ID_PROCESSAR = "processar-trimestre"; // o Processar, depois de aberto
 export const ID_COMPARAR = "comparar-planilha";    // "Comparar com a planilha" e o campo da planilha oficial
-export const ID_SR = "sr-do-trimestre";            // card do SR
+export const ID_SR = ID_CARTAO.sr;                 // card do SR
+export const ID_PR = ID_CARTAO.pr;                 // card do PR (passo 8)
+export const ID_PV = ID_CARTAO.pv;                 // card do PV (passo 9)
 export { ID_APROVACAO };                           // bloco "Aguardando sua aprovação" (mora em utils/aprovacao.ts)
 export const ID_ENTREGAS = "entregas";
 export const idDoPasso = (chave: ChavePasso) => `passo-${chave}`;
@@ -194,9 +197,9 @@ export function blocoDoProximoPasso(e: EntradaBloco): BlocoProximoPasso {
       acao: link("rolar", "Calcular o SR", ID_SR) };
   }
 
-  // PR ou PV
+  // PR ou PV: gravam no cartão do Painel (as telas /pr e /pv são de consulta)
   const sigla = proximo === "pr" ? "PR" : "PV";
-  return { ...dele, caso: "pr-pv", titulo: `Confira o ${sigla} de ${e.rotulos.ciclo}`,
+  return { ...dele, caso: "pr-pv", titulo: `Confira e grave o ${sigla} de ${e.rotulos.ciclo}`,
     texto: "Nada é gravado sem a sua confirmação.",
-    acao: link("link", `Abrir o ${sigla}`, e.linkDe(proximo as DestinoBloqueio)) };
+    acao: link("rolar", `Conferir e gravar o ${sigla}`, proximo === "pr" ? ID_PR : ID_PV) };
 }

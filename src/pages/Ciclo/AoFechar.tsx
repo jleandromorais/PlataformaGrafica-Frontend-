@@ -6,10 +6,11 @@ import { FileText, Lock, Scale } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 import { classesDoBotao } from "../../components/ui/estilosBotao";
+import { irParaSecao } from "../../components/ui/useIrParaSecao";
 import { ID_ENTREGAS } from "./blocoProximoPasso";
 
 export function AoFechar({ tarifa, planilha, onEscolherPlanilha, onGerarNT, gerandoNT, onGerarRelatorio, gerandoRelatorio, erro, carregando }: {
-  tarifa: { detalhe: ReactNode; link: string; bloqueio?: { motivo: string; link: string; rotulo: string } };
+  tarifa: { detalhe: ReactNode; link: string; bloqueio?: { motivo: string; link: string; rotulo: string; rolarPara?: string } };
   /** Nome da planilha oficial escolhida neste trimestre (no passo 2), ou null. */
   planilha: string | null;
   /** "Escolher a planilha": leva ao campo único, no passo 2. */
@@ -40,7 +41,11 @@ export function AoFechar({ tarifa, planilha, onEscolherPlanilha, onGerarNT, gera
               )}
             </div>
             {tarifa.bloqueio ? (
-              <Link to={tarifa.bloqueio.link} className={classesDoBotao("ghost", "md")}>{tarifa.bloqueio.rotulo}</Link>
+              tarifa.bloqueio.rolarPara ? (
+                <Button variant="ghost" onClick={() => irParaSecao(tarifa.bloqueio!.rolarPara!)}>{tarifa.bloqueio.rotulo}</Button>
+              ) : (
+                <Link to={tarifa.bloqueio.link} className={classesDoBotao("ghost", "md")}>{tarifa.bloqueio.rotulo}</Link>
+              )
             ) : (
               <Link to={tarifa.link} className="inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Abrir o PMPV</Link>
             )}

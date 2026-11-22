@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calcularProximoPasso, type ChavePasso, type EntradaPasso, type SituacaoPasso } from "./proximoPasso";
 import {
-  ID_APROVACAO, ID_ENTREGAS, ID_PASTA, ID_PROCESSAR, ID_SR, blocoDoProximoPasso, dataBR, idDoPasso, type EntradaBloco,
+  ID_APROVACAO, ID_ENTREGAS, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, blocoDoProximoPasso, dataBR, idDoPasso, type EntradaBloco,
 } from "./blocoProximoPasso";
 
 const ORDEM: ChavePasso[] = ["pmpv", "auditoria", "cgf", "ret", "rp", "scg", "sr", "pr", "pv", "tarifa"];
@@ -96,15 +96,15 @@ describe("blocoDoProximoPasso, uma linha por situação da tabela da spec", () =
     expect(b.acao).toEqual({ tipo: "rolar", rotulo: "Calcular o SR", alvo: ID_SR });
   });
 
-  it("passos 8 e 9: conferir o PR e o PV abre a tela", () => {
+  it("passos 8 e 9: o PR e o PV se gravam no cartão do Painel, e o botão rola até ele", () => {
     const pr = blocoDoProximoPasso(entrada({ pr: "falta" }));
     expect(pr.caso).toBe("pr-pv");
-    expect(pr.titulo).toBe("Confira o PR de Nov/2026 a Jan/2027");
+    expect(pr.titulo).toBe("Confira e grave o PR de Nov/2026 a Jan/2027");
     expect(pr.texto).toBe("Nada é gravado sem a sua confirmação.");
-    expect(pr.acao).toEqual({ tipo: "link", rotulo: "Abrir o PR", alvo: "/destino/pr" });
+    expect(pr.acao).toEqual({ tipo: "rolar", rotulo: "Conferir e gravar o PR", alvo: ID_PR });
     const pv = blocoDoProximoPasso(entrada({ pv: "atencao" }));
-    expect(pv.titulo).toBe("Confira o PV de Nov/2026 a Jan/2027");
-    expect(pv.acao?.rotulo).toBe("Abrir o PV");
+    expect(pv.titulo).toBe("Confira e grave o PV de Nov/2026 a Jan/2027");
+    expect(pv.acao).toEqual({ tipo: "rolar", rotulo: "Conferir e gravar o PV", alvo: ID_PV });
   });
 
   it("tudo o que resta está bloqueado: nada a fazer, com o motivo e o link do bloqueio", () => {

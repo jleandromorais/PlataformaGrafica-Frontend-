@@ -1,5 +1,5 @@
 /** Aviso geral na Visão geral: há trimestre com SR, PR ou PV desatualizado (GET /cascata/pendente)?
- * Mostra quantos e leva ao Painel do Ciclo, onde se aprova. A prévia com "Aprovar e gravar" não é
+ * Mostra quantos e leva ao Painel do Ciclo, onde se aprova. A prévia com "Aprovar em sequência" não é
  * desenhada aqui (spec do Fluxo único, decisão 4). Se o servidor for antigo (sem a rota) ou nada
  * estiver pendente, não aparece. Não grava nada. */
 import { useEffect, useState } from "react";

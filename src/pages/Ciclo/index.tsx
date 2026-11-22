@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Calculator, ChevronLeft, ChevronRight, FileArchive, FileSpreadsheet, FolderOpen, Lock } from "lucide-react";
+import { Calculator, ChevronLeft, ChevronRight, DollarSign, FileArchive, FileSpreadsheet, FolderOpen, Lock, TrendingUp } from "lucide-react";
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
 import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos";
@@ -17,10 +17,15 @@ import { brl, num } from "../../utils/format";
 import { salvarArquivo } from "../../utils/download";
 import { NOMES_ETAPA, mapaDoTrimestre, type Etapa, type Situacao } from "../../utils/pastaCiclo";
 import { linkDoPMPV, mesesDoPRDoCivil } from "../../utils/periodos";
+import { chaveDoPR, chaveDoPV } from "../../utils/cartoesPRePV";
+import { secaoPedidaNaUrl } from "../../utils/gravarNoPainel";
 import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
 import { SRDoTrimestre } from "./SRDoTrimestre";
+import { PRDoTrimestre } from "./PRDoTrimestre";
+import { PVDoTrimestre } from "./PVDoTrimestre";
+import { aplicarEtapasDoBack, etapasDoBack } from "./etapasDoBack";
 import { ConferenciaDoMes } from "./ConferenciaDoMes";
 import { MapaPasta } from "./MapaPasta";
 import { ICONE } from "./situacaoUI";
@@ -31,7 +36,7 @@ import { DetalheDoPMPV } from "./DetalheDoPMPV";
 import { AoFechar } from "./AoFechar";
 import { trimestresDoCicloTocados } from "./trimestresDoCicloTocados";
 import {
-  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PROCESSAR, ID_SR, blocoDoProximoPasso, idDoPasso, type AcaoDoBloco, type BlocoProximoPasso,
+  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, blocoDoProximoPasso, idDoPasso, type AcaoDoBloco, type BlocoProximoPasso,
 } from "./blocoProximoPasso";
 import { AguardandoAprovacao } from "./AguardandoAprovacao";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
@@ -61,7 +66,6 @@ const memoriaProcessar = (raiz: string, inicio: string) => `ciclo:processar:${ra
 interface PastaGuardada { raiz: string; caminhos: string[]; chave?: ChavePasta }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan a Mar", "Abr a Jun", "Jul a Set", "Out a Dez"];
-const FISCAIS: Record<string, string> = { Nov: "Nov - Jan", Fev: "Fev - Abr", Mai: "Mai - Jul", Ago: "Ago - Out" };
 
 /** Por que a pasta não abriu, em janela: o que fazer vira o botão principal. */
 interface AvisoPasta {
@@ -86,14 +90,14 @@ interface Dados {
 }
 
 async function carregar(meses: string[], mesesPR: string[]): Promise<Dados> {
-  const label = FISCAIS[mesesPR[0].split("/")[0]];
+  const chavePV = chaveDoPV(mesesPR); // as chaves gravadas do PR e do PV (não mudam): utils/cartoesPRePV.ts
   const vazio = <T,>(p: Promise<T>, padrao: T) => p.catch(() => padrao);
   const [auditoria, cgf, ret, concilia, scg, srSalvo, pr, prSalvo, pv, pmpv, situacao] = await Promise.all([
     getHistoricoAuditoria(), getHistoricoCGF(), getHistoricoRET(), getHistoricoConcilia(), getHistoricoSCG(),
     vazio(buscarTrimestreSR(`${meses[0]}_${meses[2]}`), []),
     vazio<PRApuracao | null>(apurarPR(mesesPR), null),
-    vazio<number | null>(getPR(`${label}/${mesesPR[2].split("/")[1]}`).then((r) => r.pr), null),
-    vazio<PVTrimestre | null>(getPVTrimestre(label, Number(mesesPR[0].split("/")[1])), null),
+    vazio<number | null>(getPR(chaveDoPR(mesesPR)).then((r) => r.pr), null),
+    vazio<PVTrimestre | null>(getPVTrimestre(chavePV.trimestre, chavePV.ano), null),
     // Mesmo critério do Processar: sem PMPV salvo (ou sem resposta), conta como faltando.
     Promise.all(meses.map((m) => getPMPVMensal(m).then((r) => r.pmpv || 0).catch(() => 0))),
     getSituacaoCiclo(`${meses[0]}_${meses[2]}`),
@@ -245,7 +249,7 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
 /** Texto do botão que leva à tela que resolve o bloqueio. */
 const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
   pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV do trimestre novo", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
-  rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Abrir o SR", pr: "Abrir o PR", pv: "Abrir o PV", tarifa: "Abrir o PMPV",
+  rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Ir ao SR", pr: "Ir ao PR", pv: "Ir ao PV", tarifa: "Abrir o PMPV",
 };
 
 // ── Página ────────────────────────────────────────────────────────────────────
@@ -270,6 +274,8 @@ export default function CicloPage() {
   // Vindo de uma tela que gravou (?aprovar=1): rola até o bloco de aprovação quando a carga termina.
   const [params, setParams] = useSearchParams();
   const pediuAprovar = params.get("aprovar") === "1";
+  // Vindo de /sr, /pr ou /pv ("Gravar no Painel", ?abrir=pr): abre o cartão do passo quando a carga termina.
+  const pediuAbrir = secaoPedidaNaUrl(params.get("abrir"));
   const [caminhos, setCaminhos] = useState<string[] | null>(null);
   // Os arquivos da pasta escolhida (caminho sem a pasta raiz → File), para o "Processar" enviar.
   const [arquivos, setArquivos] = useState<Map<string, ArquivoDaPastaCiclo>>(new Map());
@@ -341,6 +347,15 @@ export default function CicloPage() {
     return () => window.clearTimeout(t);
   }, [pediuAprovar, carregando, setParams]);
 
+  useEffect(() => {
+    if (!pediuAbrir || carregando) return;
+    const t = window.setTimeout(() => {
+      irParaSecao(pediuAbrir);
+      setParams((p) => { p.delete("abrir"); return p; }, { replace: true });
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [pediuAbrir, carregando, setParams]);
+
   const irPara = (novoAno: number, novoTri: number) => {
     setCarregando(true);
     setProcessando(false);
@@ -351,9 +366,12 @@ export default function CicloPage() {
   };
 
   const mesesScgDivergentes = dados ? meses.filter((m) => dados.scg.find((l) => l.periodo === m)?.diverge) : [];
-  const lista = dados ? etapas(dados, meses, mesesPR,
+  const listaLocal = dados ? etapas(dados, meses, mesesPR,
     <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} onGravado={() => setVersao((v) => v + 1)} />,
     mesesScgDivergentes.length ? <DivergenciaSCG meses={mesesScgDivergentes} cicloInicio={meses[0]} versao={versao} /> : null) : [];
+  // Back novo: o estado de cada passo vem de GET /ciclo/situacao (campo `etapas`). Sem o campo (back antigo) ou com ele
+  // estranho, vale o cálculo local de sempre. Os detalhes de cada passo (valores por mês) continuam vindo do que o Painel leu.
+  const lista = aplicarEtapasDoBack(listaLocal, etapasDoBack(dados?.situacao));
   const contaveis = lista.filter((e) => !e.soLink);
   const prontas = contaveis.filter((e) => e.situacao === "ok").length;
   // Próximo passo e bloqueios: calculados aqui com o que o Painel já carregou (depois vêm de GET /ciclo/situacao).
@@ -574,7 +592,13 @@ export default function CicloPage() {
                       </Link>
                     ) : ehProximo ? (
                       <span className="self-center text-xs text-sky-200">Use o botão do bloco acima</span>
-                    ) : e.chave === "pmpv" ? null : (
+                    ) : e.chave === "pmpv" ? null : (e.chave === "sr" || e.chave === "pr" || e.chave === "pv") && e.situacao !== "ok" ? (
+                      // SR, PR e PV se gravam no cartão do Painel; as telas deles são de consulta.
+                      <button type="button" onClick={() => irParaSecao(e.chave === "sr" ? ID_SR : e.chave === "pr" ? ID_PR : ID_PV)}
+                        className="inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium text-sky-300 hover:text-sky-200">
+                        Fazer agora
+                      </button>
+                    ) : (
                       <Link to={e.link}
                         className={`inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium ${e.situacao === "ok"
                           ? "text-zinc-400 hover:text-white" : "text-sky-300 hover:text-sky-200"}`}>
@@ -666,6 +690,17 @@ export default function CicloPage() {
           <SubpassoRecolhivel id={ID_SR} titulo="SR do trimestre" passos="passo 7" icone={<Calculator size={16} />} abrirPorPadrao={proximo === "sr"}>
             <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
           </SubpassoRecolhivel>
+
+          {/* PR e PV do trimestre do ciclo: o Painel já leu o cálculo e o gravado; o cartão só mostra e grava (com a janela). */}
+          <SubpassoRecolhivel id={ID_PR} titulo="PR do trimestre" passos="passo 8" icone={<TrendingUp size={16} />} abrirPorPadrao={proximo === "pr"}>
+            <PRDoTrimestre key={`pr-${meses[0]}`} apuracao={dados?.pr ?? null} prSalvo={dados?.prSalvo ?? null} meses={meses} mesesPR={mesesPR}
+              carregando={carregando} onGravado={() => setVersao((v) => v + 1)} />
+          </SubpassoRecolhivel>
+
+          <SubpassoRecolhivel id={ID_PV} titulo="PV do trimestre" passos="passo 9" icone={<DollarSign size={16} />} abrirPorPadrao={proximo === "pv"}>
+            <PVDoTrimestre key={`pv-${meses[0]}`} pv={dados?.pv ?? null} meses={meses} mesesPR={mesesPR}
+              carregando={carregando} onGravado={() => setVersao((v) => v + 1)} />
+          </SubpassoRecolhivel>
         </div>
 
         {/* 6. Ao fechar: tarifa média e entregas, sem número. */}
@@ -673,7 +708,8 @@ export default function CicloPage() {
           onEscolherPlanilha={() => irParaSecao(ID_COMPARAR)}
           onGerarNT={gerarNT} gerandoNT={gerandoNT} onGerarRelatorio={gerarRelatorio} gerandoRelatorio={gerandoRel}
           tarifa={{ detalhe: tarifa?.detalhe, link: tarifa?.link ?? "#",
-            bloqueio: bloqueioTarifa ? { motivo: bloqueioTarifa.motivo, link: linkDoDestino(bloqueioTarifa.destino), rotulo: ROTULO_DESTINO[bloqueioTarifa.destino] } : undefined }} />
+            bloqueio: bloqueioTarifa ? { motivo: bloqueioTarifa.motivo, link: linkDoDestino(bloqueioTarifa.destino), rotulo: ROTULO_DESTINO[bloqueioTarifa.destino],
+              rolarPara: bloqueioTarifa.destino === "pv" ? ID_PV : undefined } : undefined }} />
       </div>
     </div>
   );

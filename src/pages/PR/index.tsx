@@ -1,15 +1,13 @@
 import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
-import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
-import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
-import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowRight, ChevronLeft, ChevronRight, FileText, RefreshCw, Save } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { ArrowRight, ChevronLeft, ChevronRight, FileText, RefreshCw, Route } from "lucide-react";
+import { linkParaGravarPR } from "../../utils/gravarNoPainel";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num } from "../../utils/format";
-import { apurarPR, gerarMinutaNotaTecnica, getPR, salvarPR } from "../../api";
+import { apurarPR, gerarMinutaNotaTecnica, getPR } from "../../api";
 import { salvarArquivo } from "../../utils/download";
-import { textoPVAutomatico } from "../../utils/prAutomatico";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { PRApuracao } from "../../types";
@@ -70,11 +68,8 @@ export default function PRPage() {
   const [dados, setDados] = useState<PRApuracao | null>(null);
   const [prSalvo, setPrSalvo] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
   const [gerandoNT, setGerandoNT] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [sucesso, setSucesso] = useState<string | null>(null);
-  const [avisoPV, setAvisoPV] = useState<string | null>(null); // PV não regravado junto com o PR
 
   const buscar = (mesesPR: string[], chavePR: string) =>
     Promise.all([apurarPR(mesesPR), getPR(chavePR).then((r) => r.pr).catch(() => null)]);
@@ -100,7 +95,6 @@ export default function PRPage() {
     if (novoAno === ano && novoTri === tri) return;
     setCarregando(true);
     setErro(null);
-    setSucesso(null);
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -108,39 +102,7 @@ export default function PRPage() {
   const recarregar = () => {
     setCarregando(true);
     setErro(null);
-    setSucesso(null);
     buscar(meses, chave).then(aplicar).catch(falhar);
-  };
-
-  const { previa, mostrarCascata } = usePreviaCascata(); // o PV à frente: o analista aprova no Painel
-  const [confirmar, setConfirmar] = useState(false);
-  const botaoGravar = useRef<HTMLButtonElement>(null);
-  /** O botão: pede confirmação quando troca um PR já gravado por outro valor; senão grava direto. */
-  const pedirGravacao = () => {
-    if (!dados) return;
-    const substitui = prSalvo !== null && Math.abs(prSalvo - dados.pr) > 1e-9;
-    if (precisaJanela({ substitui, diverge: false })) setConfirmar(true);
-    else void gravar();
-  };
-  const gravar = async () => {
-    if (!dados) return;
-    setSalvando(true);
-    setErro(null);
-    setSucesso(null);
-    setAvisoPV(null);
-    try {
-      const r = await salvarPR(chave, dados.scg_selic, dados.sr, dados.vp);
-      mostrarCascata(r.cascata);
-      setPrSalvo(r.pr);
-      // O backend regrava o PV do mesmo trimestre com este PR.
-      const pv = textoPVAutomatico(r.pv_automatico);
-      setSucesso(`PR de ${meses[0]} a ${meses[2]} gravado: ${tarifa(r.pr)} R$/m³.${pv?.ok ? ` ${pv.texto}` : ""}`);
-      if (pv && !pv.ok) setAvisoPV(pv.texto);
-    } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gravar o PR."));
-    } finally {
-      setSalvando(false);
-    }
   };
 
   const gerarNT = async () => {
@@ -164,12 +126,10 @@ export default function PRPage() {
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1400px] flex-col gap-6">
-        <PageHeader modulo="pr" formula="PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR, em 4 casas" />
+        <PageHeader modulo="pr" gravarNoPainel={linkParaGravarPR(meses[0])}
+          formula="PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR, em 4 casas" />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
-        {sucesso && <Alert variant="success">{sucesso}</Alert>}
-        {avisoPV && <Alert variant="warning">{avisoPV}</Alert>}
-        {previa}
 
         <section className={`${PANEL} flex flex-wrap items-center gap-4 p-5 sm:p-6`}>
           <div className="flex items-center gap-1">
@@ -207,7 +167,7 @@ export default function PRPage() {
         </section>
 
         {dados && dados.pendencias.length > 0 && (
-          <Alert variant="warning" titulo="Para gravar o PR, resolva antes:" itens={dados.pendencias} />
+          <Alert variant="warning" titulo="Antes de gravar o PR no Painel, resolva:" itens={dados.pendencias} />
         )}
 
         {dados && (
@@ -267,24 +227,15 @@ export default function PRPage() {
               </div>
               {prSalvo !== null && (
                 <p className={`mt-3 text-xs ${difereDoSalvo ? "text-amber-300" : "text-zinc-500"}`}>
-                  PR gravado: {tarifa(prSalvo)}{difereDoSalvo ? " — diferente do calculado; grave para atualizar." : " (igual ao calculado)."}
+                  PR gravado: {tarifa(prSalvo)}{difereDoSalvo ? " — diferente do calculado; grave no Painel para atualizar." : " (igual ao calculado)."}
                 </p>
               )}
-              <Button className="mt-4 w-full" variant="solid" ref={botaoGravar} icon={<Save size={16} />} loading={salvando}
-                disabled={carregando || !dados.vp || dados.pendencias.length > 0} onClick={pedirGravacao}
-                aria-describedby={dados.pendencias.length > 0 ? "pr-bloqueado" : undefined}>
-                Gravar PR
-              </Button>
-              <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
-                oque={`o PR de ${rotuloDoPeriodo(meses, "ciclo")}`} rotuloAcao="Gravar o PR" afeta={AFETADOS_DA_TELA.pr}
-                onConfirmar={() => void gravar()}
-                linhas={[{ rotulo: "PR (R$/m³)", antes: prSalvo === null ? null : tarifa(prSalvo), depois: tarifa(dados.pr) }]} />
-              {dados.pendencias.length > 0 && (
-                <p id="pr-bloqueado" className="mt-2 text-center text-xs text-amber-300">
-                  Para gravar, resolva antes {dados.pendencias.length === 1 ? "o aviso" : `os ${dados.pendencias.length} avisos`} em amarelo acima.
-                  Sem isso o PR sairia com o SR, o SCG ou o VP zerado.
-                </p>
-              )}
+              <p className="mt-4 text-center text-xs text-zinc-500">
+                Esta tela é de consulta. O PR se grava no cartão do Painel, com a conferência e a confirmação.{" "}
+                <Link to={linkParaGravarPR(meses[0])} className="inline-flex items-center gap-1 font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200">
+                  <Route size={12} aria-hidden />Gravar no Painel
+                </Link>
+              </p>
               <Button className="mt-2 w-full" variant="ghost" icon={<FileText size={16} />} loading={gerandoNT}
                 disabled={carregando || !dados.vp} onClick={gerarNT}>
                 Gerar minuta da Nota Técnica

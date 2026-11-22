@@ -1,5 +1,5 @@
 /** Bloco "Aguardando sua aprovação" do Painel: a prévia da cascata (SR, PR e PV) do trimestre aberto,
- * com "Aprovar e gravar". É o ÚNICO lugar onde a cascata é aprovada (spec do Fluxo único, decisão 4).
+ * com "Aprovar em sequência". É o ÚNICO lugar onde a cascata é aprovada (spec do Fluxo único, decisão 4).
  *
  * Busca `GET /cascata/previa?periodos=<3 meses do trimestre>` e só aparece quando algo difere do gravado.
  * Pendências de OUTROS trimestres (`GET /cascata/pendente`) viram uma linha à parte, sem poluir este.

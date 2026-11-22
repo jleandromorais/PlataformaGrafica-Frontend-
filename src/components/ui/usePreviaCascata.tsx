@@ -1,5 +1,5 @@
 /** Gancho para as telas que gravam (SCG, SR, PR, PMPV, Auditoria, Processar...): guarda a cascata que a
- * gravação devolveu e entrega a LINHA pronta para pôr na tela. A prévia com "Aprovar e gravar" não aparece
+ * gravação devolveu e entrega a LINHA pronta para pôr na tela. A prévia com "Aprovar em sequência" não aparece
  * mais aqui: ela mora num lugar só, o bloco "Aguardando sua aprovação" do Painel do Ciclo
  * (SPEC_FLUXO_UNICO, decisão 4). Uso:
  *   const { previa, mostrarCascata } = usePreviaCascata();

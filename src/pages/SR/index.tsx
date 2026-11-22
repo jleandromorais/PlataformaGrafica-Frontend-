@@ -1,19 +1,15 @@
-import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
-import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
-import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
-import { conferirTabelaSR, type ConferenciaDaTabelaSR } from "../../utils/propostaSR";
+import { linkParaGravarNoPainel } from "../../utils/gravarNoPainel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Route } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
-import { brl, num, parseBRL } from "../../utils/format";
-import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, propostaSRTrimestre, carregarTrimestreSR, getHistoricoSR, getProvaRealSR, salvarTrimestreSR } from "../../api";
+import { brl, num } from "../../utils/format";
+import { buscarSelicSR, buscarTrimestreSR, carregarTrimestreSR, getHistoricoSR, getProvaRealSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SRHistoricoTrimestre, SRLinhaCalculada, SROrigemPR } from "../../types";
 import { dicaDe } from "../../utils/glossario";
-import { textoPRAutomatico } from "../../utils/prAutomatico";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { LinhasEsqueleto } from "../../components/ui/EsqueletoTabela";
@@ -40,13 +36,11 @@ const buscarProvaDoTrimestre = (chave: string) => getProvaRealSR(chave.split("#"
 
 const cor = (v: number) => (v > 0 ? "text-emerald-300" : v < 0 ? "text-red-300" : "text-zinc-300");
 
-type Campo = "vp" | "vf" | "pr" | "selic_mensal" | "sr_anterior";
-
 function linhaVazia(mes: string): SRLinhaCalculada {
   return { mes, vp: 0, vf: 0, pr: 0, selic_mensal: 0, sr_anterior: 0, diferenca: 0, sr_parcela: 0, sr_selic: 0, total: 0 };
 }
 
-/** Prévia enquanto digita; o valor que vale é o do backend ao salvar. */
+/** Refaz a conta de cada mês com os números da linha (a mesma do back); o que vale ao gravar é o do back, no Painel. */
 function calcularLocal(linhas: SRLinhaCalculada[]): SRLinhaCalculada[] {
   return linhas.map((l) => {
     const diferenca = l.vp - l.vf;
@@ -64,30 +58,6 @@ function trimestrePMPV(mes: string): string {
   const anoIni = inicio > idx ? Number(a) - 1 : Number(a);
   const fim = (inicio + 2) % 12;
   return `${MESES[inicio]}/${anoIni} – ${MESES[fim]}/${fim < inicio ? anoIni + 1 : anoIni}`;
-}
-
-/** Número em pt-BR: mostra formatado e, ao focar, deixa editar o texto cru. */
-function CampoNumero({ valor, casas, onChange, rotulo, alerta }: {
-  valor: number; casas: number; onChange: (v: number) => void; rotulo: string; alerta?: boolean;
-}) {
-  const [texto, setTexto] = useState<string | null>(null);
-  return (
-    <input
-      aria-label={rotulo}
-      inputMode="decimal"
-      value={texto ?? (valor ? num(valor, casas) : "")}
-      placeholder="—"
-      onFocus={() => setTexto(valor ? String(valor).replace(".", ",") : "")}
-      onChange={(e) => setTexto(e.target.value)}
-      onBlur={() => {
-        onChange(parseBRL(texto ?? "") ?? 0);
-        setTexto(null);
-      }}
-      className={`w-full rounded-md border bg-white/[0.03] px-2.5 py-1.5 text-right text-sm tabular-nums text-zinc-100
-        placeholder-zinc-600
-        ${alerta ? "border-amber-400/40" : "border-white/[0.07]"}`}
-    />
-  );
 }
 
 interface Carregado {
@@ -149,7 +119,6 @@ export default function SRPage() {
   const [historico, setHistorico] = useState<SRHistoricoTrimestre[]>([]);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [escolhido, setEscolhido] = useState<string | null>(() => params.get("prova"));
-  const [versaoProva, setVersaoProva] = useState(0); // sobe ao salvar: a prova real do mesmo trimestre é buscada de novo
   const provaRef = useRef<HTMLElement>(null);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
 
@@ -163,7 +132,7 @@ export default function SRPage() {
 
   // Aberto na prova real: o escolhido; senão o gravado mais recente; senão o do formulário (mostra "sem SR gravado").
   const aberto = escolhido ?? historico[0]?.trimestre ?? (historicoCarregado ? trimestreLabel : null);
-  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#${versaoProva}`, buscarProvaDoTrimestre, aberto === null ? undefined : rotuloDoTrimestre(aberto));
+  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#0`, buscarProvaDoTrimestre, aberto === null ? undefined : rotuloDoTrimestre(aberto));
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.trimestre === aberto) });
   const dProva = prova.dados && !prova.erro && prova.dados.gravado && prova.dados.linhas.length > 0 ? prova.dados : null;
 
@@ -182,10 +151,7 @@ export default function SRPage() {
   const [origemPR, setOrigemPR] = useState<Record<string, SROrigemPR>>({});
   const [fonte, setFonte] = useState<"salvo" | "banco" | null>(null);
   const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [sucesso, setSucesso] = useState<string | null>(null);
-  const [avisoPR, setAvisoPR] = useState<string | null>(null); // PR/PV não regravados ao salvar
   const [selic, setSelic] = useState<EstadoSelic>({ estado: "buscando" });
   // Respostas de um trimestre que o usuário já deixou para trás são descartadas.
   const pedido = useRef(0);
@@ -238,8 +204,6 @@ export default function SRPage() {
     setCarregando(true);
     setSelic({ estado: "buscando" });
     setErro(null);
-    setSucesso(null);
-    setAvisoPR(null);
     setAno(novoAno);
     setTri(novoTri);
   };
@@ -247,77 +211,8 @@ export default function SRPage() {
   const recarregarDoBanco = () => {
     setCarregando(true);
     setErro(null);
-    setSucesso(null);
     setSelic({ estado: "buscando" });
     carregar(true);
-  };
-
-  const atualizar = (idx: number, campo: Campo, valor: number) => {
-    const next = linhas.map((l, i) => (i === idx ? { ...l, [campo]: valor } : l));
-    setLinhas(calcularLocal(next));
-    if (campo === "pr") setOrigemPR({ ...origemPR, [linhas[idx].mes]: "salvo" });
-    setSucesso(null);
-  };
-
-  const { previa, mostrarCascata } = usePreviaCascata(); // PR e PV à frente: o analista aprova no Painel
-  type Calculado = Awaited<ReturnType<typeof calcularTrimestreSR>>;
-  const [confirmacao, setConfirmacao] = useState<{ calc: Calculado; conf: ConferenciaDaTabelaSR; locais: string[] } | null>(null);
-  const botaoGravar = useRef<HTMLButtonElement>(null);
-
-  /** O botão: calcula no servidor, compara a tabela com o SR gravado (a mesma checagem do card do Painel) e pede
-   * confirmação quando substitui o gravado ou há divergência. Sem uma coisa nem outra, grava direto. */
-  const gravar = async () => {
-    setErro(null);
-    setSucesso(null);
-    setAvisoPR(null);
-    setSalvando(true);
-    try {
-      const calc = await calcularTrimestreSR(
-        linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior }) => ({ mes, vp, vf, pr, selic_mensal, sr_anterior }))
-      );
-      setLinhas(calc.linhas);
-      const proposta = await propostaSRTrimestre(labels).catch(() => null);
-      const conf = conferirTabelaSR(calc.linhas, proposta);
-      const locais = pendenciasDaTela();
-      if (precisaJanela({ substitui: conf.substitui, diverge: conf.motivosPorMes.length > 0 || locais.length > 0 || conf.naoConferiu })) {
-        setConfirmacao({ calc, conf, locais });
-      } else {
-        await gravarCalculado(calc);
-      }
-    } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gravar o SR do trimestre."));
-    } finally {
-      setSalvando(false);
-    }
-  };
-
-  const gravarCalculado = async (calc: Calculado) => {
-    const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
-    mostrarCascata(salvo.cascata);
-    setFonte("salvo");
-    // A prova real abre no trimestre gravado (buscada de novo) e o histórico é recarregado.
-    setEscolhido(trimestreLabel);
-    setVersaoProva((n) => n + 1);
-    carregarHistorico();
-    // Só cita o PR/PV quando o back confirmou que atualizou; o resto o aviso amarelo diz.
-    const pr = textoPRAutomatico(salvo.pr_automatico);
-    setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} gravado. Total = ${brl(calc.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
-    if (pr && !pr.ok) setAvisoPR(pr.texto);
-  };
-
-  /** Depois do "Gravar" da janela: mesmo caminho de erro do botão. */
-  const confirmarGravacao = async () => {
-    if (!confirmacao) return;
-    setErro(null);
-    setSalvando(true);
-    try {
-      await gravarCalculado(confirmacao.calc);
-    } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gravar o SR do trimestre."));
-    } finally {
-      setConfirmacao(null);
-      setSalvando(false);
-    }
   };
 
   const semVP = linhas.filter((l) => !l.vp);
@@ -334,37 +229,12 @@ export default function SRPage() {
     (l) => l.selic_mensal && selicBC[l.mes] !== undefined && Math.abs(l.selic_mensal - selicBC[l.mes]) > 5e-7,
   );
   const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length + selicDiferente.length;
-  /** As pendências em amarelo da tela, uma frase por item (entram na janela como divergência). */
-  function pendenciasDaTela(): string[] {
-    return [
-      ...semVP.map((l) => `${l.mes}: sem VP.`),
-      ...prEstimado.map((l) => `${l.mes}: PR estimado, não há PR gravado.`),
-      ...semPR.map((l) => `${l.mes}: sem PR.`),
-      ...srDuplicado.map((l) => `${l.mes}: SR anterior igual ao SR do mês (conta o mês duas vezes).`),
-      ...selicDiferente.map((l) => `${l.mes}: SELIC diferente da do Banco Central.`),
-    ];
-  }
-
-  const usarSelicBC = () => {
-    setLinhas(calcularLocal(linhas.map((l) => (selicBC[l.mes] !== undefined ? { ...l, selic_mensal: selicBC[l.mes] } : l))));
-    setSucesso(null);
-  };
-
-  const limparSrDuplicado = () => {
-    const meses = new Set(srDuplicado.map((l) => l.mes));
-    setLinhas(calcularLocal(linhas.map((l) => (meses.has(l.mes) ? { ...l, sr_anterior: 0 } : l))));
-    setSucesso(null);
-  };
-
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
-        <PageHeader modulo="sr" />
+        <PageHeader modulo="sr" gravarNoPainel={linkParaGravarNoPainel("sr", labels[0])} />
 
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
-        {sucesso && <Alert variant="success">{sucesso}</Alert>}
-        {avisoPR && <Alert variant="warning">{avisoPR}</Alert>}
-        {previa}
 
         <KpisSR chave={aberto} estado={prova} />
 
@@ -402,9 +272,9 @@ export default function SRPage() {
         </section>
 
         {pendencias > 0 && (
-          <Alert variant="warning" titulo="Para gravar o SR, confira antes:" itens={[
+          <Alert variant="warning" titulo="Pontos a conferir antes de gravar o SR no Painel:" itens={[
             ...semVP.map((l) => (
-              <><b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV ou digite o volume contratado.</>
+              <><b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV.</>
             )),
             ...prEstimado.map((l) => (
               <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de gravar.</>
@@ -414,18 +284,12 @@ export default function SRPage() {
               <>
                 <b>{srDuplicado.map((l) => l.mes).join(", ")}</b>: o "SR trim. anterior" é o próprio SR do mês, então ele está
                 sendo somado duas vezes. Esse campo é só para saldo de um trimestre <b>anterior</b>.
-                <Button variant="warning" size="sm" onClick={limparSrDuplicado} className="ml-2">
-                  Apagar SR trim. anterior {srDuplicado.length > 1 ? "desses meses" : "desse mês"}
-                </Button>
               </>
             ),
             selicDiferente.length > 0 && (
               <>
-                <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC digitada é diferente da do Banco Central
+                <b>{selicDiferente.map((l) => l.mes).join(", ")}</b>: a SELIC gravada é diferente da do Banco Central
                 ({selicDiferente.map((l) => `${num(l.selic_mensal, 6)}% × ${num(selicBC[l.mes], 6)}%`).join("; ")}).
-                <Button variant="warning" size="sm" onClick={usarSelicBC} className="ml-2">
-                  Usar a SELIC do Banco Central
-                </Button>
               </>
             ),
           ]} />
@@ -462,7 +326,7 @@ export default function SRPage() {
               <tbody className="divide-y divide-white/[0.05]">
                 {/* Carregando: uma linha de esqueleto por mês; os campos voltam quando os dados chegam. */}
                 {carregando && <LinhasEsqueleto colunas={8} linhas={linhas.length} altura="h-8" texto="Carregando o trimestre…" />}
-                {!carregando && linhas.map((l, idx) => {
+                {!carregando && linhas.map((l) => {
                   const estimado = origemPR[l.mes] === "estimado";
                   return (
                     <tr key={l.mes}>
@@ -472,27 +336,20 @@ export default function SRPage() {
                           {(!l.vp || estimado || !l.pr) && <AlertTriangle size={13} className="text-amber-300" aria-label="Pendência" />}
                         </span>
                       </td>
-                      <td className="w-36 px-2 py-2">
-                        <CampoNumero rotulo={`VP de ${l.mes}`} valor={l.vp} casas={0} alerta={!l.vp} onChange={(v) => atualizar(idx, "vp", v)} />
-                      </td>
-                      <td className="w-40 px-2 py-2">
-                        <CampoNumero rotulo={`VF de ${l.mes}`} valor={l.vf} casas={2} onChange={(v) => atualizar(idx, "vf", v)} />
-                      </td>
+                      <td className={`px-2 py-2.5 text-right tabular-nums ${l.vp ? "text-zinc-200" : "text-amber-300"}`}>{l.vp ? num(l.vp, 0) : "—"}</td>
+                      <td className="px-2 py-2.5 text-right tabular-nums text-zinc-200">{l.vf ? num(l.vf, 2) : "—"}</td>
                       <td className={`px-3 py-2 whitespace-nowrap text-right tabular-nums ${cor(l.diferenca)}`}>{num(l.diferenca)}</td>
-                      <td className="w-28 px-2 py-2">
-                        <CampoNumero rotulo={`PR de ${l.mes}`} valor={l.pr} casas={4} alerta={estimado || !l.pr} onChange={(v) => atualizar(idx, "pr", v)} />
+                      <td className="px-2 py-2.5 text-right tabular-nums text-zinc-200">
+                        <span className={estimado || !l.pr ? "text-amber-300" : ""}>{l.pr ? num(l.pr, 4) : "—"}</span>
                         {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
                       </td>
-                      <td className="w-24 px-2 py-2">
-                        <CampoNumero rotulo={`SELIC de ${l.mes}`} valor={l.selic_mensal} casas={6}
-                          alerta={selicDiferente.includes(l)} onChange={(v) => atualizar(idx, "selic_mensal", v)} />
+                      <td className="px-2 py-2.5 text-right tabular-nums text-zinc-200">
+                        <span className={selicDiferente.includes(l) ? "text-amber-300" : ""}>{l.selic_mensal ? num(l.selic_mensal, 6) : "—"}</span>
                         {selicBC[l.mes] !== undefined && l.selic_mensal !== 0 && !selicDiferente.includes(l) && (
                           <span className="mt-0.5 block text-right text-[0.7rem] text-emerald-300/80">Banco Central</span>
                         )}
                       </td>
-                      <td className="w-32 px-2 py-2">
-                        <CampoNumero rotulo={`SR anterior de ${l.mes}`} valor={l.sr_anterior} casas={2} onChange={(v) => atualizar(idx, "sr_anterior", v)} />
-                      </td>
+                      <td className="px-2 py-2.5 text-right tabular-nums text-zinc-300">{l.sr_anterior ? num(l.sr_anterior, 2) : "—"}</td>
                       <td className="sticky right-0 bg-panel shadow-[-8px_0_8px_-8px_rgba(16,39,89,0.18)] px-4 py-2 text-right">
                         <span className={`block whitespace-nowrap font-semibold tabular-nums ${cor(l.sr_selic)}`}>{brl(l.sr_selic)}</span>
                         <span className="block whitespace-nowrap text-[0.7rem] tabular-nums text-zinc-500">sem SELIC {brl(l.sr_parcela)}</span>
@@ -517,28 +374,19 @@ export default function SRPage() {
             SR do mês = (VP − VF) × PR × (1 + SELIC) + SR trim. anterior. SELIC em % acumulada do mês até o fim do trimestre.
             PR = Parcela de Recuperação: (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR.{" "}
             {selic.estado === "buscando" && "Buscando a SELIC no Banco Central…"}
-            {selic.estado === "ok" && "Os campos vazios foram preenchidos com a SELIC do Banco Central (mesma conta das planilhas da ARPE)."}
+            {selic.estado === "ok" && "Onde não havia SELIC gravada, a tabela mostra a do Banco Central (mesma conta das planilhas da ARPE)."}
             {selic.estado === "aberto" &&
-              `A SELIC deste trimestre só fecha em ${dataBR(selic.fechaEm)}; até lá, digite à mão se precisar.`}
+              `A SELIC deste trimestre só fecha em ${dataBR(selic.fechaEm)}; só então o SR pode ser gravado.`}
           </p>
         </section>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <Button variant="solid" ref={botaoGravar} icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={() => void gravar()}>
-            Gravar SR do trimestre
-          </Button>
-          {pendencias > 0 && <span className="text-xs text-amber-300">Há {pendencias} pendência(s) acima.</span>}
-        </div>
-        <ConfirmarGravacao aberto={!!confirmacao} onFechar={() => setConfirmacao(null)} voltarFoco={botaoGravar}
-          oque={`o SR de ${TRIMESTRES[tri]}/${ano}`} rotuloAcao="Gravar o SR" afeta={AFETADOS_DA_TELA.sr}
-          onConfirmar={() => void confirmarGravacao()}
-          diverge={!!confirmacao && (confirmacao.conf.motivosPorMes.length > 0 || confirmacao.locais.length > 0 || confirmacao.conf.naoConferiu)}
-          motivos={confirmacao ? [
-            ...(confirmacao.conf.naoConferiu ? ["Não consegui comparar com o SR gravado. Confira a tabela antes de continuar."] : []),
-            ...confirmacao.conf.motivosPorMes.map((m) => <><b>{m.mes}</b>: {m.motivos.join("; ")}.</>),
-            ...confirmacao.locais,
-          ] : undefined}
-          linhas={confirmacao ? [{ rotulo: "SR do trimestre", antes: confirmacao.conf.totalGravado === null ? null : brl(confirmacao.conf.totalGravado), depois: brl(confirmacao.calc.total) }] : []} />
+        <p className="text-sm text-zinc-400">
+          Esta tela é de consulta. O SR se calcula e se grava no cartão do Painel, com a conferência e a confirmação.{" "}
+          <Link to={linkParaGravarNoPainel("sr", labels[0])} className="inline-flex items-center gap-1 font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200">
+            <Route size={13} aria-hidden />Gravar no Painel
+          </Link>
+          {pendencias > 0 && <span className="ml-2 text-xs text-amber-300">Há {pendencias} ponto(s) a conferir acima.</span>}
+        </p>
 
         {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">

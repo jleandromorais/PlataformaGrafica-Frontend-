@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { RefreshCw, Save, Trash2 } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { RefreshCw, Route } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input, Select } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
-import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
-import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
+import { linkParaGravarPV } from "../../utils/gravarNoPainel";
 import { colorForValue } from "../../theme";
-import { getHistoricoPV, getProvaRealPV, getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
+import { getHistoricoPV, getProvaRealPV, getPVTrimestre, getTrimestresFiscais } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { MESES_ABREV, mesesDoTrimestre } from "../../utils/periodos";
 import { tituloDe } from "../../utils/glossario";
@@ -68,21 +67,15 @@ export default function PVPage() {
   const [pr, setPr] = useState(0);
 
   const [carregando, setCarregando] = useState(false);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
-  const [sucesso, setSucesso] = useState<string | null>(null);
   const ultimaBusca = useRef(0);
-  // Trimestre cujos valores estão na tela; salvar só vale para ele (evita gravar
-  // o trimestre anterior enquanto o novo ainda carrega ou depois de um erro).
-  const [carregadoPara, setCarregadoPara] = useState<string | null>(null);
 
   // Histórico de PVs gravados por trimestre e o trimestre aberto na prova real (?prova=Fev - Abr/2026).
   const [params, setParams] = useSearchParams();
   const [historico, setHistorico] = useState<PVHistoricoTrimestre[]>([]);
   const [historicoCarregado, setHistoricoCarregado] = useState(false); // até a 1ª resposta, a tabela mostra o esqueleto
   const [escolhido, setEscolhido] = useState<string | null>(() => params.get("prova"));
-  const [versaoProva, setVersaoProva] = useState(0); // sobe ao salvar: a prova real do mesmo trimestre é buscada de novo
   const provaRef = useRef<HTMLElement>(null);
 
   const carregarHistorico = useCallback(() => {
@@ -98,7 +91,7 @@ export default function PVPage() {
   // Aberto na prova real: o escolhido; senão o gravado mais recente; senão o do formulário (mostra "sem PV gravado").
   const chaveForm = trimestre && anoOk(ano) ? `${trimestre}/${ano}` : null;
   const aberto = escolhido ?? historico[0]?.chave ?? (historicoCarregado ? chaveForm : null);
-  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#${versaoProva}`, buscarProvaDoTrimestre, aberto === null ? undefined : aberto);
+  const prova = useProvaRealDoMes(aberto === null ? null : `${aberto}#0`, buscarProvaDoTrimestre, aberto === null ? undefined : aberto);
   const pag = usePaginacao(historico, { focoIndice: historico.findIndex((h) => h.chave === aberto) });
 
   // Mantém ?prova=... no endereço: recarregar ou compartilhar o link abre a mesma prova real.
@@ -112,19 +105,16 @@ export default function PVPage() {
     rolarAteCardSeEscondido(provaRef.current);
   };
   const dProva = prova.dados && !prova.erro && prova.dados.tem_salvo ? prova.dados : null;
-  const podeSalvar = !carregando && carregadoPara === `${trimestre}/${ano}`;
 
   const carregar = async (label = trimestre, a = ano) => {
     // Invalida a busca anterior e limpa a tela antes de validar: nada do trimestre
     // antigo fica visível (nem pode ser salvo) sob o novo rótulo.
     const busca = ++ultimaBusca.current;
-    setCarregadoPara(null);
     setPmpv(0);
     setPr(0);
     setPeriodos([]);
     setAvisos([]);
     setErro(null);
-    setSucesso(null);
     // valida o ano recebido (o estado `ano` ainda é o do render anterior enquanto se digita)
     if (!label || !anoOk(a)) {
       setCarregando(false);
@@ -141,7 +131,6 @@ export default function PVPage() {
       setPmpv(d.pmpv);
       setPr(d.pr);
       setAvisos(d.avisos);
-      setCarregadoPara(`${label}/${a}`);
     } catch (e) {
       if (busca === ultimaBusca.current) setErro(mensagemDeErro(e, `Não foi possível carregar o PV de ${label}/${a}.`));
     } finally {
@@ -169,57 +158,13 @@ export default function PVPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const limpar = () => {
-    setPmpv(0);
-    setPr(0);
-    setAvisos([]);
-    setSucesso(null);
-  };
-
-  const [confirmar, setConfirmar] = useState(false);
-  const botaoGravar = useRef<HTMLButtonElement>(null);
-  const pvGravado = historico.find((h) => h.chave === `${trimestre}/${ano}`)?.pv ?? null;
-  const substitui = pvGravado !== null && Math.abs(pvGravado - pv) > 5e-5;
-
-  /** O botão: valida e pede confirmação quando troca um PV já gravado ou os avisos em amarelo estão de pé; senão grava direto. */
-  const pedirGravacao = () => {
-    setErro(null);
-    setSucesso(null);
-    if (!trimestre) return setErro("Escolha o trimestre.");
-    if (!anoValido) return setErro(`O ano precisa estar entre ${ANO_MIN} e ${ANO_MAX}.`);
-    if (!podeSalvar) return setErro("Espere o trimestre terminar de carregar (ou use \"Recarregar do banco\") antes de gravar.");
-    if (pmpv === 0) return setErro("O PMPV está zerado. Grave o PMPV do trimestre ou digite o valor antes de gravar.");
-    if (precisaJanela({ substitui, diverge: avisos.length > 0 })) setConfirmar(true);
-    else void gravar();
-  };
-
-  const gravar = async () => {
-    setErro(null);
-    setSucesso(null);
-    setSalvando(true);
-    try {
-      const r = await salvarPVTrimestre(trimestre, ano, pmpv, pr);
-      setAvisos([]);
-      setSucesso(`PV de ${trimestre}, ano ${ano} gravado: R$ ${r.pv.toFixed(4)}. Gravado em ${r.gravado_em.join(", ")}.`);
-      // Recarrega o histórico e abre a prova real do trimestre salvo (buscada de novo).
-      setEscolhido(`${trimestre}/${ano}`);
-      setVersaoProva((v) => v + 1);
-      carregarHistorico();
-    } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível gravar o PV."));
-    } finally {
-      setSalvando(false);
-    }
-  };
-
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6">
-      <PageHeader modulo="pv" />
+      <PageHeader modulo="pv" gravarNoPainel={primeiroMes ? linkParaGravarPV(`${primeiroMes}/${ano}`) : undefined} />
 
       {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
       {avisos.length > 0 && <Alert variant="warning" itens={avisos} />}
-      {sucesso && <Alert variant="success">{sucesso}</Alert>}
 
       <KpisPV chave={aberto} estado={prova} />
 
@@ -246,9 +191,6 @@ export default function PVPage() {
           <Button variant="ghost" icon={<RefreshCw size={14} />} loading={carregando} onClick={() => carregar()}>
             Recarregar do banco
           </Button>
-          <Button variant="ghost" icon={<Trash2 size={14} />} onClick={limpar}>
-            Limpar
-          </Button>
         </div>
         {periodos.length > 0 && (
           <p className="mt-3 text-xs text-zinc-500">Meses do trimestre: {periodos.join(", ")}</p>
@@ -257,25 +199,14 @@ export default function PVPage() {
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card title={tituloDe("PMPV")} subtitle="Do trimestre, em R$/m³">
-          <Input
-            label="PMPV (R$/m³)"
-            type="number"
-            step="0.0001"
-            value={pmpv || ""}
-            onChange={(e) => setPmpv(parseFloat(e.target.value) || 0)}
-          />
+          <p className="text-2xl font-bold tabular-nums text-zinc-100">{carregando ? "…" : pmpv.toFixed(4)}</p>
+          <p className="mt-2 text-xs text-zinc-500">Lido do PMPV gravado do trimestre. Para mudar, use a tela PMPV.</p>
         </Card>
 
         <Card title="PR — Parcela de Recuperação" subtitle="Do trimestre, em R$/m³">
-          <Input
-            label="PR (R$/m³)"
-            type="number"
-            step="0.0001"
-            value={pr || ""}
-            onChange={(e) => setPr(parseFloat(e.target.value) || 0)}
-          />
+          <p className="text-2xl font-bold tabular-nums text-zinc-100">{carregando ? "…" : pr.toFixed(4)}</p>
           <p className="mt-2 text-xs text-zinc-500">
-            PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR
+            Lido do PR gravado. PR = (SCG com SELIC + SR com SELIC do trimestre apurado) ÷ VP do trimestre do PR
           </p>
         </Card>
       </div>
@@ -295,17 +226,13 @@ export default function PVPage() {
         </div>
       </Card>
 
-      <div className="flex flex-wrap gap-3">
-        <Button variant="success" ref={botaoGravar} icon={<Save size={16} />} loading={salvando} disabled={!podeSalvar} onClick={pedirGravacao}>
-          Gravar PV do trimestre
-        </Button>
-        <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
-          oque={`o PV de ${trimestre}/${ano}`} rotuloAcao="Gravar o PV" afeta={AFETADOS_DA_TELA.pv}
-          onConfirmar={() => void gravar()} diverge={avisos.length > 0} motivos={avisos}
-          linhas={[{ rotulo: "PV (R$/m³)", antes: pvGravado === null ? null : pvGravado.toFixed(4), depois: pv.toFixed(4) }]} />
-      </div>
-      <p className="-mt-3 text-xs text-zinc-600">
-        Gravar grava o PV no trimestre e repete o valor nos 3 meses, que é como o Excel Final lê.
+      <p className="-mt-2 text-sm text-zinc-400">
+        Esta tela é de consulta. O PV se grava no cartão do Painel, com a conferência e a confirmação; gravar repete o valor nos 3 meses, como o Excel Final lê.{" "}
+        {primeiroMes && (
+          <Link to={linkParaGravarPV(`${primeiroMes}/${ano}`)} className="inline-flex items-center gap-1 font-semibold text-sky-300 underline underline-offset-2 hover:text-sky-200">
+            <Route size={13} aria-hidden />Gravar no Painel
+          </Link>
+        )}
       </p>
 
       {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
@@ -324,8 +251,8 @@ export default function PVPage() {
             { termo: "PV", explicacao: "O preço de venda do trimestre, em R$/m³." },
           ]}
           regras={[
-            "Gravar grava o PV no trimestre e repete o valor nos 3 meses, como o Excel Final lê.",
-            "Se o PMPV ou o PR mudar depois de gravado, o PV gravado fica velho: grave de novo.",
+            "Gravar (no Painel) grava o PV no trimestre e repete o valor nos 3 meses, como o Excel Final lê.",
+            "Se o PMPV ou o PR mudar depois de gravado, o PV gravado fica velho: grave de novo no Painel.",
           ]}
         />
         <ProvaRealPV chave={aberto} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8"

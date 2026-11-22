@@ -17,11 +17,13 @@ interface Props {
   formula?: ReactNode;
   /** Controles à direita (ex.: filtro de ano). */
   acoes?: ReactNode;
+  /** Telas de consulta cujo valor se grava no Painel (SR, PR, PV): endereço do cartão certo, no trimestre certo. */
+  gravarNoPainel?: string;
 }
 
 /** Cabeçalho único das telas: o que é, o que fazer aqui e, nas etapas do ciclo, em que passo
  * estamos ("Passo 4 de 9", da lista única) e o botão que leva ao Painel do Ciclo, no mesmo trimestre. */
-export function PageHeader({ modulo, titulo, descricao, formula, acoes }: Props) {
+export function PageHeader({ modulo, titulo, descricao, formula, acoes, gravarNoPainel }: Props) {
   const mod = MODULOS[modulo];
   const Icon = mod.icon;
   const nome = titulo ?? (mod.sigla ? `${mod.sigla} — ${mod.nome}` : mod.nome);
@@ -56,8 +58,8 @@ export function PageHeader({ modulo, titulo, descricao, formula, acoes }: Props)
               <span className="rounded-md bg-sky-500/15 px-2.5 py-1 text-xs font-semibold tabular-nums text-sky-200">
                 {rotuloDaEtapa(etapa.chave)}
               </span>
-              <Link to={painel} className={classesDoBotao(etapa.gravaNoPainel ? "primary" : "ghost", "md")}>
-                <Route size={15} aria-hidden />{etapa.gravaNoPainel ? "Ler e gravar no Painel" : "Painel do Ciclo"}
+              <Link to={gravarNoPainel ?? painel} className={classesDoBotao(etapa.gravaNoPainel || gravarNoPainel ? "primary" : "ghost", "md")}>
+                <Route size={15} aria-hidden />{gravarNoPainel ? "Gravar no Painel" : etapa.gravaNoPainel ? "Ler e gravar no Painel" : "Painel do Ciclo"}
               </Link>
             </nav>
           )}

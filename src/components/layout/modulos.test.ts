@@ -30,7 +30,7 @@ describe("menu e rotas", () => {
 });
 
 describe("textos das telas de consulta", () => {
-  const consulta: ChaveModulo[] = ["auditoria", "cgf", "rpv", "ret", "conciliacao", "dashboard"];
+  const consulta: ChaveModulo[] = ["auditoria", "cgf", "rpv", "ret", "conciliacao", "dashboard", "sr", "pr", "pv"];
 
   it.each(consulta)("%s não diz que lê arquivo nem que salva", (k) => {
     const texto = MODULOS[k].proposito ?? "";
@@ -38,7 +38,7 @@ describe("textos das telas de consulta", () => {
     expect(texto).not.toMatch(/\b(leia|salve)\b/i);
   });
 
-  it.each(["auditoria", "cgf", "ret", "conciliacao"] as ChaveModulo[])("%s manda gravar pelo Painel do Ciclo", (k) => {
+  it.each(["auditoria", "cgf", "ret", "conciliacao", "sr", "pr", "pv"] as ChaveModulo[])("%s manda gravar pelo Painel do Ciclo", (k) => {
     expect(MODULOS[k].proposito).toMatch(/Painel do Ciclo/);
   });
 

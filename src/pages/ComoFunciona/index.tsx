@@ -68,7 +68,7 @@ function OQueE() {
         <div className={CAIXA}>
           <h3 className="text-base font-semibold text-white">O sistema não faz</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300 marker:text-amber-400">
-            <li>Não grava SR, PR e PV em silêncio. Só grava depois que você clica em Aprovar e gravar.</li>
+            <li>Não grava SR, PR e PV em silêncio. Só grava depois que você clica em Aprovar em sequência ou grava o passo no cartão dele, no Painel.</li>
             <li>Não grava nada sem você confirmar.</li>
             <li>Não grava o SR nem o PR com SELIC 0%.</li>
             <li>Não inventa dado que falta. Sem o PMPV do trimestre não há VP: o SR bloqueia e avisa.</li>
@@ -129,7 +129,7 @@ function Pegadinhas() {
       <li><strong className="text-white">O ano da chave muda.</strong> No PMPV e no PV, o ano é o do primeiro mês (Nov–Jan/2025 = Nov/2025, Dez/2025 e Jan/2026). No PR, é o do último mês (Nov–Jan/2026). Só difere no Nov–Jan.</li>
       <li><strong className="text-white">A ordem importa.</strong> O SR de cada mês usa o PR do trimestre fiscal do próprio mês. O PR usa o SR salvo do trimestre apurado. Sem PR salvo, o SR não grava. Sem SR salvo, não sai o PR.</li>
       <li><strong className="text-white">Cuidado com os sinais.</strong> RP = despesas − receitas: fica negativo quando as receitas (TOP incluído) são maiores. A devolução entra negativa no CGR. RPV = CGR − CGF. O SR fica negativo quando VF &gt; VP.</li>
-      <li><strong className="text-white">Processar não grava; Gravar grava só aquele módulo.</strong> &quot;Processar&quot; só mostra. &quot;Gravar&quot; usa os itens que a tela enviou (não lê os arquivos de novo) e pede confirmação quando troca um valor já gravado ou há divergência. O SR, o PR e o PV só mudam quando você clica em Aprovar e gravar, no bloco &quot;Aguardando sua aprovação&quot; do Painel.</li>
+      <li><strong className="text-white">Processar não grava; Gravar grava só aquele módulo.</strong> &quot;Processar&quot; só mostra. &quot;Gravar&quot; usa os itens que a tela enviou (não lê os arquivos de novo) e pede confirmação quando troca um valor já gravado ou há divergência. O SR, o PR e o PV só mudam quando você os grava no cartão de cada um, ou clica em Aprovar em sequência no bloco &quot;Aguardando sua aprovação&quot; do Painel.</li>
       <li><strong className="text-white">Prévia vazia não é erro.</strong> Se nada mudou no SR, PR e PV, não há o que aprovar.</li>
       <li><strong className="text-white">SELIC 0% trava.</strong> O SR e o PR não gravam com SELIC 0%. A SELIC do SR é a acumulada, do mês até o fim do trimestre, e só existe depois que o trimestre fecha.</li>
       <li><strong className="text-white">Arredondamento e o que fica fora.</strong> PMPV, PR e PV têm 4 casas, e o volume tem 2 antes de multiplicar. Notas canceladas e consumo próprio não entram no volume final do CGF. Despesa que já está no RET entra no RP com valor 0, mas só se o RET já estiver salvo.</li>

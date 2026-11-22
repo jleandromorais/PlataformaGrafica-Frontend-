@@ -962,6 +962,19 @@ export interface SituacaoCiclo {
   pmpv_novo?: { existe: boolean; meses?: string[]; meses_sem_vp?: string[] };
   passos?: { chave: string; titulo?: string; estado: string; motivo?: string | null; rota?: string | null }[];
   proximo_passo?: string | { chave?: string } | null;
+  /** Os 9 passos do Painel (back novo; aditivo). Ausente ou vazio no back antigo: o Painel calcula sozinho. */
+  etapas?: EtapaDaSituacao[];
+}
+
+/** Um dos 9 passos do Painel, como o back o vê (GET /ciclo/situacao, campo `etapas`). */
+export interface EtapaDaSituacao {
+  numero: number;                              // 1 a 9, a mesma numeração de utils/etapasDoCiclo.ts
+  chave: string;                               // pmpv | auditoria | cgf | ret | rp | scg | sr | pr | pv
+  estado: "pronto" | "atencao" | "falta" | "bloqueado";
+  motivo: string;
+  rota: string;
+  meses_que_faltam?: string[];                 // só nos passos 1 a 6
+  trimestres_do_ciclo?: { rotulo: string; meses_cobertos: string[]; pronto: boolean }[]; // só no passo 1
 }
 
 /** Resposta de um Salvar: o back novo traz `cascata`; o antigo não (por isso é opcional). */

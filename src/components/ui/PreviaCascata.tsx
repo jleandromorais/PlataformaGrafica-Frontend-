@@ -1,6 +1,6 @@
 /** Bloco "Aguardando sua aprovação" da cascata SR → PR → PV: depois de gravar um módulo (Auditoria, CGF, RET, RP,
  * SCG, SR, PR, PMPV), o que vem à frente NÃO é regravado sozinho. Aqui o analista vê, por trimestre, o valor
- * gravado hoje (Antes) ao lado do que o servidor calculou (Novo) e só grava ao clicar em "Aprovar e gravar".
+ * gravado hoje (Antes) ao lado do que o servidor calculou (Novo) e só grava ao clicar em "Aprovar em sequência".
  * Só o Painel do Ciclo desenha este componente; as outras telas mostram uma linha com o link para ele.
  * O servidor recalcula tudo na hora de gravar: os números desta tela nunca são enviados para gravar. */
 import { useState } from "react";
@@ -109,7 +109,8 @@ export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, cla
       </h3>
       <p className="mt-1 text-zinc-300">
         <b className="text-zinc-100">O SR, o PR e o PV ficaram desatualizados.</b> O que você gravou já vale. O que vem à frente{" "}
-        <b className="text-zinc-100">não foi alterado</b>: confira o que mudaria e aprove para gravar.
+        <b className="text-zinc-100">não foi alterado</b>: confira o que mudaria e aprove para gravar. Se preferir um de cada vez, grave pelos
+        cartões do SR, do PR e do PV, mais abaixo.
       </p>
 
       <div className="mt-3 space-y-3">
@@ -163,7 +164,7 @@ export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, cla
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <Button variant="solid" onClick={() => void aprovar()} disabled={bloqueada || gravando}
           icon={gravando ? <Loader2 size={14} className="animate-spin" aria-hidden /> : undefined}>
-          Aprovar e gravar
+          Aprovar em sequência
         </Button>
         {aoFechar && <Button variant="ghost" onClick={aoFechar} disabled={gravando}>Agora não</Button>}
         {bloqueada && <span className="text-xs text-zinc-500">Resolva as pendências acima para liberar o botão.</span>}

@@ -14,9 +14,9 @@ const TEXTO: Partial<Record<ChaveEtapa, { texto: string; botao: string }>> = {
   ret: { texto: "Encargos de transporte (EAT e EC), lidos da mesma pasta.", botao: "Abrir o Painel do Ciclo" },
   rp: { texto: "Penalidades, com receitas e despesas, lidas da mesma pasta.", botao: "Abrir o Painel do Ciclo" },
   scg: { texto: "Se calcula sozinho ao gravar os módulos. Só abra a tela se o Painel avisar que o SCG diverge.", botao: "Abrir o SCG" },
-  sr: { texto: "Calcule o SR com a SELIC, no card do Painel. Depois de gravar, aprove a prévia do SR, PR e PV: o gravado (Antes) ao lado do calculado (Novo). Nada é gravado sem o seu aval.", botao: "Abrir o Painel do Ciclo" },
-  pr: { texto: "Converta o saldo a recuperar em R$/m³, para cobrar no trimestre seguinte.", botao: "Abrir o PR" },
-  pv: { texto: "Some o PMPV e o PR para chegar ao preço de venda do trimestre novo.", botao: "Abrir o PV" },
+  sr: { texto: "Calcule o SR com a SELIC, no cartão do Painel. Depois de gravar, aprove a prévia do que vem à frente: o gravado (Antes) ao lado do calculado (Novo). Nada é gravado sem o seu aval.", botao: "Abrir o Painel do Ciclo" },
+  pr: { texto: "Converta o saldo a recuperar em R$/m³, para cobrar no trimestre seguinte. Confira e grave no cartão do PR, no Painel.", botao: "Abrir o Painel do Ciclo" },
+  pv: { texto: "Some o PMPV e o PR para chegar ao preço de venda do trimestre novo. Confira e grave no cartão do PV, no Painel.", botao: "Abrir o Painel do Ciclo" },
   tarifa: { texto: "É só leitura: o PV mais a margem de distribuição (MB). Fecha na tela PMPV do trimestre novo.", botao: "Abrir o PMPV" },
   entregas: { texto: "Baixe a minuta da Nota Técnica e o relatório do trimestre no Painel. O Excel Final fica na tela dele.", botao: "Abrir o Painel do Ciclo" },
 };
