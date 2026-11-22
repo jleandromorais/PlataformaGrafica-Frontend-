@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { Menu } from "lucide-react";
 import { Sidebar, Brand } from "./Sidebar";
+import { SiglasDaTela } from "../ui/Sigla";
 
 export function Layout() {
   const [menuAberto, setMenuAberto] = useState(false);
@@ -36,7 +37,9 @@ export function Layout() {
         </header>
 
         <main className="min-h-0 flex-1 overflow-y-auto">
-          <Outlet />
+          <SiglasDaTela>
+            <Outlet />
+          </SiglasDaTela>
         </main>
       </div>
     </div>

@@ -1,6 +1,6 @@
 /** Nome por extenso e fórmula de cada indicador da Conta Gráfica — uma fonte só para menu,
  * títulos e legendas. Nomes conforme a NT e a Resolução ARPE 304 (RP: art. 14). */
-export type Termo = { nome: string; formula?: string };
+export type Termo = { nome: string; formula?: string; /** Explicação curta, para os termos que não são fórmula (SELIC, MB, TOP, PFP). */ definicao?: string };
 
 export const GLOSSARIO = {
   CGR: { nome: "Custo do Gás Realizado", formula: "compra do gás sem tributos (NF-e + CT-e de gasoduto), devoluções abatidas" },
@@ -17,6 +17,11 @@ export const GLOSSARIO = {
   VF: { nome: "Volume Faturado" },
   EAT: { nome: "Encargo de Transporte" },
   EC: { nome: "Encargo de Capacidade" },
+  // Termos que não são contas. As definições são as da tela "Como funciona".
+  SELIC: { nome: "Taxa de juros do Banco Central", definicao: "No SR, é a SELIC acumulada do mês até o fim do trimestre, calculada com as taxas diárias, e corrige os saldos." },
+  MB: { nome: "Margem de distribuição", definicao: "A parte da tarifa que é ganho da Copergás. É anual e definida pelo regulador." },
+  TOP: { nome: "Tipo de nota", definicao: "A nota de TOP não recuperável (a pasta ou o nome do arquivo tem \"TOP\") entra no RP como receita, mesmo vinda da pasta de despesas." },
+  PFP: { nome: "Tipo de nota de penalidade", definicao: "Aparece como NDPFP no nome do arquivo." },
 } as const satisfies Record<string, Termo>;
 
 export type Sigla = keyof typeof GLOSSARIO;
@@ -27,5 +32,6 @@ export const tituloDe = (sigla: Sigla) => `${sigla} — ${GLOSSARIO[sigla].nome}
 /** Texto para tooltip: nome e, quando houver, a fórmula. */
 export const dicaDe = (sigla: Sigla) => {
   const t: Termo = GLOSSARIO[sigla];
-  return t.formula ? `${tituloDe(sigla)}. ${t.formula}` : tituloDe(sigla);
+  const complemento = t.formula ?? t.definicao;
+  return complemento ? `${tituloDe(sigla)}. ${complemento}` : tituloDe(sigla);
 };

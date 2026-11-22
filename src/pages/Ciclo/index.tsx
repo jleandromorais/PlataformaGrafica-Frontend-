@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { Calculator, ChevronLeft, ChevronRight, DollarSign, FileArchive, FileSpreadsheet, FolderOpen, Lock, TrendingUp } from "lucide-react";
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
+import { ComSiglas } from "../../components/ui/Sigla";
 import { avisarAtencao, avisarSucesso } from "../../components/ui/avisos";
 import { faixaDosMeses, rotuloCurtoDoTrimestre, rotuloDoPeriodo } from "../../utils/rotulos";
 import { etapaDaChave, numeroDaEtapa, rotaDaEtapa } from "../../utils/etapasDoCiclo";
@@ -576,7 +577,7 @@ export default function CicloPage() {
                         {e.titulo}
                         {ehProximo && <span className="rounded-md bg-sky-500/20 px-2 py-0.5 text-xs font-semibold text-sky-200">Próximo</span>}
                       </p>
-                      <p className="text-xs text-zinc-500">{e.descricao}</p>
+                      <p className="text-xs text-zinc-500"><ComSiglas>{e.descricao}</ComSiglas></p>
                       <div className="mt-2 text-sm text-zinc-300">{e.detalhe}</div>
                       {bloqueio && (
                         <p className="mt-1.5 flex items-start gap-1.5 text-sm font-medium text-amber-200">

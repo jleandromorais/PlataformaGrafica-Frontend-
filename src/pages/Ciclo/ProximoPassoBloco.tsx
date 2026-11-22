@@ -6,6 +6,7 @@ import { ArrowRight } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 import { classesDoBotao } from "../../components/ui/estilosBotao";
+import { ComSiglas } from "../../components/ui/Sigla";
 import { Skeleton } from "../../components/ui/Skeleton";
 import type { AcaoDoBloco, BlocoProximoPasso, CasoDoBloco } from "./blocoProximoPasso";
 
@@ -43,9 +44,9 @@ export function ProximoPassoBloco({ bloco, detalheDoErro, onAcao, onVerMotivo }:
       <p className="text-xs font-semibold text-zinc-400">
         Próximo passo{bloco.passo && <span className="tabular-nums"> · {bloco.passo.toLowerCase()}</span>}
       </p>
-      <h2 id="proximo-passo-titulo" className="mt-1 text-xl font-semibold text-white">{bloco.titulo}</h2>
+      <h2 id="proximo-passo-titulo" className="mt-1 text-xl font-semibold text-white"><ComSiglas>{bloco.titulo}</ComSiglas></h2>
       {bloco.etapa && <p className="mt-0.5 text-xs text-zinc-500">{bloco.etapa}</p>}
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300">{bloco.texto}</p>
+      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300"><ComSiglas>{bloco.texto}</ComSiglas></p>
       {bloco.caso === "erro" && detalheDoErro && <Alert variant="error" className="mt-3 max-w-2xl">{detalheDoErro}</Alert>}
 
       {(acao || bloco.depois.length > 0 || bloco.verMotivo) && (

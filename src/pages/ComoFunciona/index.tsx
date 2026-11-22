@@ -8,17 +8,12 @@ import { PassoAPasso } from "./PassoAPasso";
 import { TabelaTelas } from "./TabelaTelas";
 import { AsContas } from "./AsContas";
 
-const GLOSSARIO_EXTRA: [string, string][] = [
-  ["SELIC", "Taxa de juros do Banco Central. No SR, é a SELIC acumulada do mês até o fim do trimestre, calculada com as taxas diárias, e corrige os saldos."],
-  ["MB", "Margem de distribuição: a parte da tarifa que é ganho da Copergás. É anual e definida pelo regulador."],
-  ["TOP", "Um tipo de nota. A nota de TOP não recuperável (a pasta ou o nome do arquivo tem \"TOP\") entra no RP como receita, mesmo vinda da pasta de despesas."],
-  ["PFP", "Um tipo de nota de penalidade (aparece como NDPFP no nome do arquivo)."],
-];
-
+// A fonte única é o GLOSSARIO (utils/glossario.ts): contas aparecem com o nome; SELIC, MB, TOP e PFP, com a definição.
 const TERMOS_DO_GLOSSARIO: [string, string][] = [
   ...(["PMPV", "PV", "PR", "VP", "VF", "SR", "SCG", "RPV", "RET", "RP", "CGR", "CGF", "EAT", "EC"] as const)
-    .map((s): [string, string] => [s, GLOSSARIO[s as keyof typeof GLOSSARIO].nome]),
-  ...GLOSSARIO_EXTRA,
+    .map((s): [string, string] => [s, GLOSSARIO[s].nome]),
+  ...(["SELIC", "MB", "TOP", "PFP"] as const)
+    .map((s): [string, string] => [s, `${GLOSSARIO[s].nome}. ${GLOSSARIO[s].definicao}`]),
 ];
 
 const P = "max-w-3xl text-[0.95rem] leading-relaxed text-zinc-300";

@@ -5,6 +5,7 @@ import { moduleColor } from "../../theme";
 import { etapaDoModulo, rotuloDaEtapa } from "../../utils/etapasDoCiclo";
 import { linkDoPainel } from "../../utils/periodos";
 import { classesDoBotao } from "../ui/estilosBotao";
+import { ComSiglas } from "../ui/Sigla";
 import { MODULOS, type ChaveModulo } from "./modulos";
 
 interface Props {
@@ -40,7 +41,7 @@ export function PageHeader({ modulo, titulo, descricao, formula, acoes, gravarNo
         </span>
         <div className="min-w-0">
           <h1 className="text-balance text-2xl font-bold tracking-tight text-white sm:text-[1.75rem]">{nome}</h1>
-          {texto && <p className="mt-1 text-[0.95rem] leading-relaxed text-zinc-300">{texto}</p>}
+          {texto && <p className="mt-1 text-[0.95rem] leading-relaxed text-zinc-300">{typeof texto === "string" ? <ComSiglas>{texto}</ComSiglas> : texto}</p>}
           {formula && (
             <p className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-zinc-500">
               <Sigma size={13} className="mt-[0.15rem] shrink-0 text-zinc-600" aria-hidden />
