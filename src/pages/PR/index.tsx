@@ -1,6 +1,8 @@
 import { AlteracoesDaTrilha } from "../../components/ui/AlteracoesDaTrilha";
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
-import { useEffect, useMemo, useState } from "react";
+import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, ChevronLeft, ChevronRight, FileText, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
@@ -110,8 +112,17 @@ export default function PRPage() {
     buscar(meses, chave).then(aplicar).catch(falhar);
   };
 
-  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
-  const salvar = async () => {
+  const { previa, mostrarCascata } = usePreviaCascata(); // o PV à frente: o analista aprova no Painel
+  const [confirmar, setConfirmar] = useState(false);
+  const botaoGravar = useRef<HTMLButtonElement>(null);
+  /** O botão: pede confirmação quando troca um PR já gravado por outro valor; senão grava direto. */
+  const pedirGravacao = () => {
+    if (!dados) return;
+    const substitui = prSalvo !== null && Math.abs(prSalvo - dados.pr) > 1e-9;
+    if (precisaJanela({ substitui, diverge: false })) setConfirmar(true);
+    else void gravar();
+  };
+  const gravar = async () => {
     if (!dados) return;
     setSalvando(true);
     setErro(null);
@@ -123,10 +134,10 @@ export default function PRPage() {
       setPrSalvo(r.pr);
       // O backend regrava o PV do mesmo trimestre com este PR.
       const pv = textoPVAutomatico(r.pv_automatico);
-      setSucesso(`PR de ${meses[0]} a ${meses[2]} salvo: ${tarifa(r.pr)} R$/m³.${pv?.ok ? ` ${pv.texto}` : ""}`);
+      setSucesso(`PR de ${meses[0]} a ${meses[2]} gravado: ${tarifa(r.pr)} R$/m³.${pv?.ok ? ` ${pv.texto}` : ""}`);
       if (pv && !pv.ok) setAvisoPV(pv.texto);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar o PR."));
+      setErro(mensagemDeErro(e, "Não foi possível gravar o PR."));
     } finally {
       setSalvando(false);
     }
@@ -196,7 +207,7 @@ export default function PRPage() {
         </section>
 
         {dados && dados.pendencias.length > 0 && (
-          <Alert variant="warning" titulo="Para salvar o PR, resolva antes:" itens={dados.pendencias} />
+          <Alert variant="warning" titulo="Para gravar o PR, resolva antes:" itens={dados.pendencias} />
         )}
 
         {dados && (
@@ -256,17 +267,21 @@ export default function PRPage() {
               </div>
               {prSalvo !== null && (
                 <p className={`mt-3 text-xs ${difereDoSalvo ? "text-amber-300" : "text-zinc-500"}`}>
-                  PR salvo: {tarifa(prSalvo)}{difereDoSalvo ? " — diferente do calculado; salve para atualizar." : " (igual ao calculado)."}
+                  PR gravado: {tarifa(prSalvo)}{difereDoSalvo ? " — diferente do calculado; grave para atualizar." : " (igual ao calculado)."}
                 </p>
               )}
-              <Button className="mt-4 w-full" variant="solid" icon={<Save size={16} />} loading={salvando}
-                disabled={carregando || !dados.vp || dados.pendencias.length > 0} onClick={salvar}
+              <Button className="mt-4 w-full" variant="solid" ref={botaoGravar} icon={<Save size={16} />} loading={salvando}
+                disabled={carregando || !dados.vp || dados.pendencias.length > 0} onClick={pedirGravacao}
                 aria-describedby={dados.pendencias.length > 0 ? "pr-bloqueado" : undefined}>
-                Salvar PR
+                Gravar PR
               </Button>
+              <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
+                oque={`o PR de ${rotuloDoPeriodo(meses, "ciclo")}`} rotuloAcao="Gravar o PR" afeta={AFETADOS_DA_TELA.pr}
+                onConfirmar={() => void gravar()}
+                linhas={[{ rotulo: "PR (R$/m³)", antes: prSalvo === null ? null : tarifa(prSalvo), depois: tarifa(dados.pr) }]} />
               {dados.pendencias.length > 0 && (
                 <p id="pr-bloqueado" className="mt-2 text-center text-xs text-amber-300">
-                  Para salvar, resolva antes {dados.pendencias.length === 1 ? "o aviso" : `os ${dados.pendencias.length} avisos`} em amarelo acima.
+                  Para gravar, resolva antes {dados.pendencias.length === 1 ? "o aviso" : `os ${dados.pendencias.length} avisos`} em amarelo acima.
                   Sem isso o PR sairia com o SR, o SCG ou o VP zerado.
                 </p>
               )}

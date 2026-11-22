@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Calculator, ChevronLeft, ChevronRight, FileArchive, FileSpreadsheet, FolderOpen, Lock } from "lucide-react";
 import { ModalAviso, type VarianteAviso } from "../../components/ui/ModalAviso";
 import { AreaSoltarPasta } from "../../components/ui/AreaSoltarPasta";
@@ -26,13 +26,14 @@ import { MapaPasta } from "./MapaPasta";
 import { ICONE } from "./situacaoUI";
 import { ProximoPassoBloco } from "./ProximoPassoBloco";
 import { SubpassoRecolhivel } from "./SubpassoRecolhivel";
+import { atalhoDoSCG } from "./atalhoSCG";
 import { DetalheDoPMPV } from "./DetalheDoPMPV";
 import { AoFechar } from "./AoFechar";
 import { trimestresDoCicloTocados } from "./trimestresDoCicloTocados";
 import {
   ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PROCESSAR, ID_SR, blocoDoProximoPasso, idDoPasso, type AcaoDoBloco, type BlocoProximoPasso,
 } from "./blocoProximoPasso";
-import { AvisoCascataPendente } from "../../components/ui/AvisoCascataPendente";
+import { AguardandoAprovacao } from "./AguardandoAprovacao";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import { esquecer, guardar, lembrar } from "../../utils/lembrar";
 import { reabrirPasta, type ArquivoDaPastaCiclo, type ChavePasta, type PastaLida } from "../../utils/pasta";
@@ -265,7 +266,10 @@ export default function CicloPage() {
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);              // a carga da situação falhou (aparece no bloco "Próximo passo")
   const [erroEntrega, setErroEntrega] = useState<string | null>(null);  // minuta ou relatório não saiu (aparece em "Ao fechar")
-  const [aguardandoAprovacao, setAguardandoAprovacao] = useState(false); // há SR, PR ou PV desatualizado esperando aprovação
+  const [aguardandoAprovacao, setAguardandoAprovacao] = useState(false); // o trimestre aberto tem SR, PR ou PV para o analista aprovar
+  // Vindo de uma tela que gravou (?aprovar=1): rola até o bloco de aprovação quando a carga termina.
+  const [params, setParams] = useSearchParams();
+  const pediuAprovar = params.get("aprovar") === "1";
   const [caminhos, setCaminhos] = useState<string[] | null>(null);
   // Os arquivos da pasta escolhida (caminho sem a pasta raiz → File), para o "Processar" enviar.
   const [arquivos, setArquivos] = useState<Map<string, ArquivoDaPastaCiclo>>(new Map());
@@ -327,6 +331,15 @@ export default function CicloPage() {
       .catch((e) => { if (vigente) { setErro(mensagemDeErro(e, "Não foi possível carregar a situação do ciclo.")); setCarregando(false); } });
     return () => { vigente = false; };
   }, [meses, mesesPR, versao]);
+
+  useEffect(() => {
+    if (!pediuAprovar || carregando) return;
+    const t = window.setTimeout(() => {
+      irParaSecao(ID_APROVACAO);
+      setParams((p) => { p.delete("aprovar"); return p; }, { replace: true });
+    }, 600); // a prévia da cascata chega depois da situação
+    return () => window.clearTimeout(t);
+  }, [pediuAprovar, carregando, setParams]);
 
   const irPara = (novoAno: number, novoTri: number) => {
     setCarregando(true);
@@ -518,9 +531,9 @@ export default function CicloPage() {
         <ProximoPassoBloco bloco={bloco} detalheDoErro={erro} onAcao={executarAcao}
           onVerMotivo={(b) => b.verMotivo && irParaSecao(idDoPasso(b.verMotivo))} />
 
-        {/* 3. Algum SR, PR ou PV ficou para trás da última mudança? Aviso com a prévia para aprovar (a fase 4 o troca pelo bloco "Aguardando sua aprovação"). A chave refaz a busca depois de gravar. */}
+        {/* 3. Aguardando sua aprovação: a prévia da cascata do trimestre aberto, o único lugar onde ela se aprova. Só existe quando há algo a aprovar. */}
         <div id={ID_APROVACAO} className="scroll-mt-4 empty:hidden">
-          <AvisoCascataPendente key={versao} aoMudar={setAguardandoAprovacao} />
+          <AguardandoAprovacao key={meses[0]} meses={meses} versao={versao} aoMudar={setAguardandoAprovacao} aoAplicar={() => setVersao((v) => v + 1)} />
         </div>
 
         {/* 4. Passos do trimestre, na ordem. Cada passo mostra o estado; o trabalho fica nos blocos recolhidos logo abaixo. */}
@@ -627,7 +640,7 @@ export default function CicloPage() {
           </SubpassoRecolhivel>
 
           {/* Chaves com prefixo: SR e Comparar são irmãos; a mesma chave nos dois fazia o React duplicar o card do SR. */}
-          <SubpassoRecolhivel id={ID_COMPARAR} titulo="Comparar com a planilha" passos="opcional, passo 2" icone={<FileSpreadsheet size={16} />} abrirPorPadrao={false}>
+          <SubpassoRecolhivel id={ID_COMPARAR} titulo="Comparar com a planilha" passos="opcional, confere o passo 2" icone={<FileSpreadsheet size={16} />} abrirPorPadrao={false}>
             {!carregando && dados ? (
               <CompararPlanilha key={`comparar-${meses[0]}`} meses={meses} caminhos={caminhos} arquivos={arquivos} auditoria={dados.auditoria}
                 aoIncluirNota={() => setVersao((v) => v + 1)} aoTrocarPlanilha={(f) => setPlanilhaEscolhida(escolherPlanilha(f, meses[0]))} />
@@ -635,6 +648,19 @@ export default function CicloPage() {
               <p className="px-2 py-3 text-sm text-zinc-400">Disponível quando a situação do trimestre carregar.</p>
             )}
           </SubpassoRecolhivel>
+
+          {/* Passo 6 (SCG) não tem bloco: uma linha discreta mantém a sequência dos blocos sem pulo. */}
+          {!carregando && (() => {
+            const scgPasso = lista.find((e) => e.chave === "scg");
+            if (!scgPasso) return null;
+            const a = atalhoDoSCG({ situacao: scgPasso.situacao, ehProximo: proximo === "scg", mesesDivergentes: mesesScgDivergentes });
+            const cor = a.tom === "atencao" ? "text-amber-200" : a.tom === "proximo" ? "text-sky-200" : "text-zinc-400";
+            return (
+              <Link to={scgPasso.link} id="atalho-scg" className={`flex min-h-10 items-center gap-2 rounded-lg px-5 py-2 text-sm hover:bg-white/[0.04] ${cor}`}>
+                <span>{a.texto}</span><span aria-hidden>→</span>
+              </Link>
+            );
+          })()}
 
           {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
           <SubpassoRecolhivel id={ID_SR} titulo="SR do trimestre" passos="passo 7" icone={<Calculator size={16} />} abrirPorPadrao={proximo === "sr"}>

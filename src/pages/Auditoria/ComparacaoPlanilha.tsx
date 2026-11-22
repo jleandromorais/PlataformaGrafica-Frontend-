@@ -4,9 +4,8 @@ import type { AuditoriaComparacao, NotaSoNaPlanilha } from "../../types";
 import { incluirNotaAuditoria } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { Conferencia } from "../../components/ui/Conferencia";
-import { PreviaCascata } from "../../components/ui/PreviaCascata";
+import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { ID_QUADRO_COMPARACAO, useIrParaSecao } from "../../components/ui/useIrParaSecao";
-import type { Cascata } from "../../types";
 import { brl, num } from "../../utils/format";
 import { pedidoDeInclusao, podeIncluirNota } from "./incluirNota";
 import { TOL, cgrDaNota, cgrDifere, empresaDa, parearMesmoValor, resumoDaComparacao, separarAvisos, type SecaoDaComparacao } from "./comparacaoResumo";
@@ -434,7 +433,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
   const [incluindo, setIncluindo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [cgrNovo, setCgrNovo] = useState<number | null>(null);   // CGR do mês depois de incluir
-  const [cascata, setCascata] = useState<Cascata | null>(null);   // prévia do SR, PR e PV: aprovar para gravar
+  const { previa, mostrarCascata } = usePreviaCascata("font-sans"); // SR, PR e PV: aprovar no Painel
 
   const pedido = pedidoDeInclusao(nota, motivo);
 
@@ -445,7 +444,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
     try {
       const r = await incluirNotaAuditoria(periodo, pedido);
       setCgrNovo(r.valor_gravado);
-      setCascata(r.cascata ?? null);
+      mostrarCascata(r.cascata);
       setConfirmando(false);
       aoIncluir?.();
     } catch (e) {
@@ -472,7 +471,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
         <div className="rounded-md border border-amber-300/30 bg-amber-400/[0.06] px-3 py-2 font-sans text-xs text-amber-200">
           <p>
             Incluir esta nota no CGR de <b>{periodo}</b> com o valor da planilha: <b className="tabular-nums">{brl(nota.cgr_planilha!)}</b>.
-            {" "}Isto <b>grava</b> a nota no mês; o CGR, o RPV e o SCG são recalculados. O SR, o PR e o PV só mudam depois que você aprovar a prévia.
+            {" "}Isto <b>grava</b> a nota no mês; o CGR, o RPV e o SCG são recalculados. O SR, o PR e o PV só mudam depois que você aprovar no Painel.
           </p>
           <label className="mt-2 block">
             <span className="text-amber-100">Motivo (obrigatório)</span>
@@ -493,7 +492,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
       )}
 
       {erro && <p role="alert" className="font-sans text-xs text-red-300">{erro}</p>}
-      {cascata && <PreviaCascata cascata={cascata} aoFechar={() => setCascata(null)} className="font-sans" />}
+      {previa}
     </div>
   );
 }

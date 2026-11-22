@@ -327,7 +327,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <Button variant="solid" icon={<Play size={14} />} onClick={comparar} disabled={!pronto}>Comparar {ativo} com a planilha</Button>
-              {!planilha && <span className="text-xs text-zinc-500">Escolha a planilha no passo 1.</span>}
+              {!planilha && <span className="text-xs text-zinc-500">Escolha a planilha no passo 2.</span>}
               {conferindo && <span className="text-xs text-zinc-500">Esperando a conferência da planilha…</span>}
             </div>
           </div>

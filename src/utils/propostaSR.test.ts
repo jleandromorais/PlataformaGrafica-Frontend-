@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { camposDiferentes, faixaDoTrimestre, mesesDivergentes, motivosDoMes, rotuloDoPR, tituloDaDivergencia } from "./propostaSR";
+import { camposDiferentes, conferirTabelaSR, faixaDoTrimestre, mesesDivergentes, motivosDoMes, rotuloDoPR, tituloDaDivergencia } from "./propostaSR";
 import type { SRProposta, SRPropostaLinha } from "../types";
 
 const linha = (extra: Partial<SRPropostaLinha> = {}): SRPropostaLinha => ({
@@ -55,5 +55,37 @@ describe("textos", () => {
   it("concorda no singular e no plural", () => {
     expect(tituloDaDivergencia(1)).toBe("Há divergência em 1 mês.");
     expect(tituloDaDivergencia(2)).toBe("Há divergência em 2 meses.");
+  });
+});
+
+describe("conferirTabelaSR: a tabela editada da tela /sr contra o gravado (mesma checagem do card do Painel)", () => {
+  const editada = (extra: Partial<Parameters<typeof conferirTabelaSR>[0][number]> = {}) =>
+    ({ mes: "Jan/2026", vp: 1000, vf: 900, pr: 0.1234, selic_mensal: 1.1, sr_anterior: 50, sr_selic: 13, ...extra });
+
+  it("sem SR gravado e sem diferença: não substitui nada e não diverge", () => {
+    const c = conferirTabelaSR([editada()], { ...proposta([linha()]), total_gravado: null });
+    expect(c.substitui).toBe(false);
+    expect(c.motivosPorMes).toEqual([]);
+    expect(c.naoConferiu).toBe(false);
+  });
+  it("com SR gravado: substitui, e guarda o total gravado", () => {
+    const c = conferirTabelaSR([editada()], { ...proposta([linha({ gravado: gravadoIgual })]), total_gravado: 777 });
+    expect(c.substitui).toBe(true);
+    expect(c.totalGravado).toBe(777);
+    expect(c.motivosPorMes).toEqual([]); // igual ao gravado: não é divergência
+  });
+  it("o que o analista digitou e difere do gravado vira divergência do mês, com a coluna", () => {
+    const c = conferirTabelaSR([editada({ vp: 1500, selic_mensal: 2 })],
+      { ...proposta([linha({ gravado: gravadoIgual })]), total_gravado: 777 });
+    expect(c.motivosPorMes).toEqual([{ mes: "Jan/2026", motivos: ["difere do gravado em VP, SELIC"] }]);
+  });
+  it("os alertas do back sobre os valores do sistema não valem para o que foi digitado", () => {
+    const c = conferirTabelaSR([editada()], proposta([linha({ gravado: gravadoIgual, alertas: [{ codigo: "pr_estimado", mensagem: "PR estimado" }] })]));
+    expect(c.motivosPorMes).toEqual([]);
+  });
+  it("sem a proposta (a consulta falhou): não deu para conferir, e a janela é obrigatória", () => {
+    const c = conferirTabelaSR([editada()], null);
+    expect(c.naoConferiu).toBe(true);
+    expect(c.substitui).toBe(true);
   });
 });

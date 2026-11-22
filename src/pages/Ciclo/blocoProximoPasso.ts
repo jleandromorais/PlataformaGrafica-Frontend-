@@ -7,6 +7,7 @@
  * para este módulo não depender do roteador. */
 import { GLOSSARIO, tituloDe } from "../../utils/glossario";
 import { etapaDaChave, rotuloDaEtapa } from "../../utils/etapasDoCiclo";
+import { ID_APROVACAO } from "../../utils/aprovacao";
 import type { Bloqueio, ChavePasso, DestinoBloqueio, EntradaPasso, ResultadoCiclo } from "./proximoPasso";
 
 // Ids dos blocos da página: os botões "rolar" levam até eles.
@@ -14,7 +15,7 @@ export const ID_PASTA = "importar-pasta";         // bloco recolhível "Processa
 export const ID_PROCESSAR = "processar-trimestre"; // o Processar, depois de aberto
 export const ID_COMPARAR = "comparar-planilha";    // "Comparar com a planilha" e o campo da planilha oficial
 export const ID_SR = "sr-do-trimestre";            // card do SR
-export const ID_APROVACAO = "aguardando-aprovacao"; // aviso com a prévia da cascata
+export { ID_APROVACAO };                           // bloco "Aguardando sua aprovação" (mora em utils/aprovacao.ts)
 export const ID_ENTREGAS = "entregas";
 export const idDoPasso = (chave: ChavePasso) => `passo-${chave}`;
 
@@ -55,7 +56,7 @@ export interface EntradaBloco {
   /** Os arquivos da pasta estão na memória (depois de recarregar a página só ficam os nomes). */
   temArquivos: boolean;
   nomePasta: string;
-  /** Há SR, PR ou PV desatualizado esperando aprovação. */
+  /** O trimestre ABERTO tem SR, PR ou PV desatualizado e o analista já pode aprovar (sem pendência que trave). */
   aguardandoAprovacao: boolean;
   /** Do back novo (GET /ciclo/situacao); null ou ausente no back antigo. */
   selic?: { fechada?: boolean; fecha_em?: string | null } | null;
@@ -136,11 +137,15 @@ export function blocoDoProximoPasso(e: EntradaBloco): BlocoProximoPasso {
     if (primeiroBloqueio) {
       partes.push(selicAberta ? `Enquanto isso, ${primeiroBloqueio.motivo}.` : `${maiuscula(primeiroBloqueio.motivo)}.`);
     }
-    return { ...base, caso: "bloqueado", titulo: "Nada a fazer agora",
-      texto: partes.join(" ") || "O que falta depende de algo que ainda não está pronto.",
-      acao: primeiroBloqueio
-        ? link("link", ROTULO_DO_BLOQUEIO[primeiroBloqueio.destino] ?? "Abrir", e.linkDe(primeiroBloqueio.destino))
-        : null };
+    // O título não pode contradizer o botão: com uma ação possível, o título diz qual é.
+    const acao = primeiroBloqueio
+      ? link("link", ROTULO_DO_BLOQUEIO[primeiroBloqueio.destino] ?? "Abrir", e.linkDe(primeiroBloqueio.destino))
+      : null;
+    const titulo = !primeiroBloqueio ? "Nada a fazer agora"
+      : primeiroBloqueio.destino === "pmpv_novo" ? `Calcule o PMPV de ${e.rotulos.ciclo}`
+      : "Falta um passo anterior";
+    return { ...base, caso: "bloqueado", titulo,
+      texto: partes.join(" ") || "O que falta depende de algo que ainda não está pronto.", acao };
   };
 
   if (!proximo) return fimDoCaminho();

@@ -24,6 +24,7 @@ import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes";
 import { OndeDifere } from "./Processar";
+import { AFETADOS_DOS_MODULOS, textoDepoisDeGravar } from "../../utils/confirmarGravacao";
 
 /** Limite de arquivos por envio do backend (MAX_ARQUIVOS em Src/api/uploads.py). */
 const MAX_ARQUIVOS = 20_000;
@@ -402,11 +403,12 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
           </dl>
         )}
         <p>{substitui ? `As notas gravadas de ${ativo} são apagadas e entram só` : `Entram em ${ativo}`} as {num(res?.r.itens.length ?? 0)} notas
-          desta pasta. O servidor recalcula o CGR e regrava o RPV e o PR/PV dos meses afetados.</p>
+          desta pasta. O servidor recalcula o CGR e regrava o RPV e o SCG do mês.</p>
         {apagadas.length > 0 && (
           <p className="text-red-300">{apagadas.map((e) => e.empresa).join(", ")} {apagadas.length === 1 ? "sairá" : "sairão"} do mês.</p>
         )}
         {!!res?.naoLidos && <p className="text-amber-200">{res.naoLidos} PDF(s) não lido(s) ficam fora do CGR.</p>}
+        <p className="text-zinc-400">{textoDepoisDeGravar(AFETADOS_DOS_MODULOS)}</p>
       </ModalAviso>
     </div>
   );

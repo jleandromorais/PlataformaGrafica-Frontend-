@@ -1,4 +1,6 @@
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
+import { ConfirmarGravacao, type LinhaDoResumo } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, Loader2, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
@@ -167,9 +169,25 @@ export default function SCGPage() {
     && (provaDoMes.scg_gravado === null || difere(provaDoMes.scg_gravado, scg));
   const alterado = !!comp && validos && (!comp.gravado || camposDiferem || gravadoDesatualizado);
 
-  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
-  const salvar = async () => {
-    if (!validos) return setErro("Corrija os valores digitados antes de salvar.");
+  // O que sai diferente do que os módulos calculam (escolheu o gravado antigo ou digitou): é a divergência a avisar.
+  const divergemDosModulos = comp && validos ? CAMPOS.filter(({ chave }) => difere(v[chave], comp.modulos[chave])) : [];
+  const resumoDaJanela: LinhaDoResumo[] = comp && validos ? [
+    { rotulo: "SCG", antes: comp.gravado ? brl(comp.gravado.scg) : null, depois: brl(scg) },
+    ...CAMPOS.filter(({ chave }) => comp.gravado && difere(v[chave], comp.gravado[chave]))
+      .map(({ chave }) => ({ rotulo: chave.toUpperCase(), antes: brl(comp.gravado![chave]), depois: brl(v[chave]) })),
+  ] : [];
+  const [confirmar, setConfirmar] = useState(false);
+  const botaoGravar = useRef<HTMLButtonElement>(null);
+  /** O botão: pede confirmação quando substitui o gravado ou há divergência; senão grava direto. */
+  const pedirGravacao = () => {
+    if (!validos) return setErro("Corrija os valores digitados antes de gravar.");
+    if (precisaJanela({ substitui: !!comp?.gravado, diverge: divergemDosModulos.length > 0 })) setConfirmar(true);
+    else void gravar();
+  };
+
+  const { previa, mostrarCascata } = usePreviaCascata(); // SR, PR e PV à frente: o analista aprova no Painel
+  const gravar = async () => {
+    if (!validos) return setErro("Corrija os valores digitados antes de gravar.");
     setErro(null);
     setSucesso(null);
     setAvisoPR(null);
@@ -179,13 +197,13 @@ export default function SCGPage() {
       mostrarCascata(r.cascata);
       // O backend regrava o PR e o PV do trimestre que usa este mês.
       const pr = textoPRAutomatico(r.pr_automatico);
-      setSucesso(`SCG de ${periodo} salvo: ${brl(r.scg)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
+      setSucesso(`SCG de ${periodo} gravado: ${brl(r.scg)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
       if (pr && !pr.ok) setAvisoPR(pr.texto);
       buscar(periodo);
       carregarHistorico();
       setVersaoProva((n) => n + 1);
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar o SCG."));
+      setErro(mensagemDeErro(e, "Não foi possível gravar o SCG."));
     } finally {
       setSalvando(false);
     }
@@ -224,7 +242,7 @@ export default function SCGPage() {
         {comp && divergentes.length > 0 && (
           <Alert variant="warning">
             Em {periodo}, {divergentes.map((d) => d.nome).join(" e ")} {divergentes.length > 1 ? "diferem" : "difere"} entre os módulos e o valor gravado.
-            Escolha em cada linha qual vale antes de salvar. Hoje o Excel Final usa o gravado.
+            Escolha em cada linha qual vale antes de gravar. Hoje o Excel Final usa o gravado.
           </Alert>
         )}
 
@@ -275,7 +293,7 @@ export default function SCGPage() {
                   <th className="px-5 py-3 text-right font-semibold">Dos módulos</th>
                   <th className="px-5 py-3 text-right font-semibold">Gravado</th>
                   <th className="px-5 py-3 text-left font-semibold">Usar</th>
-                  <th className="px-5 py-3 text-right font-semibold">Será salvo</th>
+                  <th className="px-5 py-3 text-right font-semibold">Será gravado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.05]">
@@ -344,19 +362,23 @@ export default function SCGPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.07] px-5 py-4 sm:px-6">
             <p className="text-sm text-zinc-400">
               {!comp ? "" : !alterado ? (
-                <span className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-400" /> Nada a salvar: o escolhido é igual ao gravado.</span>
+                <span className="flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-400" /> Nada a gravar: o escolhido é igual ao gravado.</span>
               ) : comp.gravado && !camposDiferem ? (
-                <>SCG gravado desatualizado: a coluna gravada está {provaDoMes?.scg_gravado == null ? "vazia" : <>em <span className="font-medium text-zinc-200">{brl(provaDoMes.scg_gravado)}</span></>}, mas a soma dá <span className="font-medium text-zinc-200">{brl(scg)}</span>. Salvar corrige.</>
+                <>SCG gravado desatualizado: a coluna gravada está {provaDoMes?.scg_gravado == null ? "vazia" : <>em <span className="font-medium text-zinc-200">{brl(provaDoMes.scg_gravado)}</span></>}, mas a soma dá <span className="font-medium text-zinc-200">{brl(scg)}</span>. Gravar corrige.</>
               ) : comp.gravado ? (
                 <>O SCG gravado passa de <span className="font-medium text-zinc-200">{brl(comp.gravado.scg)}</span> para <span className="font-medium text-zinc-200">{brl(scg)}</span>.</>
               ) : (
                 <>Primeiro SCG de {periodo}.</>
               )}
             </p>
-            <Button variant="solid" onClick={salvar} disabled={!alterado || salvando || carregando}>
+            <Button variant="solid" ref={botaoGravar} onClick={pedirGravacao} disabled={!alterado || salvando || carregando}>
               {salvando ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-              Salvar SCG de {periodo}
+              Gravar SCG de {periodo}
             </Button>
+            <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
+              oque={`o SCG de ${periodo}`} rotuloAcao="Gravar o SCG" afeta={AFETADOS_DA_TELA.scg} onConfirmar={() => void gravar()}
+              diverge={divergemDosModulos.length > 0} linhas={resumoDaJanela}
+              motivos={divergemDosModulos.map(({ chave, nome }) => <><b>{nome}</b>: você usa {brl(v[chave])}; os módulos dão {brl(comp!.modulos[chave])}.</>)} />
           </div>
         </section>
 

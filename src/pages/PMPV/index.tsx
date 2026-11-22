@@ -11,6 +11,8 @@ import { linhaDoMes } from "../../utils/linhaDoMes";
 import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { ProvaRealPMPV } from "./ProvaRealPMPV";
 import { Alert } from "../../components/ui/Alert";
+import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
 import { avisarEnviando, avisarSucesso, concluirAviso } from "../../components/ui/avisos";
 import { faixaDosMeses } from "../../utils/rotulos";
 import { calcularPMPV, getHistoricoPMPV, getMargemRegulatoria, getProvaRealPMPV, getSessaoDoTrimestrePMPV, salvarMargemRegulatoria, getPVTrimestre, getTrimestresFiscais, importarMemoriaPMPV, salvarPMPV } from "../../api";
@@ -270,7 +272,7 @@ function OrigemDosDados({ origem, faixa, onRecarregar }: {
   if (origem.tipo === "carregando") {
     return (
       <div role="status" className={`${caixa} border-white/[0.07] bg-white/[0.02] text-zinc-400`}>
-        <Loader2 size={13} className="animate-spin" aria-hidden /> Buscando o que já foi salvo para {faixa}…
+        <Loader2 size={13} className="animate-spin" aria-hidden /> Buscando o que já foi gravado para {faixa}…
       </div>
     );
   }
@@ -291,7 +293,7 @@ function OrigemDosDados({ origem, faixa, onRecarregar }: {
   if (origem.tipo === "vazia") {
     return (
       <div aria-live="polite" className={`${caixa} border-amber-500/20 bg-amber-500/[0.06] text-amber-200`}>
-        Nada salvo ainda para {faixa}. Importe a Memória de Cálculo ou digite as empresas, calcule e salve.
+        Nada gravado ainda para {faixa}. Importe a Memória de Cálculo ou digite as empresas, calcule e grave.
       </div>
     );
   }
@@ -299,7 +301,7 @@ function OrigemDosDados({ origem, faixa, onRecarregar }: {
     return (
       <div aria-live="polite" className={`${caixa} border-sky-500/20 bg-sky-500/[0.06] text-zinc-300`}>
         <span>Edições de {faixa} ainda <strong className="font-semibold text-sky-200">não salvas</strong>. Calcule e salve para gravar.</span>
-        <button type="button" onClick={onRecarregar} className={BOTAO}>Descartar e ver o que está salvo</button>
+        <button type="button" onClick={onRecarregar} className={BOTAO}>Descartar e ver o que está gravado</button>
       </div>
     );
   }
@@ -625,7 +627,7 @@ export default function PMPVPage() {
         ...(margemUsada !== null ? { margem_regulatoria: margemUsada } : {}),
       });
       setResultado(r);
-      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} calculado`, "Confira o resultado e salve a sessão para gravar.");
+      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} calculado`, "Confira o resultado e grave a sessão.");
       if (r.avisos.length) setAviso(`Campos vazios considerados como 0:\n${r.avisos.map((a) => a.trim()).join("\n")}`);
     } catch (e) {
       setErro(mensagemDeErro(e, "Não foi possível calcular o PMPV."));
@@ -634,7 +636,20 @@ export default function PMPVPage() {
     }
   };
 
-  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do PV depois do Salvar (aprovar para gravar)
+  const { previa, mostrarCascata } = usePreviaCascata(); // o PV à frente: o analista aprova no Painel
+  const [confirmar, setConfirmar] = useState(false);
+  const botaoGravar = useRef<HTMLButtonElement>(null);
+  // PMPV já gravado neste trimestre (a sessão carregada do banco) e o que o cálculo da tela passa a gravar.
+  const pmpvGravado = origemDados.tipo === "salva" ? origemDados.sessao.pmpv : null;
+  const substitui = pmpvGravado !== null && !!resultado && Math.abs(pmpvGravado - resultado.pmpv) > 5e-5;
+  const avisosDoCalculo = resultado?.avisos.map((a) => a.trim()).filter(Boolean) ?? [];
+
+  /** O botão: pede confirmação quando troca o PMPV gravado ou o cálculo teve avisos; senão grava direto. */
+  const pedirGravacao = () => {
+    if (!resultado) return;
+    if (precisaJanela({ substitui, diverge: avisosDoCalculo.length > 0 })) setConfirmar(true);
+    else void salvar();
+  };
   const salvar = async () => {
     if (!resultado) return;
     limparMensagens();
@@ -660,10 +675,10 @@ export default function PMPVPage() {
       mostrarCascata(cascata); // o PV do trimestre não é regravado sozinho: o analista aprova a prévia
       const pv = (pv_automatico ?? []).map(textoPVAutomatico).filter((t) => t !== null);
       const pvOk = pv.filter((t) => t.ok).map((t) => ` ${t.texto}`).join("");
-      setSucesso(`Sessão ${nome} salva (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
+      setSucesso(`Sessão ${nome} gravada (nº ${sessao_id}). PMPV gravado em ${periodos.join(", ")} e trimestre ativo atualizado.${pvOk}`);
       const pendente = pv.filter((t) => !t.ok).map((t) => t.texto).join("\n");
       if (pendente) setAviso(pendente);
-      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} salvo`, `Sessão nº ${sessao_id} gravada.${pvOk}`);
+      avisarSucesso(`PMPV de ${faixaDosMeses(periodos)} gravado`, `Sessão nº ${sessao_id} gravada.${pvOk}`);
       esquecer(CHAVE_RASCUNHO); // gravado de verdade: não há mais rascunho a retomar
       setEscolhida(sessao_id); // a prova real abre na sessão que acabou de ser salva
       sujo.current = false;
@@ -675,7 +690,7 @@ export default function PMPVPage() {
       } });
       carregarHistorico();
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar a sessão."));
+      setErro(mensagemDeErro(e, "Não foi possível gravar a sessão."));
     } finally {
       setOcupado(null);
     }
@@ -693,9 +708,9 @@ export default function PMPVPage() {
       setRespMargem({ ano, dados: r });
       setEditandoMargem(false);
       if (resultado) await calcular(r.margem);
-      setSucesso(`MB (margem de distribuição) de ${ano} salva: ${brl(v, 4)}.`);
+      setSucesso(`MB (margem de distribuição) de ${ano} gravada: ${brl(v, 4)}.`);
     } catch (e) {
-      setErroMargem(mensagemDeErro(e, "Não foi possível salvar a MB (margem de distribuição)."));
+      setErroMargem(mensagemDeErro(e, "Não foi possível gravar a MB (margem de distribuição)."));
     } finally {
       setSalvandoMargem(false);
     }
@@ -735,7 +750,7 @@ export default function PMPVPage() {
       else {
         setSucesso(`Trimestre ${trimestre}: os 3 meses foram carregados da Memória de Cálculo.`);
         concluirAviso(aviso, "success", "Memória de Cálculo enviada",
-          `${arquivo.name}: os 3 meses de ${faixa} foram carregados. Confira, calcule e salve.`);
+          `${arquivo.name}: os 3 meses de ${faixa} foram carregados. Confira, calcule e grave.`);
       }
     } catch (e) {
       const msg = mensagemDeErro(e, "Não foi possível importar a planilha.");
@@ -934,13 +949,20 @@ export default function PMPVPage() {
                   {ocupado === "calcular" ? <Loader2 size={16} className="animate-spin" /> : <Calculator size={16} />}
                   {ocupado === "calcular" ? "Calculando…" : "Calcular PMPV"}
                 </Button>
-                <Button variant="ghost" onClick={salvar} disabled={!resultado || ocupado !== null}
-                  title={resultado ? undefined : "Calcule antes de salvar"} className="justify-center">
+                <Button variant="ghost" ref={botaoGravar} onClick={pedirGravacao} disabled={!resultado || ocupado !== null}
+                  title={resultado ? undefined : "Calcule antes de gravar"} className="justify-center">
                   {ocupado === "salvar" ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                  Salvar sessão
+                  Gravar sessão
                 </Button>
+                {resultado && (
+                  <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
+                    oque={`o PMPV de ${faixaDosMeses(periodos)}`} rotuloAcao="Gravar a sessão" afeta={AFETADOS_DA_TELA.pmpv}
+                    onConfirmar={() => void salvar()} diverge={avisosDoCalculo.length > 0}
+                    motivos={avisosDoCalculo.length ? [`Campos vazios considerados como 0: ${avisosDoCalculo.join("; ")}`] : undefined}
+                    linhas={[{ rotulo: "PMPV (R$/m³)", antes: pmpvGravado === null ? null : brl(pmpvGravado, 4), depois: brl(resultado.pmpv, 4) }]} />
+                )}
                 <p className="text-xs leading-relaxed text-zinc-500">
-                  Salvar grava a sessão, o PMPV de cada mês ({periodos.join(", ") || "—"}) e define este como o trimestre ativo dos outros módulos.
+                  Gravar grava a sessão, o PMPV de cada mês ({periodos.join(", ") || "—"}) e define este como o trimestre ativo dos outros módulos.
                 </p>
               </div>
             </Painel>
@@ -984,7 +1006,7 @@ export default function PMPVPage() {
                           aria-invalid={erroMargem !== null} aria-describedby={erroMargem ? "margem-erro" : undefined}
                           className={`w-28 ${INPUT} ${erroMargem ? "border-red-500/50" : ""}`} />
                         <Button variant="primary" size="sm" onClick={salvarMargem} disabled={salvandoMargem || !margemTexto.trim()}>
-                          {salvandoMargem ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Salvar margem
+                          {salvandoMargem ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />} Gravar margem
                         </Button>
                         {editandoMargem && (
                           <button type="button" onClick={() => { setEditandoMargem(false); setErroMargem(null); }} disabled={salvandoMargem}

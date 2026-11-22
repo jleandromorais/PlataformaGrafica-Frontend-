@@ -59,8 +59,8 @@ function OQueE() {
           <h3 className="text-base font-semibold text-white">O sistema faz</h3>
           <ul className="mt-2 list-disc space-y-1.5 pl-5 text-sm leading-relaxed text-zinc-300 marker:text-emerald-400">
             <li>Lê as notas e as planilhas e mostra o resultado antes de gravar.</li>
-            <li>Recalcula o RPV e o SCG ao salvar.</li>
-            <li>Depois de salvar, mostra a prévia do SR, PR e PV: o valor gravado (Antes) ao lado do calculado (Novo).</li>
+            <li>Recalcula o RPV e o SCG ao gravar.</li>
+            <li>Depois de gravar, o Painel mostra o bloco &quot;Aguardando sua aprovação&quot; com o SR, o PR e o PV: o valor gravado (Antes) ao lado do calculado (Novo).</li>
             <li>Busca a SELIC no Banco Central.</li>
             <li>Marca na Conferência do mês o que variou mais de 20% e as empresas que mandaram no mês anterior e não neste.</li>
           </ul>
@@ -112,7 +112,7 @@ function ProvaReal() {
         <li>
           <strong className="text-white">Nota repetida</strong> (no RP). O processamento junta a original e a &quot;Atualizada&quot; quando o nome do arquivo tem PFP ou TOPNREC e o mesmo número, e mantém a &quot;Atualizada&quot;.
           Não junta: arquivo sem PFP/TOPNREC no nome; nota &quot;cancelada&quot; (entra negativa); a mesma nota nas duas pastas.
-          O Salvar não refaz essa limpeza: quem avisa as repetidas é a prova real.
+          O Gravar não refaz essa limpeza: quem avisa as repetidas é a prova real.
         </li>
         <li><strong className="text-white">PDF não lido com valor 0</strong> (no RP).</li>
         <li><strong className="text-white">Fontes desatualizadas</strong> (no SR).</li>
@@ -129,7 +129,7 @@ function Pegadinhas() {
       <li><strong className="text-white">O ano da chave muda.</strong> No PMPV e no PV, o ano é o do primeiro mês (Nov–Jan/2025 = Nov/2025, Dez/2025 e Jan/2026). No PR, é o do último mês (Nov–Jan/2026). Só difere no Nov–Jan.</li>
       <li><strong className="text-white">A ordem importa.</strong> O SR de cada mês usa o PR do trimestre fiscal do próprio mês. O PR usa o SR salvo do trimestre apurado. Sem PR salvo, o SR não grava. Sem SR salvo, não sai o PR.</li>
       <li><strong className="text-white">Cuidado com os sinais.</strong> RP = despesas − receitas: fica negativo quando as receitas (TOP incluído) são maiores. A devolução entra negativa no CGR. RPV = CGR − CGF. O SR fica negativo quando VF &gt; VP.</li>
-      <li><strong className="text-white">Processar não grava; Salvar grava só aquele módulo.</strong> &quot;Processar&quot; só mostra. &quot;Salvar&quot; usa os itens que a tela enviou (não lê os arquivos de novo). O SR, o PR e o PV só mudam quando você clica em Aprovar e gravar na prévia.</li>
+      <li><strong className="text-white">Processar não grava; Gravar grava só aquele módulo.</strong> &quot;Processar&quot; só mostra. &quot;Gravar&quot; usa os itens que a tela enviou (não lê os arquivos de novo) e pede confirmação quando troca um valor já gravado ou há divergência. O SR, o PR e o PV só mudam quando você clica em Aprovar e gravar, no bloco &quot;Aguardando sua aprovação&quot; do Painel.</li>
       <li><strong className="text-white">Prévia vazia não é erro.</strong> Se nada mudou no SR, PR e PV, não há o que aprovar.</li>
       <li><strong className="text-white">SELIC 0% trava.</strong> O SR e o PR não gravam com SELIC 0%. A SELIC do SR é a acumulada, do mês até o fim do trimestre, e só existe depois que o trimestre fecha.</li>
       <li><strong className="text-white">Arredondamento e o que fica fora.</strong> PMPV, PR e PV têm 4 casas, e o volume tem 2 antes de multiplicar. Notas canceladas e consumo próprio não entram no volume final do CGF. Despesa que já está no RET entra no RP com valor 0, mas só se o RET já estiver salvo.</li>
@@ -184,7 +184,7 @@ export default function ComoFuncionaPage() {
             <li>Compare com a sua planilha.</li>
             <li>Reprocesse <strong className="text-white">só aquele mês</strong> no <Link to={MODULOS.ciclo.to} className={FOCO}>Painel do Ciclo</Link>: desmarque tudo e marque só a etapa-mês.</li>
             <li>Confira o resultado antes de gravar. A decisão é sua.</li>
-            <li>Depois de gravar, aprove a prévia do SR, <Link to={MODULOS.pr.to} className={FOCO}>PR</Link> e <Link to={MODULOS.pv.to} className={FOCO}>PV</Link>.</li>
+            <li>Depois de gravar, aprove no Painel o SR, o <Link to={MODULOS.pr.to} className={FOCO}>PR</Link> e <Link to={MODULOS.pv.to} className={FOCO}>PV</Link>.</li>
           </ol>
         </section>
 

@@ -110,14 +110,25 @@ describe("blocoDoProximoPasso, uma linha por situação da tabela da spec", () =
   it("tudo o que resta está bloqueado: nada a fazer, com o motivo e o link do bloqueio", () => {
     const b = blocoDoProximoPasso(entrada({ pr: "falta", pv: "falta" }, {}, false));
     expect(b.caso).toBe("bloqueado");
-    expect(b.titulo).toBe("Nada a fazer agora");
+    // O título não contradiz o botão: há uma ação (abrir o PMPV), então o título a nomeia.
+    expect(b.titulo).toBe("Calcule o PMPV de Nov/2026 a Jan/2027");
+    expect(b.titulo).not.toBe("Nada a fazer agora");
     expect(b.texto).toBe("Falta o PMPV do trimestre novo (Nov a Jan/2027).");
     expect(b.acao).toEqual({ tipo: "link", rotulo: "Abrir o PMPV do trimestre novo", alvo: "/destino/pmpv_novo" });
+  });
+
+  it("bloqueio que não é o PMPV novo, mas tem botão: 'Falta um passo anterior', nunca 'Nada a fazer'", () => {
+    const base = entrada({ sr: "falta" }, { selic: { fechada: false, fecha_em: "2026-09-30" } });
+    const b = blocoDoProximoPasso({ ...base, proximo: null, bloqueios: { sr: { motivo: "falta o SCG de Ago", destino: "scg" } } });
+    expect(b.caso).toBe("bloqueado");
+    expect(b.titulo).toBe("Falta um passo anterior");
+    expect(b.acao?.alvo).toBe("/destino/scg");
   });
 
   it("SELIC aberta: diz quando fecha (dd/mm) e ainda mostra o primeiro bloqueio", () => {
     const b = blocoDoProximoPasso(entrada({ sr: "falta", pr: "falta", pv: "falta" }, { selic: { fechada: false, fecha_em: "2026-09-30" } }, false));
     expect(b.caso).toBe("bloqueado");
+    expect(b.titulo).toBe("Calcule o PMPV de Nov/2026 a Jan/2027");
     expect(b.texto).toContain("A SELIC de Jul a Set/2026 fecha em 30/09.");
     expect(b.texto).toContain("falta o PMPV do trimestre novo");
     expect(b.acao?.tipo).toBe("link");
@@ -126,6 +137,7 @@ describe("blocoDoProximoPasso, uma linha por situação da tabela da spec", () =
   it("SELIC aberta sem mais nenhum bloqueio: nada a fazer, sem botão", () => {
     const b = blocoDoProximoPasso(entrada({ sr: "falta", pr: "falta", pv: "falta" }, { selic: { fechada: false, fecha_em: "2026-09-30" } }));
     expect(b.caso).toBe("bloqueado");
+    expect(b.titulo).toBe("Nada a fazer agora"); // sem ação possível, o título é fiel
     expect(b.texto).toBe("A SELIC de Jul a Set/2026 fecha em 30/09.");
     expect(b.acao).toBeNull();
   });

@@ -1,11 +1,14 @@
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
+import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
+import { conferirTabelaSR, type ConferenciaDaTabelaSR } from "../../utils/propostaSR";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { AlertTriangle, ChevronLeft, ChevronRight, RefreshCw, Save } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Alert } from "../../components/ui/Alert";
 import { brl, num, parseBRL } from "../../utils/format";
-import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, carregarTrimestreSR, getHistoricoSR, getProvaRealSR, salvarTrimestreSR } from "../../api";
+import { buscarSelicSR, buscarTrimestreSR, calcularTrimestreSR, propostaSRTrimestre, carregarTrimestreSR, getHistoricoSR, getProvaRealSR, salvarTrimestreSR } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
 import type { SRHistoricoTrimestre, SRLinhaCalculada, SROrigemPR } from "../../types";
@@ -256,8 +259,14 @@ export default function SRPage() {
     setSucesso(null);
   };
 
-  const { previa, mostrarCascata } = usePreviaCascata(); // prévia do SR, PR e PV depois do Salvar (aprovar para gravar)
-  const salvar = async () => {
+  const { previa, mostrarCascata } = usePreviaCascata(); // PR e PV à frente: o analista aprova no Painel
+  type Calculado = Awaited<ReturnType<typeof calcularTrimestreSR>>;
+  const [confirmacao, setConfirmacao] = useState<{ calc: Calculado; conf: ConferenciaDaTabelaSR; locais: string[] } | null>(null);
+  const botaoGravar = useRef<HTMLButtonElement>(null);
+
+  /** O botão: calcula no servidor, compara a tabela com o SR gravado (a mesma checagem do card do Painel) e pede
+   * confirmação quando substitui o gravado ou há divergência. Sem uma coisa nem outra, grava direto. */
+  const gravar = async () => {
     setErro(null);
     setSucesso(null);
     setAvisoPR(null);
@@ -267,20 +276,46 @@ export default function SRPage() {
         linhas.map(({ mes, vp, vf, pr, selic_mensal, sr_anterior }) => ({ mes, vp, vf, pr, selic_mensal, sr_anterior }))
       );
       setLinhas(calc.linhas);
-      const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
-      mostrarCascata(salvo.cascata);
-      setFonte("salvo");
-      // A prova real abre no trimestre salvo (buscada de novo) e o histórico é recarregado.
-      setEscolhido(trimestreLabel);
-      setVersaoProva((n) => n + 1);
-      carregarHistorico();
-      // O backend regrava o PR e o PV do trimestre que usa este SR.
-      const pr = textoPRAutomatico(salvo.pr_automatico);
-      setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} salvo. Total = ${brl(calc.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
-      if (pr && !pr.ok) setAvisoPR(pr.texto);
+      const proposta = await propostaSRTrimestre(labels).catch(() => null);
+      const conf = conferirTabelaSR(calc.linhas, proposta);
+      const locais = pendenciasDaTela();
+      if (precisaJanela({ substitui: conf.substitui, diverge: conf.motivosPorMes.length > 0 || locais.length > 0 || conf.naoConferiu })) {
+        setConfirmacao({ calc, conf, locais });
+      } else {
+        await gravarCalculado(calc);
+      }
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar o SR do trimestre."));
+      setErro(mensagemDeErro(e, "Não foi possível gravar o SR do trimestre."));
     } finally {
+      setSalvando(false);
+    }
+  };
+
+  const gravarCalculado = async (calc: Calculado) => {
+    const salvo = await salvarTrimestreSR(labels, labels[2], calc.linhas);
+    mostrarCascata(salvo.cascata);
+    setFonte("salvo");
+    // A prova real abre no trimestre gravado (buscada de novo) e o histórico é recarregado.
+    setEscolhido(trimestreLabel);
+    setVersaoProva((n) => n + 1);
+    carregarHistorico();
+    // Só cita o PR/PV quando o back confirmou que atualizou; o resto o aviso amarelo diz.
+    const pr = textoPRAutomatico(salvo.pr_automatico);
+    setSucesso(`SR de ${TRIMESTRES[tri]}/${ano} gravado. Total = ${brl(calc.total)}.${pr?.ok ? ` ${pr.texto}` : ""}`);
+    if (pr && !pr.ok) setAvisoPR(pr.texto);
+  };
+
+  /** Depois do "Gravar" da janela: mesmo caminho de erro do botão. */
+  const confirmarGravacao = async () => {
+    if (!confirmacao) return;
+    setErro(null);
+    setSalvando(true);
+    try {
+      await gravarCalculado(confirmacao.calc);
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Não foi possível gravar o SR do trimestre."));
+    } finally {
+      setConfirmacao(null);
       setSalvando(false);
     }
   };
@@ -299,6 +334,16 @@ export default function SRPage() {
     (l) => l.selic_mensal && selicBC[l.mes] !== undefined && Math.abs(l.selic_mensal - selicBC[l.mes]) > 5e-7,
   );
   const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length + selicDiferente.length;
+  /** As pendências em amarelo da tela, uma frase por item (entram na janela como divergência). */
+  function pendenciasDaTela(): string[] {
+    return [
+      ...semVP.map((l) => `${l.mes}: sem VP.`),
+      ...prEstimado.map((l) => `${l.mes}: PR estimado, não há PR gravado.`),
+      ...semPR.map((l) => `${l.mes}: sem PR.`),
+      ...srDuplicado.map((l) => `${l.mes}: SR anterior igual ao SR do mês (conta o mês duas vezes).`),
+      ...selicDiferente.map((l) => `${l.mes}: SELIC diferente da do Banco Central.`),
+    ];
+  }
 
   const usarSelicBC = () => {
     setLinhas(calcularLocal(linhas.map((l) => (selicBC[l.mes] !== undefined ? { ...l, selic_mensal: selicBC[l.mes] } : l))));
@@ -357,12 +402,12 @@ export default function SRPage() {
         </section>
 
         {pendencias > 0 && (
-          <Alert variant="warning" titulo="Para salvar o SR, confira antes:" itens={[
+          <Alert variant="warning" titulo="Para gravar o SR, confira antes:" itens={[
             ...semVP.map((l) => (
               <><b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV ou digite o volume contratado.</>
             )),
             ...prEstimado.map((l) => (
-              <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de salvar.</>
+              <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de gravar.</>
             )),
             ...semPR.map((l) => <><b>{l.mes}</b> sem PR.</>),
             srDuplicado.length > 0 && (
@@ -479,11 +524,21 @@ export default function SRPage() {
         </section>
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button variant="solid" icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={salvar}>
-            Salvar SR do trimestre
+          <Button variant="solid" ref={botaoGravar} icon={<Save size={16} />} loading={salvando} disabled={carregando} onClick={() => void gravar()}>
+            Gravar SR do trimestre
           </Button>
           {pendencias > 0 && <span className="text-xs text-amber-300">Há {pendencias} pendência(s) acima.</span>}
         </div>
+        <ConfirmarGravacao aberto={!!confirmacao} onFechar={() => setConfirmacao(null)} voltarFoco={botaoGravar}
+          oque={`o SR de ${TRIMESTRES[tri]}/${ano}`} rotuloAcao="Gravar o SR" afeta={AFETADOS_DA_TELA.sr}
+          onConfirmar={() => void confirmarGravacao()}
+          diverge={!!confirmacao && (confirmacao.conf.motivosPorMes.length > 0 || confirmacao.locais.length > 0 || confirmacao.conf.naoConferiu)}
+          motivos={confirmacao ? [
+            ...(confirmacao.conf.naoConferiu ? ["Não consegui comparar com o SR gravado. Confira a tabela antes de continuar."] : []),
+            ...confirmacao.conf.motivosPorMes.map((m) => <><b>{m.mes}</b>: {m.motivos.join("; ")}.</>),
+            ...confirmacao.locais,
+          ] : undefined}
+          linhas={confirmacao ? [{ rotulo: "SR do trimestre", antes: confirmacao.conf.totalGravado === null ? null : brl(confirmacao.conf.totalGravado), depois: brl(confirmacao.calc.total) }] : []} />
 
         {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">

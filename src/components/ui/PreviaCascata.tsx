@@ -1,6 +1,7 @@
-/** Prévia da cascata SR → PR → PV: depois de salvar um módulo (Auditoria, CGF, RET, RP, SCG, SR, PR, PMPV),
- * o que vem à frente NÃO é mais regravado sozinho. Aqui o analista vê, por trimestre, o valor gravado hoje
- * (Antes) ao lado do que o servidor calculou (Novo) e só grava ao clicar em "Aprovar e gravar".
+/** Bloco "Aguardando sua aprovação" da cascata SR → PR → PV: depois de gravar um módulo (Auditoria, CGF, RET, RP,
+ * SCG, SR, PR, PMPV), o que vem à frente NÃO é regravado sozinho. Aqui o analista vê, por trimestre, o valor
+ * gravado hoje (Antes) ao lado do que o servidor calculou (Novo) e só grava ao clicar em "Aprovar e gravar".
+ * Só o Painel do Ciclo desenha este componente; as outras telas mostram uma linha com o link para ele.
  * O servidor recalcula tudo na hora de gravar: os números desta tela nunca são enviados para gravar. */
 import { useState } from "react";
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
@@ -11,6 +12,7 @@ import { brl, num } from "../../utils/format";
 import type { Cascata, CascataTrimestre } from "../../types";
 import { Button } from "./Button";
 import { avisarErro, avisarSucesso } from "./avisos";
+import { EVENTO_CASCATA_APROVADA } from "../../utils/aprovacao";
 
 const tarifa = (v: number | null) => (v === null ? "não gravado" : num(v, 4));
 const dinheiro = (v: number | null) => (v === null ? "não gravado" : brl(v));
@@ -63,6 +65,7 @@ export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, cla
       const r = await aplicarCascata(cascata.periodos, cascata.a_partir_de, { esperado: cascata.trimestres });
       setGravada(r);
       avisarSucesso("SR, PR e PV gravados", `${r.trimestres.length === 1 ? "1 trimestre atualizado" : `${r.trimestres.length} trimestres atualizados`} pelo servidor.`);
+      window.dispatchEvent(new Event(EVENTO_CASCATA_APROVADA));
       aoAplicar?.(r);
     } catch (e) {
       // 409: o valor mudou desde a prévia. Nada foi gravado; o analista refaz a prévia e confere de novo.
@@ -102,11 +105,11 @@ export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, cla
   return (
     <section aria-label="Valores à frente para aprovar" className={`rounded-xl border border-amber-500/25 bg-amber-500/[0.05] p-4 text-sm ${className}`}>
       <h3 className="flex items-center gap-2 font-semibold text-amber-400">
-        <AlertTriangle size={16} aria-hidden /> O SR, o PR e o PV ficaram desatualizados
+        <AlertTriangle size={16} aria-hidden /> Aguardando sua aprovação
       </h3>
       <p className="mt-1 text-zinc-300">
-        O valor que você salvou já está gravado. O que vem depois <b className="text-zinc-100">não foi alterado</b>: confira o que
-        mudaria e aprove para gravar.
+        <b className="text-zinc-100">O SR, o PR e o PV ficaram desatualizados.</b> O que você gravou já vale. O que vem à frente{" "}
+        <b className="text-zinc-100">não foi alterado</b>: confira o que mudaria e aprove para gravar.
       </p>
 
       <div className="mt-3 space-y-3">

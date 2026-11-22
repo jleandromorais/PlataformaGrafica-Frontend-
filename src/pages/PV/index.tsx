@@ -5,6 +5,8 @@ import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input, Select } from "../../components/ui/Input";
 import { Alert } from "../../components/ui/Alert";
+import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA, precisaJanela } from "../../utils/confirmarGravacao";
 import { colorForValue } from "../../theme";
 import { getHistoricoPV, getProvaRealPV, getPVTrimestre, getTrimestresFiscais, salvarPVTrimestre } from "../../api";
 import { mensagemDeErro } from "../../api/client";
@@ -135,7 +137,7 @@ export default function PVPage() {
       setPeriodos(d.periodos);
       // Sempre os valores atuais dos módulos PMPV e PR: mostrar o PV já salvo
       // escondia o PR novo (salvo depois) e não havia como trazê-lo para a tela.
-      // O aviso diz quando o PV salvo difere; "Salvar" atualiza.
+      // O aviso diz quando o PV gravado difere; "Gravar" atualiza.
       setPmpv(d.pmpv);
       setPr(d.pr);
       setAvisos(d.avisos);
@@ -174,24 +176,37 @@ export default function PVPage() {
     setSucesso(null);
   };
 
-  const salvar = async () => {
+  const [confirmar, setConfirmar] = useState(false);
+  const botaoGravar = useRef<HTMLButtonElement>(null);
+  const pvGravado = historico.find((h) => h.chave === `${trimestre}/${ano}`)?.pv ?? null;
+  const substitui = pvGravado !== null && Math.abs(pvGravado - pv) > 5e-5;
+
+  /** O botão: valida e pede confirmação quando troca um PV já gravado ou os avisos em amarelo estão de pé; senão grava direto. */
+  const pedirGravacao = () => {
     setErro(null);
     setSucesso(null);
     if (!trimestre) return setErro("Escolha o trimestre.");
     if (!anoValido) return setErro(`O ano precisa estar entre ${ANO_MIN} e ${ANO_MAX}.`);
-    if (!podeSalvar) return setErro("Espere o trimestre terminar de carregar (ou use \"Recarregar do banco\") antes de salvar.");
-    if (pmpv === 0) return setErro("O PMPV está zerado. Salve o PMPV do trimestre ou digite o valor antes de salvar.");
+    if (!podeSalvar) return setErro("Espere o trimestre terminar de carregar (ou use \"Recarregar do banco\") antes de gravar.");
+    if (pmpv === 0) return setErro("O PMPV está zerado. Grave o PMPV do trimestre ou digite o valor antes de gravar.");
+    if (precisaJanela({ substitui, diverge: avisos.length > 0 })) setConfirmar(true);
+    else void gravar();
+  };
+
+  const gravar = async () => {
+    setErro(null);
+    setSucesso(null);
     setSalvando(true);
     try {
       const r = await salvarPVTrimestre(trimestre, ano, pmpv, pr);
       setAvisos([]);
-      setSucesso(`PV de ${trimestre}, ano ${ano} salvo: R$ ${r.pv.toFixed(4)}. Gravado em ${r.gravado_em.join(", ")}.`);
+      setSucesso(`PV de ${trimestre}, ano ${ano} gravado: R$ ${r.pv.toFixed(4)}. Gravado em ${r.gravado_em.join(", ")}.`);
       // Recarrega o histórico e abre a prova real do trimestre salvo (buscada de novo).
       setEscolhido(`${trimestre}/${ano}`);
       setVersaoProva((v) => v + 1);
       carregarHistorico();
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível salvar o PV."));
+      setErro(mensagemDeErro(e, "Não foi possível gravar o PV."));
     } finally {
       setSalvando(false);
     }
@@ -281,12 +296,16 @@ export default function PVPage() {
       </Card>
 
       <div className="flex flex-wrap gap-3">
-        <Button variant="success" icon={<Save size={16} />} loading={salvando} disabled={!podeSalvar} onClick={salvar}>
-          Salvar PV do trimestre
+        <Button variant="success" ref={botaoGravar} icon={<Save size={16} />} loading={salvando} disabled={!podeSalvar} onClick={pedirGravacao}>
+          Gravar PV do trimestre
         </Button>
+        <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
+          oque={`o PV de ${trimestre}/${ano}`} rotuloAcao="Gravar o PV" afeta={AFETADOS_DA_TELA.pv}
+          onConfirmar={() => void gravar()} diverge={avisos.length > 0} motivos={avisos}
+          linhas={[{ rotulo: "PV (R$/m³)", antes: pvGravado === null ? null : pvGravado.toFixed(4), depois: pv.toFixed(4) }]} />
       </div>
       <p className="-mt-3 text-xs text-zinc-600">
-        Salvar grava o PV no trimestre e repete o valor nos 3 meses, que é como o Excel Final lê.
+        Gravar grava o PV no trimestre e repete o valor nos 3 meses, que é como o Excel Final lê.
       </p>
 
       {/* Fórmula (vinho) à esquerda, acompanhando a rolagem em xl; prova real do trimestre aberto à direita. */}
@@ -305,8 +324,8 @@ export default function PVPage() {
             { termo: "PV", explicacao: "O preço de venda do trimestre, em R$/m³." },
           ]}
           regras={[
-            "Salvar grava o PV no trimestre e repete o valor nos 3 meses, como o Excel Final lê.",
-            "Se o PMPV ou o PR mudar depois de salvo, o PV gravado fica velho: salve de novo.",
+            "Gravar grava o PV no trimestre e repete o valor nos 3 meses, como o Excel Final lê.",
+            "Se o PMPV ou o PR mudar depois de gravado, o PV gravado fica velho: grave de novo.",
           ]}
         />
         <ProvaRealPV chave={aberto} estado={prova} cardRef={provaRef} className="xl:col-span-7 2xl:col-span-8"

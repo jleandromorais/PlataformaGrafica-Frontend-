@@ -15,6 +15,7 @@ import { auditarMes } from "./auditoriaDoMes";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { avisarAtencao, avisarErro, avisarSucesso } from "../../components/ui/avisos";
 import { faixaDosMeses } from "../../utils/rotulos";
+import { AFETADOS_DOS_MODULOS, textoDepoisDeGravar } from "../../utils/confirmarGravacao";
 import { Alert } from "../../components/ui/Alert";
 import { mensagemDeErro } from "../../api/client";
 import { brl, num } from "../../utils/format";
@@ -587,6 +588,7 @@ export function ProcessarTrimestre({
             )}
           </>
         )}
+        <p className="text-zinc-400">{textoDepoisDeGravar(AFETADOS_DOS_MODULOS)}</p>
       </ModalAviso>
     </div>
   );

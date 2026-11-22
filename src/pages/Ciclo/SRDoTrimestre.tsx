@@ -11,7 +11,8 @@ import { Calculator, Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
 import { Button } from "../../components/ui/Button";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
-import { ModalAviso } from "../../components/ui/ModalAviso";
+import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
+import { AFETADOS_DA_TELA } from "../../utils/confirmarGravacao";
 import { avisarSucesso } from "../../components/ui/avisos";
 import { faixaDosMeses } from "../../utils/rotulos";
 import { propostaSRTrimestre, salvarTrimestreSR } from "../../api";
@@ -62,7 +63,6 @@ export function SRDoTrimestre({ meses, onGravado }: {
   const { previa, mostrarCascata } = usePreviaCascata("mt-4"); // PR e PV não são regravados sozinhos: o analista aprova a prévia
   const gravar = async () => {
     if (!proposta || !proposta.pode_gravar) return;
-    setConfirmar(false);
     setErro(null);
     setGravando(true);
     try {
@@ -185,29 +185,11 @@ export function SRDoTrimestre({ meses, onGravado }: {
             </Button>
           </div>
 
-          <ModalAviso aberto={confirmar} onFechar={() => setConfirmar(false)} variante="atencao" voltarFoco={botaoGravar}
-            rotuloFechar="Cancelar e conferir"
-            titulo={divergentes.length ? "Gravar com divergências?" : `Gravar o SR de ${faixa}?`}
-            acao={{ rotulo: divergentes.length ? "Gravar com divergências" : "Gravar o SR", onClick: gravar }}>
-            <div className="space-y-3 text-sm">
-              {divergentes.length > 0 && (
-                <p>
-                  Há divergência em <b>{divergentes.length === 1 ? "1 mês" : `${divergentes.length} meses`}</b>. Se continuar, será gravado
-                  {" "}<b>com as divergências</b>. <b>Cabe ao analista analisar os dados antes de gravar.</b>
-                </p>
-              )}
-              <dl className="space-y-1 rounded-lg border border-white/[0.07] bg-white/[0.03] px-4 py-3 tabular-nums">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-zinc-400">Gravado hoje</dt>
-                  <dd className="text-zinc-200">{proposta.total_gravado === null ? "nada gravado" : brl(proposta.total_gravado)}</dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="font-semibold text-zinc-200">Passa a ser</dt>
-                  <dd className="font-semibold text-sky-200">{brl(proposta.total)}</dd>
-                </div>
-              </dl>
-            </div>
-          </ModalAviso>
+          <ConfirmarGravacao aberto={confirmar} onFechar={() => setConfirmar(false)} voltarFoco={botaoGravar}
+            oque={`o SR de ${faixa}`} rotuloAcao="Gravar o SR" afeta={AFETADOS_DA_TELA.sr} onConfirmar={gravar}
+            diverge={divergentes.length > 0}
+            motivos={divergentes.length > 0 ? [`Há divergência em ${divergentes.length === 1 ? "1 mês" : `${divergentes.length} meses`}: ${divergentes.join(", ")}.`] : undefined}
+            linhas={[{ rotulo: `SR de ${faixa}`, antes: proposta.total_gravado === null ? null : brl(proposta.total_gravado), depois: brl(proposta.total) }]} />
         </div>
       )}
     </section>
