@@ -281,6 +281,19 @@ export interface AuditoriaHistoricoLinha {
   cgr_gravado: number;
   data_atualizacao: string;
   periodo_valido: boolean;
+  /** Nota que estava só na planilha quando o mês foi gravado, e o que o analista decidiu. */
+  pendencias?: PendenciaNota[];
+}
+
+/** Nota que só estava na planilha ao gravar a Auditoria: "incluida" (no CGR, chega depois do período) ou "sem_a_nota". */
+export interface PendenciaNota {
+  empresa: string;
+  numero: string;
+  cgr_liquido: number;
+  decisao: "incluida" | "sem_a_nota";
+  motivo: string;
+  usuario_nome?: string | null;
+  data_hora?: string | null;
 }
 
 /** Uma empresa na prova real do CGR (GET /auditoria/prova-real). */

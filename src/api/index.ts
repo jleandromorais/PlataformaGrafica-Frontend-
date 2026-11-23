@@ -161,9 +161,18 @@ export const processarAuditoria = (opts: {
     .then((r) => r.data);
 };
 
-/** Grava o CGR (recalculado no servidor) e os itens do período. */
-export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
-  api.post<ComCascata<{ cgr_liquido: number; rpv: number; qtd_itens: number }>>("/auditoria/salvar", { periodo, itens }).then((r) => r.data);
+/** Nota que a comparação achou só na planilha (números da planilha), enviada ao gravar o mês. */
+export interface NotaFaltante {
+  empresa: string; numero: string; cgr_liquido: number;
+  valor_total?: number; volume_total?: number; linha_excel?: number;
+}
+/** A escolha do analista para as notas que faltam: "incluir" no cálculo ou "seguir_sem" elas. */
+export interface DecisaoDeFaltantes { faltantes: NotaFaltante[]; decisao: "incluir" | "seguir_sem"; motivo?: string }
+
+/** Grava o CGR (recalculado no servidor) e os itens do período. Com `faltas`, grava junto a escolha sobre as notas que só estão na planilha. */
+export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[], faltas?: DecisaoDeFaltantes) =>
+  api.post<ComCascata<{ cgr_liquido: number; rpv: number; qtd_itens: number }>>("/auditoria/salvar",
+    { periodo, itens, ...(faltas ? { faltantes: faltas.faltantes, decisao_faltantes: faltas.decisao, motivo_faltantes: faltas.motivo } : {}) }).then((r) => r.data);
 
 /** Onde as notas processadas diferem das gravadas no mês, por empresa e nota. Não grava. */
 export const diferencasAuditoria = (periodo: string, itens: AuditoriaItem[]) =>

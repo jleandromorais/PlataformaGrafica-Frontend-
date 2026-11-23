@@ -24,6 +24,9 @@ import { ehZip } from "../../utils/zipCiclo";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes";
 import { OndeDifere } from "./Processar";
+import {
+  decisaoParaEnviar, faltantesDoMes, pendenciasDosMeses, podeGravarComFaltantes, rotuloDaNota, type Decisao,
+} from "./notasFaltantes";
 import { AFETADOS_DOS_MODULOS, textoDepoisDeGravar } from "../../utils/confirmarGravacao";
 
 /** Limite de arquivos por envio do backend (MAX_ARQUIVOS em Src/api/uploads.py). */
@@ -49,9 +52,11 @@ const bloqueioDe = (envio: Envio | null) => !envio ? null
     ? `São ${num(envio.arquivos.length)} arquivos; o servidor aceita até ${num(MAX_ARQUIVOS)} por envio. Use a tela da Auditoria por empresa.`
   : null;
 
-export function AuditarMes({ meses, auditoria, onGravado }: {
+export function AuditarMes({ meses, auditoria, planilha = null, onGravado }: {
   meses: string[];
   auditoria: AuditoriaHistoricoLinha[];
+  /** A planilha da Conta Gráfica escolhida em "Comparar com a planilha" (ou null). Com ela, a nota que só está nela aparece antes de gravar. */
+  planilha?: File | null;
   onGravado: () => void;
 }) {
   const [ativo, setAtivo] = useState<string | null>(null);
@@ -65,6 +70,9 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
   const [aviso, setAviso] = useState<{ titulo: string; texto: string } | null>(null);
   const [confirmar, setConfirmar] = useState(false);
   const [gravado, setGravado] = useState<{ cgr: number; notas: number } | null>(null);
+  // O que o analista escolheu para a nota que só está na planilha (null = ainda não escolheu).
+  const [decisao, setDecisao] = useState<Decisao | null>(null);
+  const [motivo, setMotivo] = useState(""); // por que a nota entra à mão (obrigatório ao incluir)
   const titulo = useRef<HTMLHeadingElement>(null);
   const inputZip = useRef<HTMLInputElement>(null);
   const botaoZip = useRef<HTMLButtonElement>(null);
@@ -86,6 +94,8 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     setAviso(null);
     setLidos(null);
     setGravado(null);
+    setDecisao(null);
+    setMotivo("");
   };
   const abrir = (m: string) => {
     zerar();
@@ -147,7 +157,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     try {
       const memoria = await carregarNaMemoria(envio.arquivos, (feitos, total) => setLidos({ feitos, total }));
       setFase("processando");
-      const r = await auditarMes(memoria, envio.raiz, ativo, cgrGravado, true);
+      const r = await auditarMes(memoria, envio.raiz, ativo, cgrGravado, true, planilha);
       if (r.erros.length) {
         setErro(`O servidor não conseguiu auditar ${ativo}: ${r.erros.join(" ")} Corrija os arquivos indicados e traga a pasta de novo.`);
         setFase("erro");
@@ -177,13 +187,15 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
     setErro(null);
     setFase("gravando");
     try {
-      const s = await salvarAuditoria(ativo, res.r.itens);
+      const faltas = decisaoParaEnviar(faltantes, decisao, motivo);
+      const s = await salvarAuditoria(ativo, res.r.itens, faltas);
       mostrarCascata(s.cascata);
       setGravado({ cgr: s.cgr_liquido, notas: s.qtd_itens });
       setRes(null);
       setEnvio(null);
       setFase("gravado");
-      avisarSucesso(`Auditoria de ${ativo} gravada`, `CGR = ${brl(s.cgr_liquido)} (${num(s.qtd_itens)} nota(s)).`);
+      avisarSucesso(`Auditoria de ${ativo} gravada`, `CGR = ${brl(s.cgr_liquido)} (${num(s.qtd_itens)} nota(s)).`
+        + (faltas ? (faltas.decisao === "incluir" ? " Com a nota que só chega depois do período: confira e regularize." : " Sem a nota que está só na planilha.") : ""));
       onGravado();
     } catch (e) {
       setErro(mensagemDeErro(e, `Não foi possível gravar ${ativo}`));
@@ -194,6 +206,11 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
   /** Erro de auditar: volta a escolher (a pasta errada sai). */
   const voltarAEscolher = () => { setErro(null); setEnvio(null); setFase("escolher"); };
 
+  // Nota que a comparação achou só na planilha: sem escolher incluir ou seguir sem, não grava.
+  const faltantes = faltantesDoMes(res?.comparacao);
+  const falta = faltantes.notas.length;
+  const liberado = podeGravarComFaltantes(faltantes, decisao, motivo);
+  const pendencias = pendenciasDosMeses(auditoria, meses); // meses gravados com nota faltante: o aviso fica aqui
   const d = res?.diferencas;
   // Gravar substitui o mês inteiro: empresa gravada que não veio nesta pasta some.
   const apagadas = d?.tem_notas_gravadas ? d.por_empresa.filter((e) => e.processado === 0 && e.gravado !== 0) : [];
@@ -206,6 +223,12 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
 
   return (
     <div className="mt-3">
+      {pendencias.length > 0 && (
+        <Alert variant="warning" className="mb-3">
+          <strong>Nota faltante na Auditoria CGR</strong>
+          <ul className="mt-1 list-disc pl-5 text-xs">{pendencias.map((t) => <li key={t}>{t}</li>)}</ul>
+        </Alert>
+      )}
       <div role="group" aria-label="Auditar um mês aqui no Painel" className="flex flex-wrap items-center gap-2">
         {meses.map((m) => {
           const aberto = ativo === m;
@@ -331,6 +354,44 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
               )}
               {res.avisos.map((a) => <p key={a} className="text-xs text-amber-200">⚠ {a}</p>)}
               {temDiferenca && <OndeDifere d={d!} total={res.r.totais.cgr_liquido - (cgrGravado ?? 0)} />}
+              {falta > 0 && (
+                <div role="group" aria-labelledby="falta-titulo" className="rounded-lg border border-amber-300/30 bg-amber-400/[0.06] p-3 text-sm text-amber-100">
+                  <p id="falta-titulo" className="font-semibold">
+                    {falta === 1 ? "1 nota está na planilha e não veio na pasta" : `${falta} notas estão na planilha e não vieram na pasta`}. Escolha antes de gravar:
+                  </p>
+                  <ul className="mt-1 list-disc pl-5 text-xs text-amber-200">{faltantes.notas.map((n) => <li key={rotuloDaNota(n)}>{rotuloDaNota(n)}</li>)}</ul>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button variant={decisao === "incluir" ? "solid" : "ghost"} size="sm" aria-pressed={decisao === "incluir"}
+                      disabled={!faltantes.paraIncluir || fase === "gravando"} onClick={() => setDecisao("incluir")}>
+                      Incluir no cálculo
+                    </Button>
+                    <Button variant={decisao === "seguir_sem" ? "solid" : "ghost"} size="sm" aria-pressed={decisao === "seguir_sem"}
+                      disabled={fase === "gravando"} onClick={() => setDecisao("seguir_sem")}>
+                      Seguir sem {falta === 1 ? "ela" : "elas"}
+                    </Button>
+                  </div>
+                  {decisao === "incluir" && (
+                    <label className="mt-2 block text-xs text-amber-100">
+                      Motivo (obrigatório)
+                      <input type="text" value={motivo} onChange={(e) => setMotivo(e.target.value)} disabled={fase === "gravando"}
+                        placeholder="Ex.: a Copergás só manda a nota depois do período; valor da planilha"
+                        className="mt-1 w-full rounded-md border border-amber-300/30 bg-black/20 px-2 py-1 text-xs text-white placeholder:text-zinc-500 focus:outline-none focus-visible:border-amber-300" />
+                    </label>
+                  )}
+                  <p className="mt-2 text-xs text-amber-200">
+                    {!faltantes.paraIncluir ? "A planilha não traz o CGR de todas, então só dá para seguir sem elas. "
+                      : decisao === "incluir" ? `${falta === 1 ? "A nota entra" : "As notas entram"} no CGR com o valor da planilha. ${falta === 1 ? "Ela só chega" : "Elas só chegam"} depois do período: confira e regularize quando chegar.`
+                      : decisao === "seguir_sem" ? `O CGR é gravado sem ${falta === 1 ? "essa nota" : "essas notas"}. O aviso fica no Painel até o mês ser gravado de novo.`
+                      : "A escolha fica registrada na trilha."}
+                  </p>
+                </div>
+              )}
+              {planilha && !res.comparacao && (
+                <p className="text-xs text-amber-200">⚠ Não consegui comparar com a planilha{res.planilhaIlegivel ?? res.avisoComparacao ? `: ${res.planilhaIlegivel ?? res.avisoComparacao}` : ""}. Não sei se falta nota.</p>
+              )}
+              {!planilha && (
+                <p className="text-xs text-zinc-500">Sem planilha escolhida, não confiro se falta nota. Escolha-a em “Comparar com a planilha” antes de processar.</p>
+              )}
               {divergencia && (
                 <Alert variant="warning">
                   <strong>Há divergência neste mês.</strong> Se gravar agora, o CGR de {ativo} será gravado <b>com a divergência</b>.
@@ -345,7 +406,7 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
               )}
 
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button variant="solid" icon={<Save size={14} />} onClick={() => setConfirmar(true)} loading={fase === "gravando"}>
+                <Button variant="solid" icon={<Save size={14} />} onClick={() => setConfirmar(true)} loading={fase === "gravando"} disabled={!liberado}>
                   {fase === "gravando" ? `Gravando ${ativo}…` : substitui ? `Gravar ${ativo} (substitui ${brl(cgrGravado!)})` : `Gravar ${ativo}`}
                 </Button>
                 <Button variant="ghost" icon={<X size={14} />} onClick={fechar} disabled={fase === "gravando"}>Descartar</Button>
@@ -393,6 +454,12 @@ export function AuditarMes({ meses, auditoria, onGravado }: {
         rotuloFechar={divergencia ? "Cancelar e conferir" : "Cancelar"}>
         {divergencia && (
           <p>Há divergência neste mês. Se continuar, será gravado <b>com a divergência</b>. <b>Cabe ao analista analisar os dados antes de gravar.</b></p>
+        )}
+        {falta > 0 && decisao && (
+          <p className="text-amber-200">
+            {decisao === "incluir" ? `Entra no CGR ${falta === 1 ? "a nota que só está" : "as notas que só estão"} na planilha (chega depois do período).`
+              : `${falta === 1 ? "A nota que está" : "As notas que estão"} só na planilha ficam fora do CGR.`} A escolha fica registrada.
+          </p>
         )}
         {res && (
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
