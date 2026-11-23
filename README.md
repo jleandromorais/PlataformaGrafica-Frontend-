@@ -1,54 +1,65 @@
-<div align="center">
+# Plataforma Conta Gráfica ARPE — Site
 
-<h1>Plataforma Conta Gráfica — Site</h1>
+Site (React) para apurar a **Conta Gráfica do gás canalizado** da Copergás, usado pelos analistas da **ARPE — Agência de Regulação de Pernambuco**.
 
-<p><strong>Telas web da apuração de Conta Gráfica do gás canalizado</strong><br/>
-<em>ARPE — Agência de Regulação de Pernambuco</em></p>
+- **Site em produção:** https://plataforma-grafica-frontend.vercel.app (a Vercel publica a branch `main`)
+- **Acesso:** login com e-mail e senha
+- **Back-end (API FastAPI):** repositório [plataforma-conta-grafica](https://github.com/jleandromorais/plataforma-conta-grafica)
 
-<p>
-  <img src="https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React"/>
-  <img src="https://img.shields.io/badge/TypeScript-6-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript"/>
-  <img src="https://img.shields.io/badge/Vite-8-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite"/>
-  <img src="https://img.shields.io/badge/Tailwind-4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" alt="Tailwind"/>
-  <img src="https://img.shields.io/badge/Deploy-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="Vercel"/>
-</p>
+## O que é
 
-</div>
+Substitui a digitação manual e a cópia de planilhas na rotina mensal da Conta Gráfica. O analista aponta a pasta de notas do trimestre, o sistema lê as notas (XML/PDF), calcula e mostra **de onde veio cada número**. Nada é gravado sem o analista conferir a prévia. No fim saem o **Excel Final** (visual da ARPE) e a **minuta da Nota Técnica** (Word).
 
----
+**Todos os cálculos ficam no back-end.** Este repositório só mostra, envia arquivos e deixa o analista conferir antes de gravar.
 
-## 📋 Visão geral
+## O ciclo: 9 passos e o fechamento
 
-Site em React que substitui o app desktop no dia a dia. Todos os cálculos ficam no backend — a **API FastAPI** do repositório [plataforma-conta-grafica](https://github.com/jleandromorais/plataforma-conta-grafica), publicada no Railway. Este repositório só exibe, envia arquivos e deixa o usuário conferir antes de gravar.
+A tela inicial é o **Painel do Ciclo** (`/ciclo`). Ele mostra o trimestre, o estado de cada passo (feito, atenção, falta) com o motivo, e o botão **"Fazer agora"** abre a tela já no período certo. A lista dos passos está em `src/utils/etapasDoCiclo.ts`.
 
-- **Site:** https://plataforma-grafica-frontend.vercel.app (publica a branch `main`)
-- **Login:** e-mail e senha (token JWT guardado no navegador)
+| Fase | Passo | O que é |
+|---|---|---|
+| Preparar | 1. PMPV | Preço médio ponderado por volume dos meses apurados |
+| Processar a pasta | 2. Auditoria CGR | NF-e/CT-e de compra (XML/PDF) comparadas com a planilha oficial |
+| | 3. CGF | Volume faturado (planilhas de NF faturadas, canceladas e devolvidas) |
+| | 4. RET | Encargos de transporte (PDFs; EAT + EC) |
+| | 5. RP | Conciliação de receitas e despesas de penalidade |
+| Trimestre | 6. SCG | Saldo da Conta Gráfica: `SCG = RPV + RET + RP` (com `RPV = CGR − CGF`, calculado sozinho) |
+| | 7. SR | Saldo Remanescente, com a SELIC acumulada buscada no Banco Central |
+| | 8. PR | Parcela de Recuperação (Quadro 7 da Nota Técnica) |
+| | 9. PV | Preço de venda: `PV = PMPV + PR` (Quadro 8) |
+| Fechar | Tarifa média | Fecha na tela do PMPV, depois que o PV do trimestre novo está gravado |
+| | Entregas | Minuta da Nota Técnica, relatório do trimestre e Excel Final |
 
-## 🧭 Telas
+SR, PR e PV são gravados pelo Painel, cada um com a sua aprovação; as telas `/sr`, `/pr` e `/pv` são de consulta.
 
-| Grupo | Tela | Rota | O que faz |
-|---|---|---|---|
-| Início | **Painel do Ciclo** | `/ciclo` | As 8 etapas do trimestre com ✅/⚠/◌ e o motivo de cada ⚠; "Fazer agora" abre a tela já no período certo; lê a pasta do ciclo (ex.: `SCG-26`) e mostra o que achou por etapa e mês |
-| | Dashboard | `/` | Evolução histórica |
-| | PMPV | `/pmpv` | Preço médio de venda e VP do trimestre |
-| Conta Gráfica | Auditoria CGR | `/auditoria` | NF-e/CT-e de compra (XML/PDF) e comparação com a NT ou a planilha |
-| | CGF | `/cgf` | Planilhas de NF faturadas, canceladas e devolvidas |
-| | RPV | `/rpv` | `RPV = CGR − CGF` |
-| | RET | `/ret` | PDFs de encargos de transporte (EAT + EC) |
-| | RP — Conciliação | `/conciliacao` | Receitas (inclui TOP) e despesas de penalidade |
-| | SCG | `/scg` | `SCG = RPV + RET + RP`, gravado × módulos |
-| | SR | `/sr` | Quadro 6 do trimestre civil; **SELIC preenchida pelo Banco Central** |
-| Consolidação | PR | `/pr` | Quadro 7 da Nota Técnica |
-| | PV | `/pv` | Quadro 8: `PV = PMPV + PR` |
-| Exportação | Excel Final | `/excel-final` | Excel no visual da ARPE e **minuta da Nota Técnica (.docx)** |
+**Dois tipos de trimestre que nunca se misturam:**
+- **Civil** (Jan–Mar, Abr–Jun, Jul–Set, Out–Dez): SCG, CGR, CGF, RET, RP e SR.
+- **Do ciclo** (Nov–Jan, Fev–Abr, Mai–Jul, Ago–Out): PMPV, PR e PV.
 
-**Dois tipos de trimestre:** SCG/SR usam o civil (Jan–Mar, Abr–Jun…); PMPV/PR/PV usam o do setor (Nov–Jan, Fev–Abr, Mai–Jul, Ago–Out). O civil apurado define o PR 2 meses depois (Abr–Jun → Ago–Out).
+O trimestre civil apurado define o PR 2 meses depois (ex.: Abr–Jun → Ago–Out). Regras em `src/utils/periodos.ts`.
 
-**Período no endereço:** as telas aceitam `?periodo=Mai/2026` (mensais) ou `?trimestre=Abr/2026` (1º mês do trimestre), e com `?de=ciclo&ciclo=Abr/2026` mostram "Voltar ao Painel do Ciclo". Contrato em `src/utils/periodoNaUrl.ts`.
+## Telas
 
-## 🚀 Rodar no computador
+| Rota | Tela |
+|---|---|
+| `/ciclo` | Painel do Ciclo (início) |
+| `/visao-geral` | Visão geral e evolução histórica |
+| `/como-funciona` | Explicação dos passos e glossário de siglas |
+| `/pmpv`, `/auditoria`, `/cgf`, `/ret`, `/conciliacao`, `/scg` | Passos 1 a 6 |
+| `/rpv` | RPV (calculado sozinho) |
+| `/sr`, `/pr`, `/pv` | Consulta de SR, PR e PV |
+| `/excel-final` | Excel Final e minuta da Nota Técnica |
+| `/login`, `/cadastro` | Acesso |
 
-Pré-requisitos: Node 22+ e a API rodando (ver o README do backend).
+As telas aceitam o período no endereço: `?periodo=Mai/2026` (mensais) ou `?trimestre=Abr/2026` (1º mês do trimestre). Contrato em `src/utils/periodoNaUrl.ts`.
+
+## Stack
+
+React 19 · TypeScript 6 · Vite 8 · Tailwind 4 · HeroUI v3 · React Router 7 · Axios · Recharts · Vitest · ESLint. Tema escuro por padrão.
+
+## Rodar no computador
+
+Pré-requisitos: Node 22+ e a API rodando (ver o README do back-end).
 
 ```powershell
 npm install
@@ -56,48 +67,55 @@ copy .env.example .env      # VITE_API_URL=http://localhost:8080/api
 npm run dev                 # http://localhost:5173
 ```
 
-Atalho para subir **API + site** juntos, com uma cópia do banco: `iniciar_web.bat` na pasta `Plataforma/` (um nível acima deste repositório).
+Para subir **API e site juntos** (com uma cópia do banco, sem risco para os dados oficiais): `iniciar_web.bat` na pasta `Plataforma/`, um nível acima deste repositório. Com `-Real` usa o banco real.
+
+## Comandos
 
 | Comando | O que faz |
 |---|---|
 | `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` | Checagem de tipos (`tsc -b`) + build de produção |
+| `npm run build` | Checagem de tipos (`tsc -b`) e build de produção |
 | `npm test` | Testes (Vitest), roda uma vez e sai |
 | `npm run lint` | ESLint |
+| `npm run preview` | Serve o build local |
 
-## 🗂️ Estrutura
-
-```
-src/
-├── api/            # client.ts (axios + mensagens de erro em pt-BR), index.ts (uma função por rota), auth.ts
-├── auth/           # AuthContext, RequireAuth
-├── components/     # layout/ (Layout, Sidebar, "Voltar ao Painel") e ui/ (Alert, Button, Card...)
-├── pages/          # uma pasta por tela (Ciclo, SR, PR, PV, CGF, ...)
-├── router/         # rotas
-├── types/          # tipos das respostas da API
-└── utils/          # periodos, periodoNaUrl, pastaCiclo (reconhecedor da pasta), format, glossario
-```
-
-**Mensagens de erro:** `mensagemDeErro(erro, padrão)` em `src/api/client.ts` gera "ação: motivo"; o detalhe técnico fica recolhido em "Detalhes técnicos" no `<Alert>`.
-
-## 🧪 Testes
+## Testes
 
 ```powershell
 npm test
 ```
 
-- `src/utils/pastaCiclo.test.ts` — reconhecedor da pasta do ciclo: mês pelo nome, CGF pelo nome da planilha, "substituídas" e zips ignorados, avisos, mapa do trimestre, com nomes reais da `SCG-26` (só nomes, sem arquivos)
-- `src/utils/periodos.test.ts` — período no endereço e trimestre civil → trimestre do PR
+Vitest, em arquivos `*.test.ts` ao lado do código (33 arquivos, 382 testes em 23/11/2026). A lógica de decisão das telas fica em módulos puros e testáveis, por exemplo `src/pages/Ciclo/proximoPasso.ts`, `src/utils/periodos.ts` e `src/utils/pastaCiclo.ts`.
 
-## ☁️ Deploy
+Antes de commitar: `npm run build`, `npm test` e `npm run lint`.
 
-- **Vercel** publica a `main` sozinha. Variável: `VITE_API_URL` = URL da API no Railway + `/api`.
-- O trabalho é feito numa branch (`feat/...`) e vai para a `main` quando aprovado. Como o site depende da API, publique o **backend primeiro** quando os dois mudarem juntos.
-- Na API (Railway), `CORS_ORIGINS` precisa incluir a URL do site.
+## Deploy
 
-## 🤝 Contribuição
+- **Vercel** publica a `main` sozinha (`vercel.json` reescreve todas as rotas para `index.html`).
+- Variável na Vercel: `VITE_API_URL` = URL da API + `/api` (ex.: `https://SEU-BACK/api`).
+- Na API, `CORS_ORIGINS` precisa incluir a URL do site.
+- O site depende da API: quando os dois mudam juntos, publique o **back-end primeiro**.
+
+## Estrutura de pastas
+
+```
+src/
+├── api/          # client.ts (axios + mensagens de erro em pt-BR), index.ts (uma função por rota), auth.ts
+├── auth/         # AuthContext, RequireAuth
+├── components/   # layout/ (Layout, Sidebar, modulos.ts) e ui/ (Alert, Modal, Card, ...)
+├── pages/        # uma pasta por tela; Ciclo/ tem o Painel e os cartões de SR, PR e PV
+├── router/       # rotas
+├── types/        # tipos das respostas da API (espelham os schemas do back)
+└── utils/        # etapasDoCiclo, periodos, periodoNaUrl, pastaCiclo, format, glossario, siglas
+docs/             # plano.md (andamento) e specs/ (uma spec por mudança de fluxo)
+```
+
+**Arquivos centrais** (mapa do código gerado com o graphify, `graphify-out/GRAPH_REPORT.md`, conferido no código): `utils/format.ts` (`brl()` e `num()`, usados em quase toda tela), `api/client.ts` (`mensagemDeErro()`), `pages/Ciclo/index.tsx` (`CicloPage`, o Painel), `pages/Ciclo/proximoPasso.ts` (qual é o próximo passo), `pages/PMPV/index.tsx` e `components/ui/` (`Button`, `Alert`).
+
+Mais contexto: `PRODUCT.md` (para quem é e para quê), `docs/plano.md` (o que foi feito e o que falta) e `docs/specs/`.
+
+## Contribuição
 
 1. Branch a partir da `main`: `git checkout -b feat/minha-mudanca`
-2. Antes do commit: `npm run build`, `npm test` e `npm run lint`
+2. Rode build, testes e lint (acima).
 3. Commits em português: `feat(sr): ...`, `fix(ciclo): ...`
-4. As specs (BMAD) de cada história ficam anexadas ao cartão no Trello do projeto
