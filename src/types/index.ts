@@ -958,12 +958,24 @@ export interface Cascata {
 /** GET /ciclo/situacao (back novo; o antigo dá 404). Tudo opcional: só o que o Painel usa. */
 export interface SituacaoCiclo {
   trimestre?: string;
-  selic?: { fechada: boolean; estado: string; fecha_em?: string | null; motivo?: string | null };
+  selic?: { fechada: boolean; estado: string; fecha_em?: string | null; libera_em?: string | null; motivo?: string | null };
   pmpv_novo?: { existe: boolean; meses?: string[]; meses_sem_vp?: string[] };
   passos?: { chave: string; titulo?: string; estado: string; motivo?: string | null; rota?: string | null }[];
   proximo_passo?: string | { chave?: string } | null;
   /** Os 9 passos do Painel (back novo; aditivo). Ausente ou vazio no back antigo: o Painel calcula sozinho. */
   etapas?: EtapaDaSituacao[];
+}
+
+/** GET /tarifa/media?trimestre= (só leitura: o back calcula, o front nunca soma nada). */
+export interface TarifaMedia {
+  trimestre: string;
+  chave_pv: string;                  // "Nov - Jan/2026"
+  pv_gravado: number | null;
+  margens: { ano: number; mb: number | null; origem: "salva" | "padrao" | "ausente" }[];
+  tarifas: { ano: number; mb: number | null; tarifa_media: number | null }[];
+  cruza_ano: boolean;
+  aviso: string | null;
+  motivo: string | null;
 }
 
 /** Um dos 9 passos do Painel, como o back o vê (GET /ciclo/situacao, campo `etapas`). */

@@ -22,18 +22,22 @@ import { textoPRAutomatico } from "../../utils/prAutomatico";
 import {
   camposDiferentes, faixaDoTrimestre, mesesDivergentes, motivosDoMes, rotuloDoPR, tituloDaDivergencia,
 } from "../../utils/propostaSR";
-import type { SRProposta, SRPropostaLinha } from "../../types";
+import type { SRProposta, SRPropostaLinha, SituacaoCiclo } from "../../types";
+import { avisoSelicAberta } from "./proximoPasso";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 const tarifa = (v: number) => brl(v, 4);
 
-export function SRDoTrimestre({ meses, onGravado }: {
+export function SRDoTrimestre({ meses, selic, onGravado }: {
   /** Os 3 meses do trimestre apurado do Painel, ex.: ["Jan/2026", "Fev/2026", "Mar/2026"]. */
   meses: string[];
+  /** SELIC da situação do ciclo (GET /ciclo/situacao); ausente no back antigo. */
+  selic?: SituacaoCiclo["selic"];
   /** Depois de gravar: o Painel recarrega as etapas. */
   onGravado: () => void;
 }) {
   const faixa = faixaDoTrimestre(meses);
+  const selicAberta = avisoSelicAberta(selic);
   const [proposta, setProposta] = useState<SRProposta | null>(null);
   const [carregando, setCarregando] = useState(false);
   const [gravando, setGravando] = useState(false);
@@ -94,6 +98,13 @@ export function SRDoTrimestre({ meses, onGravado }: {
       <p className="mt-1 text-sm text-zinc-400">
         Calcula o SR com o VP do PMPV, o VF do CGF, o PR do módulo PR e a SELIC do Banco Central. Nada é gravado até você confirmar.
       </p>
+
+      {selicAberta && (
+        <Alert variant="warning" className="mt-4">
+          <p><b>{selicAberta.texto}</b></p>
+          {selicAberta.detalhe && <p className="mt-1">{selicAberta.detalhe}</p>}
+        </Alert>
+      )}
 
       <div className="mt-4">
         <Button variant="primary" icon={<Calculator size={15} />} loading={carregando} onClick={() => calcular()}>

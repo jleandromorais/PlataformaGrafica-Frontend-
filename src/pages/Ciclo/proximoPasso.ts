@@ -2,6 +2,7 @@
  * Função pura: recebe o que o Painel já carregou. Quando o back tiver GET /ciclo/situacao,
  * troque só a origem destes dados; a tela continua igual. */
 
+import type { SituacaoCiclo } from "../../types";
 import type { ChaveEtapa } from "../../utils/etapasDoCiclo";
 
 /** Os passos que o Painel mostra: as chaves vêm da lista única (`utils/etapasDoCiclo.ts`), menos RPV e Entregas. */
@@ -80,4 +81,20 @@ export function proximoDoBack(local: ChavePasso | null, deBack: unknown, situaco
   if (typeof chave !== "string") return local;
   if (chave === "pr_pv") return situacoes.pr && situacoes.pr !== "ok" ? "pr" : "pv";
   return DO_BACK[chave] ?? local;
+}
+
+/** "2026-12-31" (ou com hora) → "31/12". Qualquer outra coisa: null. */
+export function diaMes(iso: string | null | undefined): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}/${m[2]}` : null;
+}
+
+/** O que o cartão do SR diz quando a SELIC ainda não fechou; null quando fechou ou não há dado. */
+export function avisoSelicAberta(selic: SituacaoCiclo["selic"] | null | undefined): { texto: string; detalhe: string | null } | null {
+  if (!selic || selic.fechada) return null;
+  const quando = diaMes(selic.libera_em) ?? diaMes(selic.fecha_em);
+  return {
+    texto: quando ? `A SELIC ainda não fechou: fecha em ${quando} (estimativa).` : "A SELIC ainda não fechou.",
+    detalhe: selic.motivo ? selic.motivo.trim().replace(/\.+$/, "") + "." : null,
+  };
 }

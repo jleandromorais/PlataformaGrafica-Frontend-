@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcularProximoPasso, proximoDoBack, type ChavePasso, type EntradaCiclo, type SituacaoPasso } from "./proximoPasso";
+import { avisoSelicAberta, calcularProximoPasso, diaMes, proximoDoBack, type ChavePasso, type EntradaCiclo, type SituacaoPasso } from "./proximoPasso";
 
 const ORDEM: ChavePasso[] = ["pmpv", "auditoria", "cgf", "ret", "rp", "scg", "sr", "pr", "pv", "tarifa"];
 
@@ -77,5 +77,24 @@ describe("proximoDoBack", () => {
   it("sem dado, ou passo desconhecido (pasta_scg), mantém o cálculo local", () => {
     expect(proximoDoBack("cgf", undefined, sit)).toBe("cgf");
     expect(proximoDoBack("cgf", "pasta_scg", sit)).toBe("cgf");
+  });
+});
+
+describe("SELIC aberta no cartão do SR", () => {
+  it("diaMes lê data ISO e recusa o resto", () => {
+    expect(diaMes("2026-10-01")).toBe("01/10");
+    expect(diaMes("2026-12-31T00:00:00")).toBe("31/12");
+    expect(diaMes("amanhã")).toBeNull();
+    expect(diaMes(null)).toBeNull();
+  });
+  it("fechada, ausente ou sem dado: nada a avisar", () => {
+    expect(avisoSelicAberta(null)).toBeNull();
+    expect(avisoSelicAberta({ fechada: true, estado: "fechada" })).toBeNull();
+  });
+  it("aberta: diz quando fecha (libera_em primeiro, depois fecha_em) e repete o motivo do back", () => {
+    expect(avisoSelicAberta({ fechada: false, estado: "aberta", libera_em: "2026-10-01", fecha_em: "2026-09-30", motivo: "O trimestre ainda não terminou." }))
+      .toEqual({ texto: "A SELIC ainda não fechou: fecha em 01/10 (estimativa).", detalhe: "O trimestre ainda não terminou." });
+    expect(avisoSelicAberta({ fechada: false, estado: "aberta", fecha_em: "2026-09-30" })?.texto).toContain("30/09");
+    expect(avisoSelicAberta({ fechada: false, estado: "aguardando_publicacao" })).toEqual({ texto: "A SELIC ainda não fechou.", detalhe: null });
   });
 });

@@ -9,7 +9,7 @@ import type {
   SCGPeriodo, PRResultado, PRApuracao, PRSrAnterior, DashboardResponse,
   SRSessaoPMPV, SROrigemPR, SRLinhaCalculada, SRSelic,
   PVResultado, PVPeriodo, PVTrimestre, PRAutomatico, PVAutomatico,
-  Cascata, CascataAPartirDe, SituacaoCiclo, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
+  Cascata, CascataAPartirDe, SituacaoCiclo, TarifaMedia, ComCascata, ConferenciaDoMes, AlteracaoDaTrilha, ConferirPlanilhaResponse,
 } from "../types";
 
 // ─── DASHBOARD ───────────────────────────────────────────────────────────────
@@ -472,6 +472,10 @@ export const aplicarCascata = (periodos: string[], aPartirDe: CascataAPartirDe =
 /** Situação do ciclo calculada pelo back. Back antigo (404) ou qualquer falha: null, e o Painel calcula sozinho. */
 export const getSituacaoCiclo = (trimestre: string) =>
   api.get<SituacaoCiclo>("/ciclo/situacao", { params: { trimestre } }).then((r) => r.data).catch(() => null);
+
+/** Tarifa média do trimestre (PV gravado + MB), só leitura. Rota ausente (404) ou qualquer falha: null, e o cartão mostra só o link. */
+export const getTarifaMedia = (trimestre: string) =>
+  api.get<TarifaMedia>("/tarifa/media", { params: { trimestre } }).then((r) => r.data).catch(() => null);
 
 // ─── CONFERÊNCIA DO MÊS E TRILHA ─────────────────────────────────────────────
 

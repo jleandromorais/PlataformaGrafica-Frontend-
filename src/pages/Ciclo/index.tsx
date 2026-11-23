@@ -24,6 +24,7 @@ import { ProcessarTrimestre, type Retomada } from "./Processar";
 import { AuditarMes } from "./AuditarMes";
 import { CompararPlanilha } from "./CompararPlanilha";
 import { SRDoTrimestre } from "./SRDoTrimestre";
+import { TarifaMediaDoCiclo } from "./CartaoTarifaMedia";
 import { PRDoTrimestre } from "./PRDoTrimestre";
 import { PVDoTrimestre } from "./PVDoTrimestre";
 import { aplicarEtapasDoBack, etapasDoBack } from "./etapasDoBack";
@@ -187,7 +188,7 @@ function etapaMensal<T extends { periodo: string }>(chave: ChavePasso, titulo: s
   return { chave, titulo, descricao, ...resto, link: linkDoMes(pendente ?? meses[0]) };
 }
 
-function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactNode, divergenciaScg: ReactNode): Etapa_[] {
+function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactNode, divergenciaScg: ReactNode, tarifaMedia: ReactNode): Etapa_[] {
   const faixaPR = `${mesesPR[0]} a ${mesesPR[2]}`;
   const srTotal = d.srSalvo.reduce((s, l) => s + Number(l.sr_selic ?? 0), 0);
   const prDifere = d.pr && d.prSalvo !== null && Math.abs(d.prSalvo - d.pr.pr) > 1e-9;
@@ -242,7 +243,7 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
       chave: "tarifa" as const, titulo: "Tarifa média", soLink: true, situacao: "falta" as const,
       descricao: "PV + margem de distribuição (MB); a tarifa nunca é gravada aqui",
       link: linkDoPMPV(meses[0], mesesPR[0]),
-      detalhe: <span>{d.pv?.salvo ? `PV gravado de ${num(d.pv.salvo.pv, 4)}. Veja e feche a tarifa média na tela PMPV.` : "Grave o PV do trimestre novo para fechar a tarifa média no PMPV."}</span>,
+      detalhe: tarifaMedia,
     },
   ];
 }
@@ -369,7 +370,8 @@ export default function CicloPage() {
   const mesesScgDivergentes = dados ? meses.filter((m) => dados.scg.find((l) => l.periodo === m)?.diverge) : [];
   const listaLocal = dados ? etapas(dados, meses, mesesPR,
     <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} onGravado={() => setVersao((v) => v + 1)} />,
-    mesesScgDivergentes.length ? <DivergenciaSCG meses={mesesScgDivergentes} cicloInicio={meses[0]} versao={versao} /> : null) : [];
+    mesesScgDivergentes.length ? <DivergenciaSCG meses={mesesScgDivergentes} cicloInicio={meses[0]} versao={versao} /> : null,
+    <TarifaMediaDoCiclo semLink trimestre={`${mesesPR[0]}_${mesesPR[2]}`} versao={versao} link={linkDoPMPV(meses[0], mesesPR[0])} />) : [];
   // Back novo: o estado de cada passo vem de GET /ciclo/situacao (campo `etapas`). Sem o campo (back antigo) ou com ele
   // estranho, vale o cálculo local de sempre. Os detalhes de cada passo (valores por mês) continuam vindo do que o Painel leu.
   const lista = aplicarEtapasDoBack(listaLocal, etapasDoBack(dados?.situacao));
@@ -689,7 +691,7 @@ export default function CicloPage() {
 
           {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
           <SubpassoRecolhivel id={ID_SR} titulo="SR do trimestre" passos="passo 7" icone={<Calculator size={16} />} abrirPorPadrao={proximo === "sr"}>
-            <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} onGravado={() => setVersao((v) => v + 1)} />
+            <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} selic={dados?.situacao?.selic} onGravado={() => setVersao((v) => v + 1)} />
           </SubpassoRecolhivel>
 
           {/* PR e PV do trimestre do ciclo: o Painel já leu o cálculo e o gravado; o cartão só mostra e grava (com a janela). */}
