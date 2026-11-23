@@ -17,13 +17,15 @@ const BORDA: Record<CasoDoBloco, string> = {
   pmpv: "border-l-sky-400", scg: "border-l-amber-400", sr: "border-l-sky-400", "pr-pv": "border-l-sky-400",
 };
 
-export function ProximoPassoBloco({ bloco, detalheDoErro, onAcao, onVerMotivo }: {
+/** Só os casos de aviso levam texto: nos outros o título e o botão já dizem tudo. */
+const COM_TEXTO: CasoDoBloco[] = ["erro", "bloqueado", "aprovar", "pasta-de-novo"];
+
+export function ProximoPassoBloco({ bloco, detalheDoErro, onAcao }: {
   /** null = ainda carregando: mostra o esqueleto, sem botão. */
   bloco: BlocoProximoPasso | null;
   /** Mensagem técnica da carga que falhou; só aparece no caso "erro". */
   detalheDoErro?: string | null;
   onAcao: (a: AcaoDoBloco) => void;
-  onVerMotivo: (b: BlocoProximoPasso) => void;
 }) {
   const moldura = "rounded-xl border border-white/[0.07] border-l-4 bg-panel p-5 sm:p-6";
   if (!bloco) {
@@ -45,11 +47,12 @@ export function ProximoPassoBloco({ bloco, detalheDoErro, onAcao, onVerMotivo }:
         Próximo passo{bloco.passo && <span className="tabular-nums"> · {bloco.passo.toLowerCase()}</span>}
       </p>
       <h2 id="proximo-passo-titulo" className="mt-1 text-xl font-semibold text-white"><ComSiglas>{bloco.titulo}</ComSiglas></h2>
-      {bloco.etapa && <p className="mt-0.5 text-xs text-zinc-500">{bloco.etapa}</p>}
-      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300"><ComSiglas>{bloco.texto}</ComSiglas></p>
+      {COM_TEXTO.includes(bloco.caso) && (
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-300"><ComSiglas>{bloco.texto}</ComSiglas></p>
+      )}
       {bloco.caso === "erro" && detalheDoErro && <Alert variant="error" className="mt-3 max-w-2xl">{detalheDoErro}</Alert>}
 
-      {(acao || bloco.depois.length > 0 || bloco.verMotivo) && (
+      {acao && (
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-3">
           {acao && (acao.tipo === "link" ? (
             <Link to={acao.alvo} className={classesDoBotao("solid", "lg", "w-full sm:w-auto")}>
@@ -60,13 +63,6 @@ export function ProximoPassoBloco({ bloco, detalheDoErro, onAcao, onVerMotivo }:
               {acao.rotulo}<ArrowRight size={16} aria-hidden />
             </Button>
           ))}
-          {bloco.depois.length > 0 && <p className="text-sm text-zinc-400">Depois: {bloco.depois.join(", ")}</p>}
-          {bloco.verMotivo && (
-            <button type="button" onClick={() => onVerMotivo(bloco)}
-              className="min-h-9 rounded-lg px-1 text-sm font-medium text-sky-300 hover:text-sky-200 sm:ml-auto">
-              Ver motivo ›
-            </button>
-          )}
         </div>
       )}
     </section>

@@ -8,7 +8,6 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
-import { ComSiglas } from "../../components/ui/Sigla";
 import { Button } from "../../components/ui/Button";
 import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -78,10 +77,8 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
 
   return (
     <section aria-labelledby="pv-ciclo-titulo" className={`${PANEL} p-5 sm:p-6`}>
-      <h2 id="pv-ciclo-titulo" className="text-base font-semibold text-white">PV — Preço de Venda de {faixaDosMeses(mesesPR)}</h2>
-      <p className="mt-1 text-sm text-zinc-400">
-        <ComSiglas>{`PV = PMPV + PR do mesmo trimestre (${faixa}). Gravar repete o valor nos 3 meses, como o Excel Final lê. Nada é gravado até você confirmar.`}</ComSiglas>
-      </p>
+      <h2 id="pv-ciclo-titulo" className="text-base font-semibold text-white"
+        title={`PV = PMPV + PR do mesmo trimestre (${faixa}). Gravar repete o valor nos 3 meses, como o Excel Final lê.`}>PV — Preço de Venda de {faixaDosMeses(mesesPR)}</h2>
 
       {erro && <Alert variant="error" className="mt-4 whitespace-pre-line">{erro}</Alert>}
 
@@ -95,7 +92,7 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
 
       {pv && (
         <div className={`mt-5 transition-opacity ${carregando ? "opacity-50" : ""}`}>
-          {avisos.length > 0 && <Alert variant="warning" className="mb-4" itens={avisos} />}
+          {avisos.length > 0 && !semPMPV && <Alert variant="warning" className="mb-4" itens={avisos} />}
           {semPMPV && (
             <Alert variant="warning" className="mb-4">
               O PMPV de {faixa} está zerado. Grave o PMPV desse trimestre na tela PMPV antes de gravar o PV.

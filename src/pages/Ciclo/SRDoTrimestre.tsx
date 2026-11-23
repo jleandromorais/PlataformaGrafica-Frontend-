@@ -96,7 +96,7 @@ export function SRDoTrimestre({ meses, selic, onGravado }: {
     <section aria-labelledby="sr-ciclo-titulo" className={`${PANEL} p-5 sm:p-6`}>
       <h2 id="sr-ciclo-titulo" className="text-base font-semibold text-white">SR — Saldo Remanescente de {meses[0]} a {meses[meses.length - 1]}</h2>
       <p className="mt-1 text-sm text-zinc-400">
-        Calcula o SR com o VP do PMPV, o VF do CGF, o PR do módulo PR e a SELIC do Banco Central. Nada é gravado até você confirmar.
+        VP do PMPV, VF do CGF, PR e SELIC do Banco Central.
       </p>
 
       {selicAberta && (
@@ -167,7 +167,8 @@ export function SRDoTrimestre({ meses, selic, onGravado }: {
             </table>
           </div>
 
-          {!proposta.selic.disponivel && proposta.selic.mensagem && (
+          {/* Um alerta só por vez: o que impede de gravar, depois a divergência, depois o aviso da SELIC. */}
+          {!proposta.bloqueios.length && !divergentes.length && !proposta.selic.disponivel && proposta.selic.mensagem && (
             <Alert variant="warning" className="mt-4 whitespace-pre-line">{proposta.selic.mensagem}</Alert>
           )}
           {proposta.selic.disponivel && (
@@ -179,14 +180,12 @@ export function SRDoTrimestre({ meses, selic, onGravado }: {
           )}
 
           {/* Antes de gravar: divergência é dita com todas as letras, e quem decide é o analista. */}
-          {divergentes.length > 0 ? (
+          {!proposta.bloqueios.length && divergentes.length > 0 ? (
             <Alert variant="warning" className="mt-4" titulo={tituloDaDivergencia(divergentes.length)}
               itens={motivosPorMes.map((l) => <><b>{l.mes}</b>: {motivosDoMes(l).join("; ")}.</>)}>
               <p>Se você gravar agora, será gravado <b>com a divergência</b>. Cabe ao analista analisar os dados antes de gravar.</p>
             </Alert>
-          ) : (
-            <p className="mt-4 text-sm text-emerald-300">Nenhuma divergência. Mesmo assim, cabe ao analista conferir antes de gravar.</p>
-          )}
+          ) : null}
 
           <div className="mt-4">
             <Button variant="solid" ref={botaoGravar} onClick={() => setConfirmar(true)}

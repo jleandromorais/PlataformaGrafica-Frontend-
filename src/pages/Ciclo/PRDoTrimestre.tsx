@@ -8,7 +8,6 @@ import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Save } from "lucide-react";
 import { Alert } from "../../components/ui/Alert";
-import { ComSiglas } from "../../components/ui/Sigla";
 import { Button } from "../../components/ui/Button";
 import { ConfirmarGravacao } from "../../components/ui/ConfirmarGravacao";
 import { EsqueletoBlocos } from "../../components/ui/EsqueletoBlocos";
@@ -81,10 +80,8 @@ export function PRDoTrimestre({ apuracao, prSalvo, meses, mesesPR, carregando, o
 
   return (
     <section aria-labelledby="pr-ciclo-titulo" className={`${PANEL} p-5 sm:p-6`}>
-      <h2 id="pr-ciclo-titulo" className="text-base font-semibold text-white">PR — Parcela de Recuperação de {faixaDosMeses(mesesPR)}</h2>
-      <p className="mt-1 text-sm text-zinc-400">
-        <ComSiglas>{`Usa o SCG e o SR gravados de ${faixaDosMeses(meses)} e o VP de ${faixa}, em 4 casas. Nada é gravado até você confirmar.`}</ComSiglas>
-      </p>
+      <h2 id="pr-ciclo-titulo" className="text-base font-semibold text-white"
+        title={`Usa o SCG e o SR gravados de ${faixaDosMeses(meses)} e o VP de ${faixa}, em 4 casas.`}>PR — Parcela de Recuperação de {faixaDosMeses(mesesPR)}</h2>
 
       {erro && <Alert variant="error" className="mt-4 whitespace-pre-line">{erro}</Alert>}
       {previa}

@@ -5,11 +5,20 @@
 import { useCallback, useId } from "react";
 
 const REALCE_MS = 2000;
+/** O Painel do Ciclo escuta este evento e mostra o painel do passo (`detail` = chave do passo). */
+export const EVENTO_ABRIR_PAINEL = "ciclo:abrir-painel";
 
 /** Vai até o elemento de id `id`. Devolve false se ele não existe (ainda não foi desenhado). */
 export function irParaSecao(id: string): boolean {
   const el = document.getElementById(id);
   if (!el) return false;
+  // Seção dentro de um painel escondido (Painel do Ciclo): pede para mostrar o painel e tenta de novo.
+  const painel = el.closest<HTMLElement>("[data-painel]");
+  if (painel?.hidden) {
+    window.dispatchEvent(new CustomEvent(EVENTO_ABRIR_PAINEL, { detail: painel.dataset.painel }));
+    window.setTimeout(() => irParaSecao(id), 80);
+    return true;
+  }
   if (el instanceof HTMLDetailsElement) el.open = true; // o analista pode ter fechado a lista
   const reduzir = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     || document.documentElement.dataset.reduceMotion === "true";
