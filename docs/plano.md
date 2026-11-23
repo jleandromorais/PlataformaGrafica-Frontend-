@@ -1,3 +1,5 @@
+**23/11 — Painel do Ciclo em duas colunas (fatias 2 a 7 do plano `zippy-hugging-river`).** Trilha à esquerda com "Ao fechar" no rodapé, passo aberto à direita (abre no próximo), SR/PR/PV com cartão próprio, "Processar a pasta" montado e escondido. Visto no Chrome headless isolado com back falso (1440px e 800px): troca de passo, `?abrir=pr`, `?aprovar=1`, faixa estreita. Corrigido na revisão: título duplicado em SR/PR/PV (o resumo só aparece se o passo está bloqueado) e, no estreito, o "Ao fechar" ficava entre a faixa e o passo (agora vai para o fim) e o chip do passo aberto fica à vista. `atalhoSCG.ts` removido (sem uso). Falta: ver contra o back real e o Processar com pasta de verdade; limpeza do texto da tarifa média (aguarda decisão da MB 0,5410).
+
 **22/11 — Fluxo único completo (fases 1 a 5 e pontos em aberto). Back: `73ae079` já no ar. Front: `dca533f` commitado, falta o push; o `<Sigla>` (siglas.ts, Sigla.tsx, Layout, PageHeader, PRDoTrimestre, ProximoPassoBloco, Ciclo/index, ComoFunciona, glossario) ainda sem commit.**
 
 ## PLANO DE 23/11 (segunda)

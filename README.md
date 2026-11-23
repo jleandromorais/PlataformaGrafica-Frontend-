@@ -16,6 +16,8 @@ Substitui a digitação manual e a cópia de planilhas na rotina mensal da Conta
 
 A tela inicial é o **Painel do Ciclo** (`/ciclo`). Ele mostra o trimestre, o estado de cada passo (feito, atenção, falta) com o motivo, e o botão **"Fazer agora"** abre a tela já no período certo. A lista dos passos está em `src/utils/etapasDoCiclo.ts`.
 
+**Layout do Painel (duas colunas):** no alto, o trimestre (civil apurado e o do ciclo de PR/PV) e o contador de passos prontos; logo abaixo, a faixa do **Próximo passo** e, quando há algo a aprovar, a faixa de aprovação. Abaixo, a **trilha** à esquerda (um passo por linha: número, estado, sigla; cadeado = bloqueado, com o motivo ao passar o mouse; o próximo leva a etiqueta "Próximo") e, no fim dela, o bloco **Ao fechar** (tarifa média só leitura e entregas: minuta da NT, relatório, Excel Final). À direita fica o **passo aberto**: por padrão o próximo; passos 2 a 5 mostram "Processar a pasta" e "Comparar com a planilha"; SR, PR e PV mostram o cartão próprio de cada um. Os blocos de trabalho ficam montados e só escondidos ao trocar de passo, então pasta, prévia e planilha não se perdem. Links `?abrir=sr|pr|pv` abrem o passo e `?aprovar=1` rola até a aprovação. Abaixo de 1024px a trilha vira uma faixa horizontal rolável logo acima do passo aberto, e o "Ao fechar" desce para o fim. Código: `src/pages/Ciclo/index.tsx`, `passoSelecionado.ts` (qual passo abre) e `components/ui/useIrParaSecao.ts` (evento `ciclo:abrir-painel`).
+
 | Fase | Passo | O que é |
 |---|---|---|
 | Preparar | 1. PMPV | Preço médio ponderado por volume dos meses apurados |
