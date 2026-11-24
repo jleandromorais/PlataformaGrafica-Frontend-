@@ -18,7 +18,7 @@ describe("descreverTarifaMedia", () => {
   it("um ano: diz de onde vem cada parte, com a tarifa que o back mandou", () => {
     const d = descreverTarifaMedia(base);
     expect(d.cruzaAno).toBe(false);
-    expect(d.linhas).toEqual([{ ano: 2026, origem: "PV gravado de Fev–Abr (2,0944) + MB de 2026, salva", mb: "0,5410", tarifa: "2,6354" }]);
+    expect(d.linhas).toEqual([{ ano: 2026, origem: "PV gravado de Fev–Abr (2,0944) + MB 0,5410", mb: "0,5410", tarifa: "2,6354" }]);
     expect(d.motivo).toBeNull();
   });
 
@@ -31,14 +31,15 @@ describe("descreverTarifaMedia", () => {
     });
     expect(d.cruzaAno).toBe(true);
     expect(d.linhas.map((l) => l.ano)).toEqual([2025, 2026]);
-    expect(d.linhas[0].origem).toBe("PV gravado de Nov–Jan (2,0944) + MB de 2025, salva");
-    expect(d.linhas[1].origem).toContain("MB de 2026, padrão do sistema, ainda não salva");
+    expect(d.linhas[0].origem).toBe("PV gravado de Nov–Jan (2,0944) + MB 0,5200");
+    expect(d.linhas[1].origem).toBe("PV gravado de Nov–Jan (2,0944) + MB 0,5410");
+    expect(d.linhas.map((l) => l.origem).join(" ")).not.toMatch(/sugerida|não confirmada|ainda não salva/);
     expect(d.aviso).toBe("O trimestre cruza o ano e as MBs são diferentes: o analista precisa confirmar.");
   });
 
   it("sem PV: diz que não está gravado, sem tarifa, e mostra o motivo do back com ponto final", () => {
     const d = descreverTarifaMedia({ ...base, pv_gravado: null, tarifas: [{ ano: 2026, mb: 0.541, tarifa_media: null }], motivo: "grave o PV primeiro" });
-    expect(d.linhas[0]).toEqual({ ano: 2026, origem: "PV de Fev–Abr ainda não gravado + MB de 2026, salva", mb: "0,5410", tarifa: null });
+    expect(d.linhas[0]).toEqual({ ano: 2026, origem: "PV de Fev–Abr ainda não gravado + MB 0,5410", mb: "0,5410", tarifa: null });
     expect(d.motivo).toBe("Grave o PV primeiro.");
   });
 

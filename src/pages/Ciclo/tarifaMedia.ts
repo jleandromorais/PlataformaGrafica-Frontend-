@@ -6,15 +6,9 @@ import type { TarifaMedia } from "../../types";
 /** "Nov - Jan/2025" vira "Nov–Jan" (o ano sai: a linha de cada ano diz o dele). */
 export const faixaDaChave = (chave: string): string => chave.split("/")[0].replace(/\s*-\s*/, "–");
 
-const ORIGEM_DA_MB: Record<TarifaMedia["margens"][number]["origem"], string> = {
-  salva: "salva",
-  padrao: "padrão do sistema, ainda não salva",
-  ausente: "sem valor",
-};
-
 export interface LinhaDaTarifa {
   ano: number;
-  /** "PV gravado de Nov–Jan (2,0944) + MB de 2025, salva" */
+  /** "PV gravado de Nov–Jan (2,0944) + MB 0,5410" (ou "+ MB de 2027: sem valor" quando falta) */
   origem: string;
   /** A MB em número ("0,5410"), ou null quando não existe. */
   mb: string | null;
@@ -44,8 +38,8 @@ export function descreverTarifaMedia(t: TarifaMedia): TarifaMediaDescrita {
   const pv = t.pv_gravado === null ? `PV de ${faixa} ainda não gravado` : `PV gravado de ${faixa} (${num(t.pv_gravado, 4)})`;
   const anos = t.tarifas.length ? t.tarifas : t.margens.map((m) => ({ ano: m.ano, mb: m.mb, tarifa_media: null }));
   const linhas = anos.map((a): LinhaDaTarifa => {
-    const origemMb = t.margens.find((m) => m.ano === a.ano)?.origem ?? "ausente";
-    const mb = a.mb === null ? `MB de ${a.ano}: ${ORIGEM_DA_MB.ausente}` : `MB de ${a.ano}, ${ORIGEM_DA_MB[origemMb]}`;
+    // MB salva ou padrão do sistema: o analista só precisa do número. Quem não tem MB diz isso.
+    const mb = a.mb === null ? `MB de ${a.ano}: sem valor` : `MB ${num(a.mb, 4)}`;
     return {
       ano: a.ano,
       origem: `${pv} + ${mb}`,
