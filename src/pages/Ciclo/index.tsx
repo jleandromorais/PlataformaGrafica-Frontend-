@@ -564,7 +564,6 @@ export default function CicloPage() {
     );
   };
 
-  const completo = !carregando && !!dados && contaveis.length > 0 && prontas === contaveis.length;
   const aoFechar = (
     <AoFechar carregando={carregando} erro={erroEntrega} planilha={planilhaRel?.name ?? null}
       onEscolherPlanilha={() => irParaSecao(ID_COMPARAR)}
@@ -640,9 +639,6 @@ export default function CicloPage() {
           )}
         </nav>
 
-        {/* Trimestre completo: as entregas vêm antes do último passo, que já está gravado. */}
-        {completo && aoFechar}
-
         {/* O passo aberto. Os blocos de trabalho ficam montados, só escondidos, para não perder pasta, prévia nem planilha ao trocar de passo. */}
         <div className="flex min-w-0 flex-col gap-5">
             {!carregando && doAtivo && (!["sr", "pr", "pv"].includes(doAtivo.chave) || bloqueios[doAtivo.chave]) && resumo(doAtivo)}
@@ -717,7 +713,8 @@ export default function CicloPage() {
             </div>
         </div>
 
-        {!completo && aoFechar}
+        {/* Ao fechar: sempre embaixo das opções (trilha e painel do passo). */}
+        {aoFechar}
       </div>
     </div>
   );
