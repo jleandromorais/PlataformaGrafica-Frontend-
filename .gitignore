@@ -30,3 +30,8 @@ _bmad/
 _bmad-output/
 # heroui-agents-md
 .heroui-docs/
+
+# graphify: só GRAPH_REPORT.md, graph.json e manifest.json ficam versionados
+graphify-out/cache/
+graphify-out/.graphify_*
+graphify-out/graph.html
