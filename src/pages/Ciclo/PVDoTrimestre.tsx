@@ -4,6 +4,7 @@
  * aqui só se mostra, se compara com o PV gravado e se grava pelo mesmo caminho da tela de antes
  * (`POST /pv/trimestre/salvar`, que repete o valor nos 3 meses como o Excel Final lê), com a janela
  * "Gravar o PV?" quando troca um valor gravado ou há aviso. O PV é o fim da linha: não deixa nada à frente por aprovar. */
+import { num } from "../../utils/format";
 import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Save } from "lucide-react";
@@ -22,7 +23,7 @@ import { faixaDosMeses } from "../../utils/rotulos";
 import type { PVTrimestre } from "../../types";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
-const tarifa = (v: number) => v.toFixed(4);
+const tarifa = (v: number) => num(v, 4);
 
 export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
   /** O que o Painel já leu ao carregar (`GET /pv/trimestre`); null se não conseguiu. */
@@ -107,8 +108,8 @@ export function PVDoTrimestre({ pv, meses, mesesPR, carregando, onGravado }: {
           <p className={`mt-3 text-xs ${substitui ? "text-amber-300" : "text-zinc-500"}`}>PV {gravadoTxt}.</p>
 
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Button variant="solid" ref={botaoGravar} icon={<Save size={15} aria-hidden />} loading={gravando} disabled={!podeGravar} onClick={pedirGravacao}>
-              {gravando ? "Gravando…" : `Gravar o ${rotulo}`}
+            <Button variant={gravado !== null && !substitui ? "ghost" : "solid"} ref={botaoGravar} icon={<Save size={15} aria-hidden />} loading={gravando} disabled={!podeGravar} onClick={pedirGravacao}>
+              {gravando ? "Gravando…" : gravado !== null && !substitui ? `Regravar o ${rotulo}` : `Gravar o ${rotulo}`}
             </Button>
             <Link to={linkDoCiclo("/pv", meses[0], { chave: "trimestre", valor: mesesPR[0] })} className={classesDoBotao("ghost", "md")}>
               Ver a prova real e o histórico do PV

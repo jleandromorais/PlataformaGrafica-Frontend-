@@ -65,6 +65,11 @@ const MEMORIA_PASTA = "ciclo:pasta";
 const memoriaProcessar = (raiz: string, inicio: string) => `ciclo:processar:${raiz}:${inicio}`;
 /** Nomes dos arquivos (o mapa só usa os nomes) e, no Chrome/Edge, a chave para reler a pasta. */
 interface PastaGuardada { raiz: string; caminhos: string[]; chave?: ChavePasta }
+/** Uma ideia curta por passo, para quem não conhece as siglas. */
+const SUBTITULO: Partial<Record<ChavePasso, string>> = {
+  pmpv: "Preço médio", auditoria: "Notas de compra", cgf: "Gás faturado", ret: "Transporte", rp: "Penalidades",
+  scg: "Saldo do mês", sr: "Saldo remanescente", pr: "Recuperação", pv: "Preço de venda",
+};
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const TRIMESTRES = ["Jan a Mar", "Abr a Jun", "Jul a Set", "Out a Dez"];
 
@@ -559,6 +564,16 @@ export default function CicloPage() {
     );
   };
 
+  const completo = !carregando && !!dados && contaveis.length > 0 && prontas === contaveis.length;
+  const aoFechar = (
+    <AoFechar carregando={carregando} erro={erroEntrega} planilha={planilhaRel?.name ?? null}
+      onEscolherPlanilha={() => irParaSecao(ID_COMPARAR)}
+      onGerarNT={gerarNT} gerandoNT={gerandoNT} onGerarRelatorio={gerarRelatorio} gerandoRelatorio={gerandoRel}
+      tarifa={{ detalhe: tarifa?.detalhe, link: tarifa?.link ?? "#",
+        bloqueio: bloqueioTarifa ? { motivo: bloqueioTarifa.motivo, link: linkDoDestino(bloqueioTarifa.destino), rotulo: ROTULO_DESTINO[bloqueioTarifa.destino],
+          rolarPara: bloqueioTarifa.destino === "pv" ? ID_PV : undefined } : undefined }} />
+  );
+
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1280px] flex-col gap-5">
@@ -593,50 +608,43 @@ export default function CicloPage() {
           <AguardandoAprovacao key={meses[0]} meses={meses} versao={versao} aoMudar={setAguardandoAprovacao} aoAplicar={() => setVersao((v) => v + 1)} />
         </div>
 
-        <div className="grid items-start gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
-          {/* Esquerda: a trilha (um passo por linha) e, no fim, a tarifa média e as entregas. */}
-          <div className="contents min-w-0 lg:flex lg:flex-col lg:gap-5">
-            <nav ref={trilhaRef} aria-label="Passos do trimestre" className={`${PANEL} overflow-hidden max-lg:order-1`}>
-              {carregando ? (
-                <EsqueletoEtapas />
-              ) : (
-                <ol className="flex overflow-x-auto lg:flex-col lg:overflow-visible">
-                  {passos.map((e) => {
-                    const ehProximo = e.chave === proximo;
-                    const aberto = e.chave === ativo;
-                    const bloqueio = bloqueios[e.chave];
-                    return (
-                      <li key={e.chave} id={idDoPasso(e.chave)} className="shrink-0 scroll-mt-4 lg:shrink">
-                        <button type="button" onClick={() => setEscolhido(e.chave)} aria-current={aberto ? "step" : undefined}
-                          title={bloqueio ? `Bloqueado: ${bloqueio.motivo}` : e.titulo}
-                          className={`flex min-h-11 w-full items-center gap-2.5 border-b-2 px-4 py-2.5 text-left text-sm transition-colors lg:border-b-0 lg:border-l-4 ${
-                            aberto ? "border-sky-400 bg-sky-500/[0.08] text-white" : "border-transparent text-zinc-300 hover:bg-white/[0.04]"}`}>
-                          <span className="w-4 text-right text-xs tabular-nums text-zinc-500">{numeroDaEtapa(e.chave)}</span>
-                          {ICONE[e.situacao]}
-                          <span className="min-w-0 flex-1 truncate font-medium">{etapaDaChave(e.chave).sigla ?? e.titulo.split(" — ")[0]}</span>
-                          {bloqueio && <Lock size={13} className="shrink-0 text-amber-300" aria-label="Bloqueado" />}
-                          {ehProximo && <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-xs font-semibold text-sky-200">Próximo<span className="sr-only"> (próximo passo)</span></span>}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ol>
-              )}
-            </nav>
+        {/* Trilha: os 9 passos numa faixa, com nome e estado. Clicar abre o passo logo abaixo. */}
+        <nav ref={trilhaRef} aria-label="Passos do trimestre" className={`${PANEL} overflow-hidden`}>
+          {carregando ? (
+            <EsqueletoEtapas />
+          ) : (
+            <ol className="flex divide-x divide-white/[0.05] overflow-x-auto lg:grid lg:grid-cols-9 lg:overflow-visible">
+              {passos.map((e) => {
+                const ehProximo = e.chave === proximo;
+                const aberto = e.chave === ativo;
+                const bloqueio = bloqueios[e.chave];
+                return (
+                  <li key={e.chave} id={idDoPasso(e.chave)} className="min-w-[8.5rem] shrink-0 scroll-mt-4 lg:min-w-0 lg:shrink">
+                    <button type="button" onClick={() => setEscolhido(e.chave)} aria-current={aberto ? "step" : undefined}
+                      title={bloqueio ? `Bloqueado: ${bloqueio.motivo}` : e.titulo}
+                      className={`flex h-full min-h-20 w-full flex-col items-start gap-1 border-t-4 px-3 py-3 text-left transition-colors ${
+                        aberto ? "border-sky-400 bg-sky-500/[0.08] text-white" : "border-transparent text-zinc-300 hover:bg-white/[0.04]"}`}>
+                      <span className="flex w-full items-center gap-2 text-xs tabular-nums text-zinc-500">
+                        {numeroDaEtapa(e.chave)}
+                        {ICONE[e.situacao]}
+                        {bloqueio && <Lock size={13} className="shrink-0 text-amber-300" aria-label="Bloqueado" />}
+                        {ehProximo && <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-xs font-semibold text-sky-200">Próximo<span className="sr-only"> (próximo passo)</span></span>}
+                      </span>
+                      <span className="text-sm font-semibold">{etapaDaChave(e.chave).sigla ?? e.titulo.split(" — ")[0]}</span>
+                      <span className="text-xs text-zinc-400">{SUBTITULO[e.chave]}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </nav>
 
-            <div className="max-lg:order-3">
-            <AoFechar carregando={carregando} erro={erroEntrega} planilha={planilhaRel?.name ?? null}
-              onEscolherPlanilha={() => irParaSecao(ID_COMPARAR)}
-              onGerarNT={gerarNT} gerandoNT={gerandoNT} onGerarRelatorio={gerarRelatorio} gerandoRelatorio={gerandoRel}
-              tarifa={{ detalhe: tarifa?.detalhe, link: tarifa?.link ?? "#",
-                bloqueio: bloqueioTarifa ? { motivo: bloqueioTarifa.motivo, link: linkDoDestino(bloqueioTarifa.destino), rotulo: ROTULO_DESTINO[bloqueioTarifa.destino],
-                  rolarPara: bloqueioTarifa.destino === "pv" ? ID_PV : undefined } : undefined }} />
-            </div>
-          </div>
+        {/* Trimestre completo: as entregas vêm antes do último passo, que já está gravado. */}
+        {completo && aoFechar}
 
-          {/* Direita (no estreito, logo abaixo da faixa de passos): o passo aberto. Os blocos de trabalho ficam montados, só escondidos, para não perder pasta, prévia nem planilha ao trocar de passo. */}
-          <div className="flex min-w-0 flex-col gap-5 max-lg:order-2">
-            {/* SR, PR e PV têm cartão próprio (título, aviso e ação): o resumo só aparece quando o passo está bloqueado. */}
+        {/* O passo aberto. Os blocos de trabalho ficam montados, só escondidos, para não perder pasta, prévia nem planilha ao trocar de passo. */}
+        <div className="flex min-w-0 flex-col gap-5">
             {!carregando && doAtivo && (!["sr", "pr", "pv"].includes(doAtivo.chave) || bloqueios[doAtivo.chave]) && resumo(doAtivo)}
 
             <div hidden={!trabalhoPasta} data-painel="auditoria" className="flex flex-col gap-3">
@@ -707,8 +715,9 @@ export default function CicloPage() {
               <PVDoTrimestre key={`pv-${meses[0]}`} pv={dados?.pv ?? null} meses={meses} mesesPR={mesesPR}
                 carregando={carregando} onGravado={() => setVersao((v) => v + 1)} />
             </div>
-          </div>
         </div>
+
+        {!completo && aoFechar}
       </div>
     </div>
   );
@@ -717,24 +726,16 @@ export default function CicloPage() {
 // ── Esqueletos (enquanto carrega) ─────────────────────────────────────────────
 // Imitam a forma do que vai aparecer, para a tela não "pular" quando os dados chegam.
 
-/** Lugar das etapas: número, ícone, título, descrição e os valores de cada mês. */
+/** Lugar da trilha: nove caixas na faixa, para a tela não "pular" quando os dados chegam. */
 function EsqueletoEtapas() {
   return (
-    <div role="status" className="divide-y divide-white/[0.05]">
+    <div role="status" className="grid grid-cols-3 divide-x divide-white/[0.05] lg:grid-cols-9">
       <span className="sr-only">Consultando os passos do trimestre…</span>
-      {[0, 1, 2, 3, 4].map((i) => (
-        <div key={i} className="flex items-start gap-4 px-5 py-4">
-          <Skeleton className="mt-0.5 ml-8 h-[18px] w-[18px] rounded-full" />
-          <div className="flex-1 space-y-2">
-            <Skeleton className="h-4 w-2/5" />
-            <Skeleton className="h-3 w-3/5" />
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Skeleton className="h-7 w-44" />
-              <Skeleton className="h-7 w-44" />
-              <Skeleton className="h-7 w-44" />
-            </div>
-          </div>
-          <Skeleton className="h-7 w-12" />
+      {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+        <div key={i} className="space-y-2 px-3 py-4">
+          <Skeleton className="h-4 w-10" />
+          <Skeleton className="h-4 w-3/4" />
+          <Skeleton className="h-3 w-full" />
         </div>
       ))}
     </div>
