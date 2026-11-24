@@ -615,7 +615,7 @@ Tudo depois do `return (` é **JSX**. As chaves `{ }` encaixam valores no meio d
     <button onClick={continuarPasta}>Continuar</button>             {/* segue para o seletor */}
     <button onClick={() => setAvisoPasta(false)}>Cancelar</button>
   </>}>
-  <p>... O sistema olha só os nomes dos arquivos ... Nada é enviado nem gravado agora.</p>
+  <p>... O sistema olha só os nomes dos arquivos ... Ao arrastar, só os nomes são lidos, aqui no navegador; os arquivos só seguem para o servidor quando você clica em Processar (ou em Comparar com a planilha), e nada é gravado sem a sua confirmação.</p>
   <p>... o Chrome mostra um aviso de segurança dele ... É normal: clique em Ver arquivos ...</p>
 </Modal>
 ```

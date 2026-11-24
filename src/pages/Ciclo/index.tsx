@@ -37,7 +37,7 @@ import { DetalheDoPMPV } from "./DetalheDoPMPV";
 import { AoFechar } from "./AoFechar";
 import { trimestresDoCicloTocados } from "./trimestresDoCicloTocados";
 import {
-  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, blocoDoProximoPasso, idDoPasso, type AcaoDoBloco, type BlocoProximoPasso,
+  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, ROTULO_DESTINO, blocoDoProximoPasso, idDoPasso, textoDoAndamento, type AcaoDoBloco, type BlocoProximoPasso,
 } from "./blocoProximoPasso";
 import { AguardandoAprovacao } from "./AguardandoAprovacao";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
@@ -246,12 +246,6 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
     },
   ];
 }
-
-/** Texto do botão que leva à tela que resolve o bloqueio. */
-const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
-  pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV do trimestre novo", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
-  rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Ir ao SR", pr: "Ir ao PR", pv: "Ir ao PV", tarifa: "Abrir o PMPV",
-};
 
 // ── Página ────────────────────────────────────────────────────────────────────
 
@@ -528,7 +522,7 @@ export default function CicloPage() {
   const trilhaRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!window.matchMedia("(max-width: 1023px)").matches) return;
-    trilhaRef.current?.querySelector<HTMLElement>("[aria-pressed=true]")?.scrollIntoView({ inline: "center", block: "nearest" });
+    trilhaRef.current?.querySelector<HTMLElement>("[aria-current=step]")?.scrollIntoView({ inline: "center", block: "nearest" });
   }, [ativo, carregando]);
   const trabalhoPasta = !!ativo && PASSOS_DA_PASTA.includes(ativo);
 
@@ -549,7 +543,7 @@ export default function CicloPage() {
                 {bloqueio.destino === "pmpv_novo" ? `Abrir o PMPV de ${mesesPR[0].split("/")[0]} a ${mesesPR[2].split("/")[0]}` : ROTULO_DESTINO[bloqueio.destino]}
               </Link>
             ) : vaiParaTela ? (
-              <Link to={e.link} className={classesDoBotao(e.situacao === "ok" ? "ghost" : "primary", "md")}>{e.situacao === "ok" ? "Ver" : "Fazer agora"}</Link>
+              <Link to={e.link} className={classesDoBotao(e.situacao === "ok" ? "ghost" : "primary", "md")}>{e.situacao === "ok" ? "Ver" : PASSOS_DA_PASTA.includes(e.chave) && e.chave !== "auditoria" ? `Abrir a tela avulsa do ${etapaDaChave(e.chave).sigla}` : "Fazer agora"}</Link>
             ) : null}
           </span>
         </div>
@@ -574,22 +568,22 @@ export default function CicloPage() {
         <section className={`${PANEL} flex flex-wrap items-center gap-x-4 gap-y-3 p-4 sm:px-6`}>
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Ano anterior" onClick={() => irPara(ano - 1, tri)}
-              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronLeft size={16} /></button>
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronLeft size={16} /></button>
             <span className="w-14 text-center text-lg font-semibold tabular-nums text-white">{ano}</span>
             <button type="button" aria-label="Próximo ano" onClick={() => irPara(ano + 1, tri)}
-              className="rounded-lg p-2.5 text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronRight size={16} /></button>
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.05] hover:text-white"><ChevronRight size={16} /></button>
           </div>
           <div role="radiogroup" aria-label="Trimestre civil apurado" className="flex flex-wrap gap-1 rounded-lg bg-white/[0.03] p-1">
             {TRIMESTRES.map((t, i) => (
               <button key={t} type="button" role="radio" aria-checked={tri === i} onClick={() => irPara(ano, i)}
-                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`min-h-11 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   tri === i ? "bg-sky-500/20 text-sky-200" : "text-zinc-400 hover:text-zinc-100"}`}>{t}</button>
             ))}
           </div>
           <p className="text-sm text-zinc-400 lg:ml-auto">
             Apura <b className="text-zinc-200">{rotuloDoPeriodo(meses, "civil")}</b> → PR e PV de{" "}
             <b className="text-zinc-200">{rotuloDoPeriodo(mesesPR, "ciclo")}</b>
-            {dados && !carregando && <span className="ml-2 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-200">{prontas}/{contaveis.length}</span>}
+            {dados && !carregando && <span className="ml-2 rounded-md bg-white/[0.06] px-2 py-0.5 text-xs font-semibold tabular-nums text-zinc-200">{textoDoAndamento(prontas, contaveis.length)}</span>}
           </p>
         </section>
 
@@ -612,8 +606,8 @@ export default function CicloPage() {
                     const aberto = e.chave === ativo;
                     const bloqueio = bloqueios[e.chave];
                     return (
-                      <li key={e.chave} id={idDoPasso(e.chave)} aria-current={ehProximo ? "step" : undefined} className="shrink-0 scroll-mt-4 lg:shrink">
-                        <button type="button" onClick={() => setEscolhido(e.chave)} aria-pressed={aberto}
+                      <li key={e.chave} id={idDoPasso(e.chave)} className="shrink-0 scroll-mt-4 lg:shrink">
+                        <button type="button" onClick={() => setEscolhido(e.chave)} aria-current={aberto ? "step" : undefined}
                           title={bloqueio ? `Bloqueado: ${bloqueio.motivo}` : e.titulo}
                           className={`flex min-h-11 w-full items-center gap-2.5 border-b-2 px-4 py-2.5 text-left text-sm transition-colors lg:border-b-0 lg:border-l-4 ${
                             aberto ? "border-sky-400 bg-sky-500/[0.08] text-white" : "border-transparent text-zinc-300 hover:bg-white/[0.04]"}`}>
@@ -621,7 +615,7 @@ export default function CicloPage() {
                           {ICONE[e.situacao]}
                           <span className="min-w-0 flex-1 truncate font-medium">{etapaDaChave(e.chave).sigla ?? e.titulo.split(" — ")[0]}</span>
                           {bloqueio && <Lock size={13} className="shrink-0 text-amber-300" aria-label="Bloqueado" />}
-                          {ehProximo && <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-[11px] font-semibold text-sky-200">Próximo</span>}
+                          {ehProximo && <span className="rounded-md bg-sky-500/20 px-1.5 py-0.5 text-xs font-semibold text-sky-200">Próximo<span className="sr-only"> (próximo passo)</span></span>}
                         </button>
                       </li>
                     );
@@ -648,7 +642,8 @@ export default function CicloPage() {
             <div hidden={!trabalhoPasta} data-painel="auditoria" className="flex flex-col gap-3">
               <div id={ID_PASTA} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
                 <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Processar a pasta <span className="text-xs font-normal text-zinc-500">(passos 2 a 5)</span></h2>
-                <p className="mt-1 text-sm text-zinc-400">Arraste a pasta <b>{nomePasta}</b>. Só os nomes são lidos; nada é enviado.</p>
+                <p className="mt-1 text-sm text-zinc-400">Arraste a pasta <b>{nomePasta}</b>. Ao arrastar, só os nomes são lidos, aqui no navegador. Os arquivos só seguem para o servidor quando você clicar em Processar (ou em Comparar com a planilha), e nada é gravado sem a sua confirmação.</p>
+                <p className="mt-2 text-sm text-zinc-400">Feito junto, num Processar só: Auditoria CGR, CGF, RET e RP (passos 2 a 5). Você escolhe o que enviar e confere tudo antes de gravar.</p>
                 <div className="mt-4">
                   <AreaSoltarPasta texto={`Arraste aqui a pasta ${nomePasta} (ou outra do ano)`} onSoltar={soltar} desabilitado={ocupadoPasta}>
                     {/* Sem "Escolher a pasta" de propósito: o seletor de pasta do sistema faz o Chrome abrir

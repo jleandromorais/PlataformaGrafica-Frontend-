@@ -47,7 +47,7 @@ export function AoFechar({ tarifa, planilha, onEscolherPlanilha, onGerarNT, gera
                 <Link to={tarifa.bloqueio.link} className={classesDoBotao("ghost", "md")}>{tarifa.bloqueio.rotulo}</Link>
               )
             ) : (
-              <Link to={tarifa.link} className="inline-flex min-h-9 items-center rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Abrir o PMPV</Link>
+              <Link to={tarifa.link} className={classesDoBotao("ghost", "md")}>Abrir o PMPV</Link>
             )}
           </li>
         )}
@@ -65,7 +65,7 @@ export function AoFechar({ tarifa, planilha, onEscolherPlanilha, onGerarNT, gera
           </div>
           <Button variant="primary" size="sm" onClick={onGerarNT} disabled={gerandoNT}>{gerandoNT ? "Gerando…" : "Baixar minuta da NT"}</Button>
           <Button variant="primary" size="sm" onClick={onGerarRelatorio} disabled={gerandoRelatorio}>{gerandoRelatorio ? "Gerando…" : "Baixar relatório do trimestre"}</Button>
-          <Link to="/excel-final" className="rounded-lg px-3 py-1.5 text-sm font-medium text-zinc-400 hover:text-white">Excel Final</Link>
+          <Link to="/excel-final" className={classesDoBotao("ghost", "md")}>Excel Final</Link>
         </li>
       </ul>
       {erro && <div className="px-5 pb-4"><Alert variant="error">{erro}</Alert></div>}

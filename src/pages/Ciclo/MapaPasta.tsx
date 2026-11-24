@@ -30,7 +30,7 @@ export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrad
       )}
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[36rem] text-sm">
-          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
+          <thead className="bg-white/[0.03] text-xs text-zinc-400">
             <tr>
               <th className="px-4 py-2.5 text-left font-semibold">Etapa</th>
               {meses.map((m) => <th key={m} className="px-3 py-2.5 text-left font-semibold">{m}</th>)}

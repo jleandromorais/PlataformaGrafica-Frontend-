@@ -426,7 +426,7 @@ export function ProcessarTrimestre({
 
       <div className="mt-4 overflow-x-auto">
         <table className="w-full min-w-[40rem] text-sm">
-          <thead className="bg-white/[0.03] text-[0.7rem] text-zinc-400">
+          <thead className="bg-white/[0.03] text-xs text-zinc-400">
             <tr>
               <th className="px-3 py-2 text-left font-semibold">
                 <label className={`flex items-center gap-2 ${marcaveis.length ? "cursor-pointer" : ""}`} title={todasMarcadas ? "Desmarcar tudo" : "Selecionar tudo"}>

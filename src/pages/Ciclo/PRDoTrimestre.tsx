@@ -103,7 +103,7 @@ export function PRDoTrimestre({ apuracao, prSalvo, meses, mesesPR, carregando, o
           <div className="overflow-x-auto">
             <table className="w-full min-w-[34rem] text-sm tabular-nums">
               <caption className="sr-only">Saldo a recuperar de {faixaDosMeses(meses)}, mês a mês</caption>
-              <thead className="text-[0.7rem] text-zinc-400">
+              <thead className="text-xs text-zinc-400">
                 <tr className="border-b border-white/[0.07]">
                   <th scope="col" className="py-2 pr-3 text-left font-semibold">Mês</th>
                   <th scope="col" className="px-2 py-2 text-right font-semibold">SCG</th>

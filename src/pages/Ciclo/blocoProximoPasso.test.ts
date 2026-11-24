@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { calcularProximoPasso, type ChavePasso, type EntradaPasso, type SituacaoPasso } from "./proximoPasso";
 import {
-  ID_APROVACAO, ID_ENTREGAS, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, blocoDoProximoPasso, dataBR, idDoPasso, type EntradaBloco,
+  ID_APROVACAO, ID_ENTREGAS, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, ROTULO_DESTINO, blocoDoProximoPasso, dataBR, idDoPasso, textoDoAndamento, type EntradaBloco,
 } from "./blocoProximoPasso";
 
 const ORDEM: ChavePasso[] = ["pmpv", "auditoria", "cgf", "ret", "rp", "scg", "sr", "pr", "pv", "tarifa"];
@@ -117,12 +117,35 @@ describe("blocoDoProximoPasso, uma linha por situação da tabela da spec", () =
     expect(b.acao).toEqual({ tipo: "link", rotulo: "Abrir o PMPV do trimestre novo", alvo: "/destino/pmpv_novo" });
   });
 
-  it("bloqueio que não é o PMPV novo, mas tem botão: 'Falta um passo anterior', nunca 'Nada a fazer'", () => {
+  it("bloqueio que não é o PMPV novo, mas tem botão: o título nomeia o passo que falta, nunca 'Nada a fazer'", () => {
     const base = entrada({ sr: "falta" }, { selic: { fechada: false, fecha_em: "2026-09-30" } });
     const b = blocoDoProximoPasso({ ...base, proximo: null, bloqueios: { sr: { motivo: "falta o SCG de Ago", destino: "scg" } } });
     expect(b.caso).toBe("bloqueado");
-    expect(b.titulo).toBe("Falta um passo anterior");
-    expect(b.acao?.alvo).toBe("/destino/scg");
+    expect(b.titulo).toBe("Falta o SCG de Ago");
+    expect(b.texto).toBe("A SELIC de Jul a Set/2026 fecha em 30/09.");
+    expect(b.acao).toEqual({ tipo: "link", rotulo: "Abrir o SCG", alvo: "/destino/scg" });
+  });
+
+  it("bloqueio sem SELIC aberta: o texto não repete o motivo do título", () => {
+    const base = entrada({ sr: "falta" });
+    const b = blocoDoProximoPasso({ ...base, proximo: null, bloqueios: { sr: { motivo: "falta o SCG de Ago e Set", destino: "scg" } } });
+    expect(b.titulo).toBe("Falta o SCG de Ago e Set");
+    expect(b.texto).not.toContain("SCG");
+  });
+
+  it("rótulo do botão segue o destino (cgf, ret)", () => {
+    const base = entrada({ sr: "falta" });
+    for (const [destino, rotulo] of [["cgf", "Abrir o CGF"], ["ret", "Abrir o RET"]] as const) {
+      const b = blocoDoProximoPasso({ ...base, proximo: null, bloqueios: { sr: { motivo: `falta o ${destino.toUpperCase()} de Set`, destino } } });
+      expect(b.acao?.rotulo).toBe(rotulo);
+      expect(ROTULO_DESTINO[destino]).toBe(rotulo);
+    }
+  });
+
+  it("textoDoAndamento: 0, 5 e 9 passos prontos", () => {
+    expect(textoDoAndamento(0, 9)).toBe("0 de 9 passos prontos");
+    expect(textoDoAndamento(5, 9)).toBe("5 de 9 passos prontos");
+    expect(textoDoAndamento(9, 9)).toBe("9 de 9 passos prontos");
   });
 
   it("SELIC aberta: diz quando fecha (dd/mm) e ainda mostra o primeiro bloqueio", () => {

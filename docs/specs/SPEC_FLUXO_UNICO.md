@@ -168,6 +168,10 @@ Legenda: `[ok]` pronto, `[>]` próximo, `[ ]` falta, `[bl]` bloqueado (cadeado +
 | Nada a fazer porque tudo que resta está bloqueado | "Nada a fazer agora" | motivo do primeiro bloqueio; SELIC aberta: "A SELIC de Jul a Set fecha em {dd/mm}" (de `situacao.selic.fecha_em`) | link do bloqueio |
 | Tudo pronto | "Trimestre completo" | "Falta só baixar as entregas." | "Ir para as entregas" |
 
+Bloqueio em passo que não é o PMPV novo: título = motivo do bloqueio ("Falta o SCG de Ago e Set"), texto sem repetir o motivo (só a SELIC, se aberta), botão "Abrir o {SCG/CGF/...}" (mapa único `ROTULO_DESTINO` em `blocoProximoPasso.ts`).
+
+Texto do bloco "Processar a pasta" (24/11/2026; o de cima, "só os nomes dos arquivos", fala do momento de trazer a pasta): "Ao arrastar, só os nomes são lidos, aqui no navegador. Os arquivos só seguem para o servidor quando você clicar em Processar (ou em Comparar com a planilha), e nada é gravado sem a sua confirmação." Contador do topo: "5 de 9 passos prontos" (`textoDoAndamento`). Aviso "Feito junto, num Processar só: Auditoria CGR, CGF, RET e RP (passos 2 a 5)".
+
 "Depois:" lista até 3 chaves seguintes, só nomes. "Ver motivo" abre o texto do bloqueio já existente.
 
 ### Estados

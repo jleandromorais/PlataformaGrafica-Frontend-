@@ -127,7 +127,7 @@ export function SRDoTrimestre({ meses, selic, onGravado }: {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[46rem] text-sm tabular-nums">
               <caption className="sr-only">SR de {faixa}, mês a mês, com o que está gravado hoje quando é diferente</caption>
-              <thead className="text-[0.7rem] text-zinc-400">
+              <thead className="text-xs text-zinc-400">
                 <tr className="border-b border-white/[0.07]">
                   <th scope="col" className="py-2 pr-3 text-left font-semibold">Mês</th>
                   <th scope="col" className="px-2 py-2 text-right font-semibold">VP (m³)</th>
@@ -213,7 +213,7 @@ function LinhaDoMes({ l }: { l: SRPropostaLinha }) {
   const origemPR = rotuloDoPR(l.pr_chave);
   /** Valor gravado pequeno, em âmbar, só quando a coluna difere. */
   const gravado = (campo: string, texto: string | null) =>
-    dif.has(campo) && texto ? <span className="block text-[0.7rem] font-normal text-amber-300">gravado: {texto}</span> : null;
+    dif.has(campo) && texto ? <span className="block text-xs font-normal text-amber-300">gravado: {texto}</span> : null;
 
   return (
     <tr className="align-top">
@@ -225,7 +225,7 @@ function LinhaDoMes({ l }: { l: SRPropostaLinha }) {
         {tarifa(l.pr)}
         {g && gravado("pr", tarifa(g.pr))}
         {(origemPR || l.pr_origem !== "salvo") && (
-          <span className={`block text-[0.7rem] font-normal ${l.pr_origem === "salvo" ? "text-zinc-500" : "text-amber-300"}`}>
+          <span className={`block text-xs font-normal ${l.pr_origem === "salvo" ? "text-zinc-500" : "text-amber-300"}`}>
             {l.pr_origem === "ausente" ? "PR ausente" : `${origemPR}${l.pr_origem === "estimado" ? " (estimado)" : ""}`}
           </span>
         )}

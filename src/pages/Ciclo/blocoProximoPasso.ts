@@ -98,7 +98,16 @@ function etapaPorExtenso(c: ChavePasso): string {
   return e.sigla && e.sigla in GLOSSARIO ? tituloDe(e.sigla as keyof typeof GLOSSARIO) : e.nome;
 }
 
-const ROTULO_DO_BLOQUEIO: Partial<Record<DestinoBloqueio, string>> = { pmpv_novo: "Abrir o PMPV do trimestre novo" };
+/** Texto do botão que leva à tela que resolve o bloqueio (mapa único: o Painel e o bloco usam este). */
+export const ROTULO_DESTINO: Record<DestinoBloqueio, string> = {
+  pmpv: "Abrir o PMPV", pmpv_novo: "Abrir o PMPV do trimestre novo", auditoria: "Abrir a Auditoria", cgf: "Abrir o CGF", ret: "Abrir o RET",
+  rp: "Abrir o RP", scg: "Abrir o SCG", sr: "Ir ao SR", pr: "Ir ao PR", pv: "Ir ao PV", tarifa: "Abrir o PMPV",
+};
+
+/** "5 de 9 passos prontos" (o contador do topo do Painel). */
+export function textoDoAndamento(prontas: number, total: number): string {
+  return `${prontas} de ${total} ${total === 1 ? "passo pronto" : "passos prontos"}`;
+}
 
 export function blocoDoProximoPasso(e: EntradaBloco): BlocoProximoPasso {
   const base = { passo: null, etapa: null, depois: [] as string[], verMotivo: null };
@@ -137,16 +146,15 @@ export function blocoDoProximoPasso(e: EntradaBloco): BlocoProximoPasso {
       const data = dataBR(e.selic?.fecha_em);
       partes.push(`A SELIC de ${e.rotulos.apurado} ${data ? `fecha em ${data}` : "ainda não fechou"}.`);
     }
-    if (primeiroBloqueio) {
-      partes.push(selicAberta ? `Enquanto isso, ${primeiroBloqueio.motivo}.` : `${maiuscula(primeiroBloqueio.motivo)}.`);
-    }
+    // pmpv_novo mantém o texto próprio; nos demais o motivo já está no título e não se repete no texto.
+    if (primeiroBloqueio?.destino === "pmpv_novo") partes.push(selicAberta ? `Enquanto isso, ${primeiroBloqueio.motivo}.` : `${maiuscula(primeiroBloqueio.motivo)}.`);
     // O título não pode contradizer o botão: com uma ação possível, o título diz qual é.
     const acao = primeiroBloqueio
-      ? link("link", ROTULO_DO_BLOQUEIO[primeiroBloqueio.destino] ?? "Abrir", e.linkDe(primeiroBloqueio.destino))
+      ? link("link", ROTULO_DESTINO[primeiroBloqueio.destino] ?? "Abrir", e.linkDe(primeiroBloqueio.destino))
       : null;
     const titulo = !primeiroBloqueio ? "Nada a fazer agora"
       : primeiroBloqueio.destino === "pmpv_novo" ? `Calcule o PMPV de ${e.rotulos.ciclo}`
-      : "Falta um passo anterior";
+      : maiuscula(primeiroBloqueio.motivo);
     return { ...base, caso: "bloqueado", titulo,
       texto: partes.join(" ") || "O que falta depende de algo que ainda não está pronto.", acao };
   };
