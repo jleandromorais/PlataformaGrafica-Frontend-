@@ -1,3 +1,22 @@
+**24/11 — Painel com trilha horizontal e CGR de Out/26 com a Balanceamento de Portifólio (spec escrita, código ainda não).** Painel: a trilha virou uma faixa no topo com nome e ideia de cada passo, o painel do passo usa a largura toda e "Ao fechar" fica embaixo; PV com vírgula decimal e botão "Regravar" quando já gravado; critica de UX aplicada (frase de envio, "N de 9 passos prontos", título do bloqueio nomeia o passo, alvos de 44px, `aria-current`). CGR de Out/26: o sistema lê as 7 notas da Balanceamento mas soma com o sinal errado (113.577.331,48 contra 85.510.773,51 da planilha `copy`); spec em `plataforma-conta-grafica/docs/specs/SPEC_CGR_BALANCEAMENTO_PORTFOLIO.md`. Decisões do usuário: a Balanceamento sempre subtrai; a subpasta `Termos` é ignorada; vale a planilha `copy`; o estorno da TAG (ND 550499) entra negativo, −481.319,89, por lançamento manual em "Incluir esta nota". Abertas: MMBTU→m³ do Saturno, nota cancelada/devolvida da Balanceamento, tolerância de R$ 0,05, efeito no custo médio/SCG/RPV, grafia Portifólio × Portfólio. Falta confirmar se o front aceita valor negativo no "Incluir esta nota".
+
+## PLANO DE 24/11 (hoje, ≈ 3 h, só back, sempre teste vermelho → verde)
+- [ ] 1. (30 min) Testes vermelhos com fixtures mínimas: 2 XML da Balanceamento, 1 CT-e da TAG, 1 PDF em `Termos\`.
+- [ ] 2. (40 min) `sinal_cgr` e cadastro "só subtrai" em `supridores.py` (palavra "balanceamento"); aplicar em `cgr_liquido_item`, `calcular_totais`, `salvar`, `prova_real`, `itens_gravados_como_xml` e no comparador.
+- [ ] 3. (25 min) Ignorar `Termos` e a pasta "ESTORNO..." em `auditar_empresa`/`pasta_das_empresas`; bloquear item "N/A" no total.
+- [ ] 4. (20 min) Testar `incluir_nota` e `salvar(decisao="incluir")` com valor negativo (estorno da TAG); corrigir se falhar.
+- [ ] 5. (30 min) Teste de aceite com a pasta real: CGR Out/26 = 85.510.773,51 ± 0,05 contra a `copy.xlsx`; Fev–Set/2026 inalterados.
+- [ ] 6. (15 min) Atualizar este `plano.md` e preparar os comandos de commit do back.
+- Nada grava no banco em mês de ciclo durante os testes (banco temporário). Rodar `pytest` com `Plataforma\.venv\Scripts\python.exe` (a venv da pasta do back não tem fastapi); a suíte completa leva ~8 min e o disco C: está apertado.
+
+## PLANO DE 25/11 (amanhã, ≈ 4 h, front, conferência real e deploy)
+- [ ] 1. (60 min) Front: grupo "Abate o CGR (−)", subtotal negativo e texto de ajuda; "Incluir esta nota" aceita negativo; Vitest, tsc e eslint.
+- [ ] 2. (30 min) Prévia antes de gravar mostra "− Balanceamento" e o estorno, em português simples.
+- [ ] 3. (30 min) Conferir no navegador (tema escuro; vazio, erro, parcial) com a pasta real de Out/26, sem gravar.
+- [ ] 4. (30 min) Resolver o que as perguntas abertas liberarem (volume do Saturno, tolerância, grafia).
+- [ ] 5. (20 min) Atualizar `plano.md` e preparar os commits (back primeiro, front depois, mensagens separadas).
+- [ ] 6. (30 min) Deploy do back → auditoria de Out/26 em produção sem gravar → deploy do front → o analista confere a prévia e grava.
+
 **23/11 — Painel do Ciclo em duas colunas (fatias 2 a 7 do plano `zippy-hugging-river`).** Trilha à esquerda com "Ao fechar" no rodapé, passo aberto à direita (abre no próximo), SR/PR/PV com cartão próprio, "Processar a pasta" montado e escondido. Visto no Chrome headless isolado com back falso (1440px e 800px): troca de passo, `?abrir=pr`, `?aprovar=1`, faixa estreita. Corrigido na revisão: título duplicado em SR/PR/PV (o resumo só aparece se o passo está bloqueado) e, no estreito, o "Ao fechar" ficava entre a faixa e o passo (agora vai para o fim) e o chip do passo aberto fica à vista. `atalhoSCG.ts` removido (sem uso). Falta: ver contra o back real e o Processar com pasta de verdade; limpeza do texto da tarifa média (aguarda decisão da MB 0,5410).
 
 **22/11 — Fluxo único completo (fases 1 a 5 e pontos em aberto). Back: `73ae079` já no ar. Front: `dca533f` commitado, falta o push; o `<Sigla>` (siglas.ts, Sigla.tsx, Layout, PageHeader, PRDoTrimestre, ProximoPassoBloco, Ciclo/index, ComoFunciona, glossario) ainda sem commit.**
