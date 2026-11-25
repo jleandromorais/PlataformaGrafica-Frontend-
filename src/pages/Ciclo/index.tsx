@@ -37,7 +37,7 @@ import { DetalheDoPMPV } from "./DetalheDoPMPV";
 import { AoFechar } from "./AoFechar";
 import { trimestresDoCicloTocados } from "./trimestresDoCicloTocados";
 import {
-  ID_APROVACAO, ID_COMPARAR, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, ROTULO_DESTINO, blocoDoProximoPasso, idDoPasso, textoDoAndamento, type AcaoDoBloco, type BlocoProximoPasso,
+  ID_APROVACAO, ID_COMPARAR, ID_ENTREGAS, ID_PASTA, ID_PR, ID_PROCESSAR, ID_PV, ID_SR, ROTULO_DESTINO, blocoDoProximoPasso, idDoPasso, textoDoAndamento, type AcaoDoBloco, type BlocoProximoPasso,
 } from "./blocoProximoPasso";
 import { AguardandoAprovacao } from "./AguardandoAprovacao";
 import { linkDoCiclo, useManterPeriodoNaUrl, usePeriodoDaUrl } from "../../utils/periodoNaUrl";
@@ -374,9 +374,11 @@ export default function CicloPage() {
     setTri(novoTri);
   };
 
+  const avancarDepois = useRef(false);
+  const aoGravarPasso = () => { avancarDepois.current = true; setVersao((v) => v + 1); };
   const mesesScgDivergentes = dados ? meses.filter((m) => dados.scg.find((l) => l.periodo === m)?.diverge) : [];
   const listaLocal = dados ? etapas(dados, meses, mesesPR,
-    <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} planilha={planilhaRel} onGravado={() => setVersao((v) => v + 1)} />,
+    <AuditarMes key={meses[0]} meses={meses} auditoria={dados.auditoria} planilha={planilhaRel} onGravado={aoGravarPasso} />,
     mesesScgDivergentes.length ? <DivergenciaSCG meses={mesesScgDivergentes} cicloInicio={meses[0]} versao={versao} /> : null,
     <TarifaMediaDoCiclo semLink trimestre={`${mesesPR[0]}_${mesesPR[2]}`} versao={versao} link={linkDoPMPV(meses[0], mesesPR[0])} />) : [];
   // Back novo: o estado de cada passo vem de GET /ciclo/situacao (campo `etapas`). Sem o campo (back antigo) ou com ele
@@ -522,14 +524,40 @@ export default function CicloPage() {
 
   const passos = lista.filter((e) => e.chave !== "tarifa");
   const ativo = passoSelecionado(escolhido, proximo, passos.map((e) => e.chave));
-  const doAtivo = passos.find((e) => e.chave === ativo);
   // No estreito a trilha é uma faixa rolável: mantém o passo aberto à vista.
   const trilhaRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!window.matchMedia("(max-width: 1023px)").matches) return;
     trilhaRef.current?.querySelector<HTMLElement>("[aria-current=step]")?.scrollIntoView({ inline: "center", block: "nearest" });
   }, [ativo, carregando]);
-  const trabalhoPasta = !!ativo && PASSOS_DA_PASTA.includes(ativo);
+
+  // Depois de gravar um passo: quando a situação nova chega, rola até o próximo passo pendente (ou às entregas).
+  useEffect(() => {
+    if (!avancarDepois.current || carregando || !dados) return;
+    avancarDepois.current = false;
+    const alvo = proximo ? idDoPasso(proximo) : ID_ENTREGAS;
+    window.setTimeout(() => irParaSecao(alvo), 250); // espera o React desenhar a situação nova
+  }, [dados, carregando, proximo]);
+
+  // Ao rolar, o passo à vista fica marcado na trilha (aria-current="step").
+  const chavesDosPassos = passos.map((e) => e.chave).join(",");
+  useEffect(() => {
+    if (!chavesDosPassos) return;
+    const chaves = chavesDosPassos.split(",") as ChavePasso[];
+    const raizDaRolagem = trilhaRef.current?.closest("main") ?? null;
+    const visiveis = new Set<ChavePasso>();
+    const obs = new IntersectionObserver((itens) => {
+      for (const i of itens) {
+        const chave = chaves.find((c) => idDoPasso(c) === i.target.id);
+        if (!chave) continue;
+        if (i.isIntersecting) visiveis.add(chave); else visiveis.delete(chave);
+      }
+      const primeiro = chaves.find((c) => visiveis.has(c));
+      if (primeiro) setEscolhido(primeiro);
+    }, { root: raizDaRolagem, rootMargin: "-140px 0px -55% 0px" }); // a faixa de leitura: abaixo da trilha, até perto do meio da tela
+    chaves.forEach((c) => { const el = document.getElementById(idDoPasso(c)); if (el) obs.observe(el); });
+    return () => obs.disconnect();
+  }, [chavesDosPassos]);
 
   /** Resumo do passo aberto: título, valores por mês, bloqueio e o botão que leva à tela dele. */
   const resumo = (e: Etapa_) => {
@@ -607,8 +635,8 @@ export default function CicloPage() {
           <AguardandoAprovacao key={meses[0]} meses={meses} versao={versao} aoMudar={setAguardandoAprovacao} aoAplicar={() => setVersao((v) => v + 1)} />
         </div>
 
-        {/* Trilha: os 9 passos numa faixa, com nome e estado. Clicar abre o passo logo abaixo. */}
-        <nav ref={trilhaRef} aria-label="Passos do trimestre" className={`${PANEL} overflow-hidden`}>
+        {/* Trilha: índice fixo no topo da área que rola. Clicar rola até o passo; o passo à vista fica marcado. */}
+        <nav ref={trilhaRef} aria-label="Passos do trimestre" className={`${PANEL} sticky top-0 z-20 overflow-hidden shadow-lg shadow-black/30`}>
           {carregando ? (
             <EsqueletoEtapas />
           ) : (
@@ -618,8 +646,8 @@ export default function CicloPage() {
                 const aberto = e.chave === ativo;
                 const bloqueio = bloqueios[e.chave];
                 return (
-                  <li key={e.chave} id={idDoPasso(e.chave)} className="min-w-[8.5rem] shrink-0 scroll-mt-4 lg:min-w-0 lg:shrink">
-                    <button type="button" onClick={() => setEscolhido(e.chave)} aria-current={aberto ? "step" : undefined}
+                  <li key={e.chave} className="min-w-[8.5rem] shrink-0 lg:min-w-0 lg:shrink">
+                    <button type="button" onClick={() => { setEscolhido(e.chave); irParaSecao(idDoPasso(e.chave)); }} aria-current={aberto ? "step" : undefined}
                       title={bloqueio ? `Bloqueado: ${bloqueio.motivo}` : e.titulo}
                       className={`flex h-full min-h-20 w-full flex-col items-start gap-1 border-t-4 px-3 py-3 text-left transition-colors ${
                         aberto ? "border-sky-400 bg-sky-500/[0.08] text-white" : "border-transparent text-zinc-300 hover:bg-white/[0.04]"}`}>
@@ -641,10 +669,13 @@ export default function CicloPage() {
 
         {/* O passo aberto. Os blocos de trabalho ficam montados, só escondidos, para não perder pasta, prévia nem planilha ao trocar de passo. */}
         <div className="flex min-w-0 flex-col gap-5">
-            {!carregando && doAtivo && (!["sr", "pr", "pv"].includes(doAtivo.chave) || bloqueios[doAtivo.chave]) && resumo(doAtivo)}
+          {passos.map((e) => (
+            <section key={e.chave} id={idDoPasso(e.chave)} aria-label={`Passo ${numeroDaEtapa(e.chave)}: ${e.titulo}`}
+              style={{ scrollMarginTop: "7rem" }} className="realce-secao flex flex-col gap-5">
+            {(!["sr", "pr", "pv"].includes(e.chave) || bloqueios[e.chave]) && resumo(e)}
 
-            <div hidden={!trabalhoPasta} data-painel="auditoria" className="flex flex-col gap-3">
-              <div id={ID_PASTA} className={`${PANEL} scroll-mt-4 p-5 sm:p-6`}>
+            {e.chave === "auditoria" && <div className="flex flex-col gap-3">
+              <div id={ID_PASTA} className={`${PANEL} scroll-mt-28 p-5 sm:p-6`}>
                 <h2 className="flex items-center gap-2 text-base font-semibold text-white"><FolderOpen size={16} /> Processar a pasta <span className="text-xs font-normal text-zinc-500">(passos 2 a 5)</span></h2>
                 <p className="mt-1 text-sm text-zinc-400">Arraste a pasta <b>{nomePasta}</b>. Ao arrastar, só os nomes são lidos, aqui no navegador. Os arquivos só seguem para o servidor quando você clicar em Processar (ou em Comparar com a planilha), e nada é gravado sem a sua confirmação.</p>
                 <p className="mt-2 text-sm text-zinc-400">Feito junto, num Processar só: Auditoria CGR, CGF, RET e RP (passos 2 a 5). Você escolhe o que enviar e confere tudo antes de gravar.</p>
@@ -680,10 +711,10 @@ export default function CicloPage() {
                     processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
                 )}
                 {mapa && !ocupadoPasta && processando && dados && (
-                  <div id={ID_PROCESSAR} className="scroll-mt-4">
+                  <div id={ID_PROCESSAR} className="scroll-mt-28">
                     <ProcessarTrimestre key={`${raiz}-${meses[0]}-${rodada}`} meses={meses} caminhos={caminhos!} arquivos={arquivos}
                       memoria={memoriaProcessar(raiz, meses[0])} retomar={retomar} semArquivos={semArquivos}
-                      auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={() => setVersao((v) => v + 1)} onFechar={fecharProcessar} />
+                      auditoria={dados.auditoria} cgf={dados.cgf} ret={dados.ret} concilia={dados.concilia} onGravado={aoGravarPasso} onFechar={fecharProcessar} />
                   </div>
                 )}
               </div>
@@ -696,21 +727,23 @@ export default function CicloPage() {
                   <p className="px-2 py-3 text-sm text-zinc-400">Disponível quando a situação do trimestre carregar.</p>
                 )}
               </SubpassoRecolhivel>
-            </div>
+            </div>}
 
             {/* SR do trimestre: o Painel busca VP, VF, PR e SELIC, mostra onde diverge do gravado e só grava depois de confirmar */}
-            <div hidden={ativo !== "sr"} data-painel="sr" id={ID_SR} className="scroll-mt-4">
-              <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} selic={dados?.situacao?.selic} onGravado={() => setVersao((v) => v + 1)} />
-            </div>
+            {e.chave === "sr" && <div id={ID_SR} className="scroll-mt-28">
+              <SRDoTrimestre key={`sr-${meses[0]}`} meses={meses} selic={dados?.situacao?.selic} onGravado={aoGravarPasso} />
+            </div>}
             {/* PR e PV do trimestre do ciclo: o Painel já leu o cálculo e o gravado; o cartão só mostra e grava (com a janela). */}
-            <div hidden={ativo !== "pr"} data-painel="pr" id={ID_PR} className="scroll-mt-4">
+            {e.chave === "pr" && <div id={ID_PR} className="scroll-mt-28">
               <PRDoTrimestre key={`pr-${meses[0]}`} apuracao={dados?.pr ?? null} prSalvo={dados?.prSalvo ?? null} meses={meses} mesesPR={mesesPR}
-                carregando={carregando} onGravado={() => setVersao((v) => v + 1)} />
-            </div>
-            <div hidden={ativo !== "pv"} data-painel="pv" id={ID_PV} className="scroll-mt-4">
+                carregando={carregando} onGravado={aoGravarPasso} />
+            </div>}
+            {e.chave === "pv" && <div id={ID_PV} className="scroll-mt-28">
               <PVDoTrimestre key={`pv-${meses[0]}`} pv={dados?.pv ?? null} meses={meses} mesesPR={mesesPR}
-                carregando={carregando} onGravado={() => setVersao((v) => v + 1)} />
-            </div>
+                carregando={carregando} onGravado={aoGravarPasso} />
+            </div>}
+            </section>
+          ))}
         </div>
 
         {/* Ao fechar: sempre embaixo das opções (trilha e painel do passo). */}
