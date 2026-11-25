@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
 import type { AuditoriaComparacao, NotaSoNaPlanilha } from "../../types";
 import { incluirNotaAuditoria } from "../../api";
-import { mensagemDeErro } from "../../api/client";
+import { SEPARADOR_DETALHE, mensagemDeErro } from "../../api/client";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import { ID_QUADRO_COMPARACAO, irParaSecao, useIrParaSecao } from "../../components/ui/useIrParaSecao";
@@ -435,6 +435,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir, mesGravado }: {
   const [motivo, setMotivo] = useState("");
   const [incluindo, setIncluindo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [jaGravada, setJaGravada] = useState(false);   // o back disse que a nota já está no mês
   const [cgrNovo, setCgrNovo] = useState<{ valor: number; notas: number } | null>(null);   // CGR do mês e nº de notas depois de incluir
   const { previa, mostrarCascata } = usePreviaCascata("font-sans"); // SR, PR e PV: aprovar no Painel
 
@@ -451,7 +452,10 @@ function IncluirNota({ nota, texto, periodo, aoIncluir, mesGravado }: {
       setConfirmando(false);
       aoIncluir?.();
     } catch (e) {
-      setErro(mensagemDeErro(e, "Não foi possível incluir a nota. Tente de novo."));
+      // Só a frase amigável: o rodapé técnico (HTTP/rota) fica de fora.
+      const frase = mensagemDeErro(e, "Não foi possível incluir a nota. Tente de novo.").split(SEPARADOR_DETALHE)[0];
+      if (/já está gravada/i.test(frase)) { setJaGravada(true); setConfirmando(false); } // não há o que incluir: some o botão
+      setErro(frase);
     } finally {
       setIncluindo(false);
     }
@@ -463,6 +467,8 @@ function IncluirNota({ nota, texto, periodo, aoIncluir, mesGravado }: {
         <span>{texto}</span>
         {cgrNovo !== null ? (
           <span className="font-sans font-medium text-emerald-300">incluída · o mês tem {cgrNovo.notas} notas · CGR agora {brl(cgrNovo.valor)}</span>
+        ) : jaGravada ? (
+          <span className="font-sans font-medium text-emerald-300">já está gravada no mês (incluída antes)</span>
         ) : !mesGravado ? (
           // O back recusa: sem notas gravadas o CGR do mês viraria só esta nota. Primeiro grava-se o mês.
           <Button variant="ghost" size="sm" onClick={() => { irParaSecao(ID_GRAVAR_MES); }}>

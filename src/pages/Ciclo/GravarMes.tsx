@@ -97,7 +97,7 @@ export function GravarMes({ periodo, res, linha, planilhaEscolhida, aoGravar, ao
     <section id={ID_GRAVAR_MES} aria-labelledby="gravar-mes-titulo" className={`realce-secao space-y-3 ${className}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 id="gravar-mes-titulo" className="text-sm font-semibold text-white outline-none">Passo final: gravar o mês de {periodo}</h3>
-        <span className="text-xs text-zinc-400">{textoDoEstado(estado, periodo, linha, calculado)}</span>
+        <span className="text-xs text-zinc-400">{textoDoEstado(estado, periodo, linha, calculado, divergencia || falta > 0)}</span>
       </div>
 
       <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">

@@ -64,10 +64,12 @@ export function dataDaGravacao(dataHora: string | null | undefined): string {
 }
 
 /** A frase de situação do mês, no alto do bloco. */
-export function textoDoEstado(estado: EstadoDaGravacao, periodo: string, linha: AuditoriaHistoricoLinha | null | undefined, cgrCalculado: number): string {
+export function textoDoEstado(estado: EstadoDaGravacao, periodo: string, linha: AuditoriaHistoricoLinha | null | undefined, cgrCalculado: number, comPendencia = false): string {
   if (estado === "vazio") return `Nenhuma nota de ${periodo} foi lida: não há o que gravar.`;
   if (estado === "nunca") return `${periodo} ainda não foi gravado.`;
   const quando = linha?.data_atualizacao ? ` em ${dataDaGravacao(linha.data_atualizacao)}` : "";
+  // Com divergência ou nota faltando na conferência, "não há nada a mudar" seria falso: o que está gravado ainda pode precisar de decisão.
+  if (estado === "igual" && comPendencia) return `${periodo} já foi gravado${quando} com as mesmas notas que você conferiu, mas a conferência tem pendências (veja acima).`;
   return estado === "igual"
     ? `${periodo} já foi gravado${quando} e é igual ao que você conferiu. Não há nada a mudar.`
     : `${periodo} já foi gravado${quando} com ${brl(linha?.cgr_gravado ?? 0)}. Gravar troca por ${brl(cgrCalculado)}.`;

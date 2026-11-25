@@ -14,6 +14,18 @@ export function Layout() {
     return () => window.removeEventListener("keydown", onKey);
   }, [menuAberto]);
 
+  // Só o <main> rola. Se algo (scrollIntoView, focus) rolar a PÁGINA, o app inteiro sobe e sobra um vazio preto embaixo:
+  // trava a rolagem da página e devolve ao topo se ela se mexer.
+  useEffect(() => {
+    const html = document.documentElement;
+    const anterior = html.style.overflow;
+    html.style.overflow = "hidden";
+    const voltar = () => { if (window.scrollY !== 0 || window.scrollX !== 0) window.scrollTo(0, 0); };
+    window.addEventListener("scroll", voltar);
+    voltar();
+    return () => { html.style.overflow = anterior; window.removeEventListener("scroll", voltar); };
+  }, []);
+
   return (
     // h-screen + overflow-clip: a rolagem acontece só dentro do <main>. Não é overflow-hidden de
     // propósito: um contêiner "hidden" ainda pode ser rolado por código (focus() ou

@@ -90,6 +90,7 @@ describe("textos", () => {
   it("frase do estado", () => {
     expect(textoDoEstado("nunca", "Out/2026", undefined, 0)).toBe("Out/2026 ainda não foi gravado.");
     expect(textoDoEstado("igual", "Out/2026", linha(), 1000)).toContain("já foi gravado em 25/11 14:02");
+    expect(textoDoEstado("igual", "Out/2026", linha(), 1000, true)).not.toContain("nada a mudar");
     expect(textoDoEstado("substitui", "Out/2026", linha(), 1200)).toContain("Gravar troca por");
     expect(textoDoEstado("vazio", "Out/2026", undefined, 0)).toContain("não há o que gravar");
   });
