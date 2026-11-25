@@ -622,6 +622,11 @@ export interface PRResultado {
   sr: number;
   vp: number;
   pr: number;
+  /** "manual" quando o analista digitou o PR (com motivo); no automático vem "automatico" ou nem vem (back antigo). */
+  origem?: string;
+  motivo?: string;
+  usuario_nome?: string;
+  data_atualizacao?: string;
 }
 
 /** PR da Nota Técnica (POST /pr/apurar): SCG e SR com SELIC do trimestre
@@ -665,7 +670,8 @@ export interface SRSessaoPMPV {
   vf: number;
 }
 
-export type SROrigemPR = "salvo" | "estimado" | "ausente";
+/** "manual" = PR digitado à mão e gravado com motivo; "digitado" = digitado na tela, ainda NÃO gravado (só prévia). */
+export type SROrigemPR = "salvo" | "manual" | "estimado" | "digitado" | "ausente";
 
 export interface SRLinhaEntrada {
   mes: string; // label "Jan/2026"
@@ -784,7 +790,11 @@ export interface SRPropostaGravado {
 export interface SRPropostaLinha {
   mes: string;                               // "Jan/2026"
   vp: number; vf: number; pr: number;
-  pr_origem: "salvo" | "estimado" | "ausente";
+  pr_origem: SROrigemPR;
+  /** PR manual: por quê, quem e quando (vazio nos outros). Back antigo não manda. */
+  pr_motivo?: string;
+  pr_usuario?: string;
+  pr_data?: string;
   pr_chave: string;                          // trimestre do PR usado, ex.: "Ago - Out/2025"
   selic_mensal: number; sr_anterior: number;
   diferenca: number; sr_parcela: number; sr_selic: number; total: number;

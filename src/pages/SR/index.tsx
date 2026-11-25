@@ -23,6 +23,8 @@ import { rolarAteCardSeEscondido } from "../../utils/rolagem";
 import { dataHora } from "../../utils/format";
 import { KpisSR } from "./KpisSR";
 import { ProvaRealSR } from "./ProvaRealSR";
+import { PRManualDoMes } from "./PRManualDoMes";
+import { chaveDoPRDoMes, mesesDaChave } from "../../utils/prManual";
 import { rotuloDoTrimestre, trimestreDoFormulario } from "./estadoProva";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
@@ -60,9 +62,13 @@ function trimestrePMPV(mes: string): string {
   return `${MESES[inicio]}/${anoIni} – ${MESES[fim]}/${fim < inicio ? anoIni + 1 : anoIni}`;
 }
 
+/** PR manual já gravado: por quê, quem e quando (para a célula mostrar). */
+type InfoPR = { pr_motivo?: string; pr_usuario?: string; pr_data?: string };
+
 interface Carregado {
   linhas: SRLinhaCalculada[];
   origemPR: Record<string, SROrigemPR>;
+  infoPR: Record<string, InfoPR>;
   fonte: "salvo" | "banco";
 }
 
@@ -71,12 +77,13 @@ async function buscarTrimestre(labels: string[], doBanco = false): Promise<Carre
   const salvo = doBanco ? [] : await buscarTrimestreSR(`${labels[0]}_${labels[2]}`).catch(() => []);
   if (salvo.length) {
     const linhas = labels.map((mes, i) => ({ ...linhaVazia(mes), ...(salvo[i] as Partial<SRLinhaCalculada>), mes }));
-    return { linhas: calcularLocal(linhas), origemPR: {}, fonte: "salvo" };
+    return { linhas: calcularLocal(linhas), origemPR: {}, infoPR: {}, fonte: "salvo" };
   }
   const dados = await carregarTrimestreSR(0, labels);
   return {
     linhas: calcularLocal(labels.map((mes, i) => ({ ...linhaVazia(mes), ...(dados[i] ?? {}), mes }))),
     origemPR: Object.fromEntries(dados.map((d) => [d.mes, d.pr_origem])),
+    infoPR: Object.fromEntries(dados.map((d) => [d.mes, { pr_motivo: d.pr_motivo, pr_usuario: d.pr_usuario, pr_data: d.pr_data }])),
     fonte: "banco",
   };
 }
@@ -147,8 +154,34 @@ export default function SRPage() {
     rolarAteCardSeEscondido(provaRef.current);
   };
 
-  const [linhas, setLinhas] = useState<SRLinhaCalculada[]>(() => labels.map(linhaVazia));
-  const [origemPR, setOrigemPR] = useState<Record<string, SROrigemPR>>({});
+  const [linhasBase, setLinhas] = useState<SRLinhaCalculada[]>(() => labels.map(linhaVazia));
+  const [origemBase, setOrigemPR] = useState<Record<string, SROrigemPR>>({});
+  const [infoPR, setInfoPR] = useState<Record<string, InfoPR>>({});
+  // PR que o analista está digitando, por trimestre da tarifa (chave "Fev - Abr/2026"): só prévia, nada é gravado.
+  const [digitados, setDigitados] = useState<Record<string, number>>({});
+  const aoDigitarPR = useCallback((chave: string, valor: number | null) => {
+    setDigitados((d) => {
+      const resto = { ...d };
+      if (valor === null) delete resto[chave]; else resto[chave] = valor;
+      return resto;
+    });
+  }, []);
+  // O PR digitado entra na conta do mês SEM PR salvo, na hora: (VP − VF) × PR × (1 + SELIC) + SR anterior.
+  const usaDigitado = (mes: string) => {
+    const chave = chaveDoPRDoMes(mes);
+    return chave !== null && digitados[chave] !== undefined && (origemBase[mes] === "estimado" || origemBase[mes] === "ausente");
+  };
+  const linhas = useMemo(
+    () => calcularLocal(linhasBase.map((l) => {
+      const chave = chaveDoPRDoMes(l.mes);
+      const ativo = chave !== null && digitados[chave] !== undefined && (origemBase[l.mes] === "estimado" || origemBase[l.mes] === "ausente");
+      return ativo ? { ...l, pr: digitados[chave!] } : l;
+    })),
+    [linhasBase, digitados, origemBase],
+  );
+  const origemPR: Record<string, SROrigemPR> = Object.fromEntries(
+    Object.entries(origemBase).map(([mes, o]) => [mes, usaDigitado(mes) ? "digitado" : o]),
+  );
   const [fonte, setFonte] = useState<"salvo" | "banco" | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -161,6 +194,7 @@ export default function SRPage() {
   const aplicar = (r: Carregado) => {
     setLinhas(r.linhas);
     setOrigemPR(r.origemPR);
+    setInfoPR(r.infoPR);
     setFonte(r.fonte);
     setCarregando(false);
   };
@@ -204,11 +238,13 @@ export default function SRPage() {
     setCarregando(true);
     setSelic({ estado: "buscando" });
     setErro(null);
+    setDigitados({});
     setAno(novoAno);
     setTri(novoTri);
   };
 
   const recarregarDoBanco = () => {
+    setDigitados({});
     setCarregando(true);
     setErro(null);
     setSelic({ estado: "buscando" });
@@ -217,6 +253,7 @@ export default function SRPage() {
 
   const semVP = linhas.filter((l) => !l.vp);
   const prEstimado = linhas.filter((l) => origemPR[l.mes] === "estimado");
+  const prDigitado = linhas.filter((l) => origemPR[l.mes] === "digitado");
   const semPR = linhas.filter((l) => l.vp && !l.pr);
   // SR anterior igual ao SR do próprio mês = conta o mês duas vezes (erro comum
   // ao copiar a linha "Saldo Remanescente (SELIC)" da planilha para cá).
@@ -228,7 +265,7 @@ export default function SRPage() {
   const selicDiferente = linhas.filter(
     (l) => l.selic_mensal && selicBC[l.mes] !== undefined && Math.abs(l.selic_mensal - selicBC[l.mes]) > 5e-7,
   );
-  const pendencias = semVP.length + prEstimado.length + semPR.length + srDuplicado.length + selicDiferente.length;
+  const pendencias = semVP.length + prEstimado.length + prDigitado.length + semPR.length + srDuplicado.length + selicDiferente.length;
   return (
     <div className="px-4 py-6 sm:px-8 lg:px-10 lg:py-8">
       <div className="mx-auto flex max-w-[1500px] flex-col gap-6">
@@ -277,7 +314,10 @@ export default function SRPage() {
               <><b>{l.mes}</b> sem VP: salve o PMPV de <b>{trimestrePMPV(l.mes)}</b> na tela PMPV.</>
             )),
             ...prEstimado.map((l) => (
-              <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Confira na tela PR antes de gravar.</>
+              <><b>{l.mes}</b>: PR <b>estimado</b> por (SCG + SR) ÷ VP, porque não há PR salvo. Se você já tem o valor oficial, use “Informar PR” na tabela; senão, rode a tela PR antes de gravar.</>
+            )),
+            ...prDigitado.map((l) => (
+              <><b>{l.mes}</b>: PR <b>digitado</b> ({num(l.pr, 4)}), ainda não gravado. A prévia usa esse valor; grave o PR (com motivo) para o SR poder ser gravado no Painel.</>
             )),
             ...semPR.map((l) => <><b>{l.mes}</b> sem PR.</>),
             srDuplicado.length > 0 && (
@@ -328,6 +368,8 @@ export default function SRPage() {
                 {carregando && <LinhasEsqueleto colunas={8} linhas={linhas.length} altura="h-8" texto="Carregando o trimestre…" />}
                 {!carregando && linhas.map((l) => {
                   const estimado = origemPR[l.mes] === "estimado";
+                  const chavePR = chaveDoPRDoMes(l.mes);
+                  const base = linhasBase.find((b) => b.mes === l.mes);
                   return (
                     <tr key={l.mes}>
                       <td className="px-4 py-2.5 font-semibold text-zinc-100">
@@ -342,6 +384,12 @@ export default function SRPage() {
                       <td className="px-2 py-2.5 text-right tabular-nums text-zinc-200">
                         <span className={estimado || !l.pr ? "text-amber-300" : ""}>{l.pr ? num(l.pr, 4) : "—"}</span>
                         {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
+                        {origemPR[l.mes] === "digitado" && <span className="mt-0.5 block text-right text-[0.7rem] text-sky-300">manual (digitado, não gravado)</span>}
+                        {chavePR && origemBase[l.mes] && (
+                          <PRManualDoMes chave={chavePR} meses={mesesDaChave(labels, chavePR)} estimadoOriginal={base?.pr ?? 0}
+                            linha={{ pr: l.pr, pr_origem: origemBase[l.mes], ...infoPR[l.mes] }}
+                            aoDigitar={aoDigitarPR} aoGravado={recarregarDoBanco} />
+                        )}
                       </td>
                       <td className="px-2 py-2.5 text-right tabular-nums text-zinc-200">
                         <span className={selicDiferente.includes(l) ? "text-amber-300" : ""}>{l.selic_mensal ? num(l.selic_mensal, 6) : "—"}</span>

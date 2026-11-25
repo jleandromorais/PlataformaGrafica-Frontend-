@@ -371,6 +371,15 @@ export const apurarPR = (periodos: string[]) =>
 export const salvarPR = (periodo: string, scg: number, sr: number, vp: number) =>
   api.post<ComCascata<{ pr: number; pv_automatico?: PVAutomatico | null }>>("/pr/salvar", { periodo, scg, sr, vp }).then((r) => r.data);
 
+/** Grava o PR que o analista DIGITOU para o trimestre da tarifa ("Fev - Abr/2026"). O motivo é obrigatório e fica
+ * na trilha com a origem "manual". Não mexe no cálculo automático; o PV só muda depois que o analista aprova. */
+export const salvarPRManual = (periodo: string, pr: number, motivo: string) =>
+  api.post<ComCascata<{ pr: number }>>("/pr/manual", { periodo, pr, motivo }).then((r) => r.data);
+
+/** Volta ao PR automático: apaga só o PR digitado à mão. Sem `aplicar` é simulação (não apaga nada). */
+export const voltarPRAoAutomatico = (periodo: string, motivo: string, aplicar = true) =>
+  api.delete<{ aplicado: boolean; total_linhas: number }>("/pr/manual", { params: { periodo, aplicar, motivo } }).then((r) => r.data);
+
 // ─── PV ──────────────────────────────────────────────────────────────────────
 // PV = PMPV + PR. Ver docs/specs/SPEC_PV.md.
 export const listarPeriodosPV = () =>
@@ -411,7 +420,7 @@ export const listarSessoesSR = () =>
 
 export const carregarTrimestreSR = (sessaoId: number, labelsMeses: string[]) =>
   api
-    .post<{ mes: string; vp: number; vf: number; pr: number; pr_origem: SROrigemPR }[]>("/sr/trimestre/carregar", {
+    .post<{ mes: string; vp: number; vf: number; pr: number; pr_origem: SROrigemPR; pr_motivo?: string; pr_usuario?: string; pr_data?: string }[]>("/sr/trimestre/carregar", {
       sessao_id: sessaoId,
       labels_meses: labelsMeses,
     })
@@ -419,8 +428,9 @@ export const carregarTrimestreSR = (sessaoId: number, labelsMeses: string[]) =>
 
 /** Monta o SR do trimestre com VP, VF, PR e SELIC buscados pelo back e compara com o gravado.
  * Não grava nada: quem grava, depois da confirmação do analista, é o salvarTrimestreSR. */
-export const propostaSRTrimestre = (labelsMeses: string[]) =>
-  api.post<SRProposta>("/sr/trimestre/proposta", { labels_meses: labelsMeses }).then((r) => r.data);
+/** `prDigitado` ({mês: PR}): o PR que o analista está digitando entra na PRÉVIA do mês sem PR salvo. Nada é gravado. */
+export const propostaSRTrimestre = (labelsMeses: string[], prDigitado?: Record<string, number>) =>
+  api.post<SRProposta>("/sr/trimestre/proposta", { labels_meses: labelsMeses, ...(prDigitado && Object.keys(prDigitado).length ? { pr_digitado: prDigitado } : {}) }).then((r) => r.data);
 
 export const salvarTrimestreSR = (
   labelsMeses: string[],
