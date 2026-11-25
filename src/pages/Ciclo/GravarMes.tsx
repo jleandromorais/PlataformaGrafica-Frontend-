@@ -17,7 +17,7 @@ import { brl, num } from "../../utils/format";
 import type { AuditoriaHistoricoLinha } from "../../types";
 import type { AuditoriaDoMes } from "./auditoriaDoMes";
 import {
-  decisaoInicial, diferencaParaPlanilha, digitadasDoMes, divergenciaDoMes, estadoDaGravacao, ID_GRAVAR_MES, MOTIVO_REINCLUSAO,
+  decisaoInicial, diferencaParaPlanilha, digitadasDoMes, divergenciaDoMes, estadoDaGravacao, ID_DECISAO_FALTANTES, ID_GRAVAR_MES, MOTIVO_REINCLUSAO,
   rotuloDoBotao, textoDoEstado, tituloDaConfirmacao,
 } from "./gravarDoMes";
 import { decisaoParaEnviar, faltantesDoMes, podeGravarComFaltantes, rotuloDaNota, type Decisao } from "./notasFaltantes";
@@ -126,7 +126,7 @@ export function GravarMes({ periodo, res, linha, planilhaEscolhida, aoGravar, ao
       </dl>
 
       {falta > 0 && (
-        <div role="group" aria-labelledby="falta-titulo" className="rounded-lg border border-amber-300/30 bg-amber-400/[0.06] p-3 text-sm text-amber-100">
+        <div role="group" id={ID_DECISAO_FALTANTES} aria-labelledby="falta-titulo" className="realce-secao rounded-lg border border-amber-300/30 bg-amber-400/[0.06] p-3 text-sm text-amber-100">
           <p id="falta-titulo" className="font-semibold">
             {falta === 1 ? "1 nota está na planilha e não veio na pasta" : `${falta} notas estão na planilha e não vieram na pasta`}. Escolha antes de gravar:
           </p>

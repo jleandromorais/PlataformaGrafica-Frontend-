@@ -28,8 +28,7 @@ import { ID_QUADRO_COMPARACAO, irParaSecao } from "../../components/ui/useIrPara
 import { resultadoDaConferencia, type ResultadoDaConferencia } from "./conferenciaPlanilha";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes"; // a função que fala com o servidor
 import { GravarMes } from "./GravarMes"; // o passo final: gravar o mês depois de conferir
-import { mesJaGravado } from "./gravarDoMes";
-
+import { ID_DECISAO_FALTANTES, mesJaGravado } from "./gravarDoMes";
 // Classes de estilo do "cartão" da seção (borda fina e fundo do painel), as mesmas do resto do Painel.
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
 
@@ -366,7 +365,8 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
             )}
             {res.comparacao ? (
               // O quadro "Tudo confere / Há divergências" é o mesmo componente da tela da Auditoria.
-              <ComparacaoPlanilha comparacao={res.comparacao} aoIncluirNota={aoIncluirNota} mesGravado={mesJaGravado(linhaDoMes)} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
+              <ComparacaoPlanilha comparacao={res.comparacao} aoIncluirNota={aoIncluirNota} mesGravado={mesJaGravado(linhaDoMes)}
+                decidirNoPassoFinal={() => irParaSecao(ID_DECISAO_FALTANTES)} incluidaAMao={(linhaDoMes?.qtd_digitadas ?? 0) > 0} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
             ) : (
               // Sem comparação: planilha ilegível ou sem aba do mês. Mostra o motivo que o servidor deu.
               <p className="text-sm text-amber-200">{res.planilhaIlegivel ?? res.avisoComparacao ?? "A planilha não pôde ser comparada."}</p>

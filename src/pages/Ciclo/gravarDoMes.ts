@@ -8,6 +8,9 @@ import type { Decisao, FaltantesDoMes } from "./notasFaltantes";
 /** Id do bloco "Gravar o mês": os botões "Grave o mês antes de incluir" levam até ele. */
 export const ID_GRAVAR_MES = "gravar-o-mes";
 
+/** Id da escolha "Incluir no cálculo / Seguir sem ela" do GravarMes: a lista de notas da comparação leva até ele. */
+export const ID_DECISAO_FALTANTES = "decisao-notas-faltantes";
+
 /** Motivo já preenchido quando o mês é regravado e as notas digitadas voltam junto (o analista pode editar). */
 export const MOTIVO_REINCLUSAO = "Reincluída ao regravar o mês (nota digitada antes)";
 

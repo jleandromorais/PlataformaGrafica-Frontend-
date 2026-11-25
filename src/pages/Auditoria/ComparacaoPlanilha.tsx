@@ -27,13 +27,17 @@ const textoDaNota = (n: Record<string, unknown>) => {
  *  - generico: só presença das notas.
  * Em qualquer um, "Mostrar diferenças" abre o porquê de cada supridor com diferença.
  * A comparação não grava nada; só o botão "Incluir esta nota" (nota que só está na planilha) grava, e só em mês já gravado. */
-export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota, mesGravado = true }: {
+export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota, mesGravado = true, decidirNoPassoFinal, incluidaAMao = false }: {
   comparacao: AuditoriaComparacao;
   className: string;
   /** Chamado depois de incluir uma nota: quem usa recarrega o histórico/CGR gravado. */
   aoIncluirNota?: () => void;
   /** O mês já tem notas gravadas? Sem isso o back recusa "Incluir esta nota" (o CGR viraria só a nota): o botão leva ao passo "Gravar o mês". */
   mesGravado?: boolean;
+  /** Onde há o bloco "Gravar o mês" (Comparar do Painel): a decisão sobre a nota é feita lá, e a lista só leva até ela. */
+  decidirNoPassoFinal?: (nota: NotaSoNaPlanilha) => void;
+  /** O mês já tem nota incluída à mão: a linha avisa. */
+  incluidaAMao?: boolean;
 }) {
   const [mostrarDif, setMostrarDif] = useState(false);
   // Regra única: tudo que mostra um problema é clicável e leva ao detalhe (rola, abre o que está fechado e destaca por ~2 s).
@@ -223,7 +227,13 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota, me
             {pareamento.restoPlanilha.filter(soDaEmpresa).map((n, i) => (
               <li key={i}>
                 {/* Só a nota da planilha com CGR (modelo por nota) pode ser incluída no mês. */}
-                {c.periodo && podeIncluirNota(n as NotaSoNaPlanilha)
+                {decidirNoPassoFinal && podeIncluirNota(n as NotaSoNaPlanilha) ? (
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>{textoDaNota(n)}</span>
+                    {incluidaAMao && <span className="font-sans text-emerald-300">incluída à mão antes</span>}
+                    <Button variant="ghost" size="sm" onClick={() => decidirNoPassoFinal(n as NotaSoNaPlanilha)}>decidir no passo final ↓</Button>
+                  </span>
+                ) : c.periodo && podeIncluirNota(n as NotaSoNaPlanilha)
                   ? <IncluirNota nota={n as NotaSoNaPlanilha} texto={textoDaNota(n)} periodo={c.periodo} aoIncluir={aoIncluirNota} mesGravado={mesGravado} />
                   : textoDaNota(n)}
               </li>
