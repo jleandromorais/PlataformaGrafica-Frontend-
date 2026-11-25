@@ -24,7 +24,7 @@ import { dataHora } from "../../utils/format";
 import { KpisSR } from "./KpisSR";
 import { ProvaRealSR } from "./ProvaRealSR";
 import { PRManualDoMes } from "./PRManualDoMes";
-import { chaveDoPRDoMes, mesesDaChave } from "../../utils/prManual";
+import { chaveDoPRDoMes, mesesDaChave, primeiroMesDaChave } from "../../utils/prManual";
 import { rotuloDoTrimestre, trimestreDoFormulario } from "./estadoProva";
 
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
@@ -77,7 +77,14 @@ async function buscarTrimestre(labels: string[], doBanco = false): Promise<Carre
   const salvo = doBanco ? [] : await buscarTrimestreSR(`${labels[0]}_${labels[2]}`).catch(() => []);
   if (salvo.length) {
     const linhas = labels.map((mes, i) => ({ ...linhaVazia(mes), ...(salvo[i] as Partial<SRLinhaCalculada>), mes }));
-    return { linhas: calcularLocal(linhas), origemPR: {}, infoPR: {}, fonte: "salvo" };
+    // Os números são os do SR salvo; do banco vem só a marca do PR manual (selo e "Voltar ao automático").
+    const manuais = (await carregarTrimestreSR(0, labels).catch(() => [])).filter((d) => d.pr_origem === "manual");
+    return {
+      linhas: calcularLocal(linhas),
+      origemPR: Object.fromEntries(manuais.map((d) => [d.mes, d.pr_origem])),
+      infoPR: Object.fromEntries(manuais.map((d) => [d.mes, { pr_motivo: d.pr_motivo, pr_usuario: d.pr_usuario, pr_data: d.pr_data }])),
+      fonte: "salvo",
+    };
   }
   const dados = await carregarTrimestreSR(0, labels);
   return {
@@ -385,7 +392,11 @@ export default function SRPage() {
                         <span className={estimado || !l.pr ? "text-amber-300" : ""}>{l.pr ? num(l.pr, 4) : "—"}</span>
                         {estimado && <span className="mt-0.5 block text-right text-[0.7rem] text-amber-300">estimado</span>}
                         {origemPR[l.mes] === "digitado" && <span className="mt-0.5 block text-right text-[0.7rem] text-sky-300">manual (digitado, não gravado)</span>}
-                        {chavePR && origemBase[l.mes] && (
+                        {/* Meses da mesma chave (ex.: Mai e Jun) dividem um PR: o campo fica só no 1º, os outros levam o selo. */}
+                        {chavePR && origemBase[l.mes] === "manual" && !primeiroMesDaChave(labels, l.mes) && (
+                          <span className="mt-0.5 block text-right text-[0.7rem] text-sky-300">PR manual</span>
+                        )}
+                        {chavePR && origemBase[l.mes] && primeiroMesDaChave(labels, l.mes) && (
                           <PRManualDoMes chave={chavePR} meses={mesesDaChave(labels, chavePR)} estimadoOriginal={base?.pr ?? 0}
                             linha={{ pr: l.pr, pr_origem: origemBase[l.mes], ...infoPR[l.mes] }}
                             aoDigitar={aoDigitarPR} aoGravado={recarregarDoBanco} />

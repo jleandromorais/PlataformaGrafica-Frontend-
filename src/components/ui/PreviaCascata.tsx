@@ -144,6 +144,12 @@ export function PreviaCascata({ cascata: cascataDaTela, aoAplicar, aoFechar, cla
         ))}
       </div>
 
+      {(cascata.avisos ?? []).length > 0 && (
+        <ul className="mt-3 list-disc space-y-0.5 rounded-lg border border-sky-500/20 bg-sky-500/[0.06] px-3 py-2 pl-7 text-xs text-zinc-200">
+          {[...new Set(cascata.avisos)].map((a) => <li key={a}>{a}</li>)}
+        </ul>
+      )}
+
       {pendencias.length > 0 && (
         <div className="mt-3 rounded-lg border border-red-500/20 bg-red-500/[0.06] px-3 py-2 text-zinc-200">
           <p className="text-xs font-semibold text-red-400">Falta resolver antes de gravar</p>

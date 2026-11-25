@@ -966,6 +966,7 @@ export interface CascataTrimestre {
   pv_novo: number | null;
   desatualizado: boolean;          // algum valor novo difere do gravado
   pendencias: string[];            // o que falta; com pendência não dá para aprovar
+  avisos?: string[];               // back novo: informativo, não bloqueia (ex.: PR manual mantido)
 }
 
 /** De onde a cascata parte: "sr" recalcula SR, PR e PV; "pr" só PR e PV; "pv" só o PV. */
@@ -978,6 +979,7 @@ export interface Cascata {
   desatualizado: boolean;
   trimestres: CascataTrimestre[];
   pendencias: string[];
+  avisos?: string[];               // back novo: todos os avisos dos trimestres (ex.: PR manual mantido)
   ate?: CascataAPartirDe | null;   // back novo: até onde a cascata vai (com "sr", pr_novo e pv_novo vêm null)
 }
 

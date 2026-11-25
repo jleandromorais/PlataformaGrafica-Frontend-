@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chaveDoPRDoMes, lerPRDigitado, mesesDaChave, motivoDoPRValido, problemaDoPRDigitado, textoDoPRManual } from "./prManual";
+import { chaveDoPRDoMes, lerPRDigitado, mesesDaChave, motivoDoPRValido, primeiroMesDaChave, problemaDoPRDigitado, textoDoPRManual } from "./prManual";
 
 describe("lerPRDigitado", () => {
   it.each([["-0,0321", -0.0321], ["−0,0321", -0.0321], ["0,0321", 0.0321], ["-0.0321", -0.0321], [" -0,03214 ", -0.0321], ["-1.234,5678", -1234.5678]])(
@@ -39,5 +39,14 @@ describe("textos", () => {
     expect(t).toContain("valor da NT");
     expect(t).toContain("25/11 14:02");
     expect(t).toContain("Ana");
+  });
+});
+
+describe("primeiroMesDaChave", () => {
+  const meses = ["Abr/2026", "Mai/2026", "Jun/2026"];
+  it("só o 1º mês da chave leva o campo (Mai e Jun dividem o PR Mai - Jul)", () => {
+    expect(primeiroMesDaChave(meses, "Abr/2026")).toBe(true);
+    expect(primeiroMesDaChave(meses, "Mai/2026")).toBe(true);
+    expect(primeiroMesDaChave(meses, "Jun/2026")).toBe(false);
   });
 });

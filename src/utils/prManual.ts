@@ -49,3 +49,9 @@ export function textoDoPRManual(l: { pr: number; pr_motivo?: string; pr_usuario?
 
 /** Meses do trimestre aberto que usam a mesma chave de PR (um PR vale para os 3 meses da tarifa). */
 export const mesesDaChave = (meses: string[], chave: string) => meses.filter((m) => chaveDoPRDoMes(m) === chave);
+
+/** O mês é o 1º da tabela com a sua chave de PR? Só ele leva o campo "Informar PR" (Mai e Jun dividem um PR). */
+export const primeiroMesDaChave = (meses: string[], mes: string) => {
+  const chave = chaveDoPRDoMes(mes);
+  return chave !== null && mesesDaChave(meses, chave)[0] === mes;
+};

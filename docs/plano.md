@@ -2,7 +2,38 @@
 - [x] Back: `POST /pr/manual` (PR + motivo obrigatório, 4 casas, trava em 5 R$/m³), `DELETE /pr/manual` (voltar ao automático; simula sem `aplicar`), colunas `origem/motivo/usuario_nome` em `pr_resultados`, trilha com origem "manual", `GET /pr` devolve origem/motivo/data; o SR lê o PR manual como `pr_origem="manual"` e a proposta aceita `pr_digitado` (prévia, segue bloqueando até gravar). `tests/test_pr_manual.py`.
 - [x] Front: `/sr` ganha "Informar PR" na célula do mês sem PR salvo (`pages/SR/PRManualDoMes.tsx`, `utils/prManual.ts`): o valor entra na prévia na hora, "Usar o estimado" desfaz, gravar pede motivo e confirmação, depois mostra "PR manual · valor · motivo · data" e "Voltar ao automático".
 - [ ] Falta (cortado a pedido): ligar o campo ao cartão `Ciclo/SRDoTrimestre.tsx` (o back já aceita `pr_digitado`; `propostaSRTrimestre(meses, prDigitado)` já existe) e ver no navegador (disco cheio).
-- Atenção: aprovar a cascata do SR depois pode regravar o PR automático por cima do manual; a janela do PR mostra a troca.
+- Atenção: aprovar a cascata do SR podia regravar o PR por cima do manual (bug B1, em correção).
+
+## RESUMO DO QUE FOI FEITO EM 25/11 (atualizado no fim do dia)
+
+**Já em produção (push feito, back e front na `main`):**
+- **Gravar o mês depois de conferir:** bloco "Passo final: gravar o mês" no fim do Comparar e no passo 2; "Incluir esta nota" recusa mês nunca gravado (422); histórico traz `qtd_digitadas`/`cgr_digitadas`; notas digitadas reincluídas por padrão ao regravar; aviso de pasta de outro trimestre.
+- **PR manual na tela `/sr`:** "Informar PR" no mês sem PR salvo, prévia do SR na hora, gravação com motivo e confirmação, "Voltar ao automático" (`POST/DELETE /pr/manual`, colunas `origem/motivo/usuario_nome` em `pr_resultados`).
+- **Excel Final e minuta:** A4, SELIC com "%", "Resumo" no início, Quadro 9 (Tarifa Média = PV + MB 0,5410), Quadro 10 (conferência), siglas "PR (ago/26-out/26)", aba "Conferência" e cabeçalho congelado.
+- **Comparar mais fluido:** "ver quais ↓"/"Ver →" rolam e destacam; erro amigável (sem "HTTP 422 · POST"); frase do passo final coerente com divergência; tela preta corrigida (só o `<main>` rola).
+- **Uma decisão só sobre a nota faltante:** no Comparar do Painel o "Incluir esta nota" virou "decidir no passo final ↓" (a `/auditoria` avulsa mantém o botão).
+- **Painel do Ciclo numa página só:** os 9 passos empilhados, trilha horizontal fixa no topo (clica e rola; marca o passo à vista) e rolagem automática ao próximo passo depois de gravar.
+
+**Conferido pelo usuário na web:** tudo funcionando; PR Fev–Abr = −0,0321 já estava gravado lá. O banco local estava desatualizado (por isso falhou só no local). O deploy não sobrescreve o banco da web (o seed só entra com volume vazio).
+
+**Diagnósticos:** erro 500 em Set/2026 local era disco cheio (`Errno 28`), não bug.
+
+**Revisão de bugs (fim do dia):** achados B1–B4 abaixo (em correção pelo leandro-cg) e mais dois baixos, deixados para depois:
+- B5: o aviso "incluída à mão antes" aparece em todas as notas faltantes quando o mês tem ao menos uma digitada (o back só manda a quantidade; precisa mandar a lista).
+- B6: `Layout.tsx` trava a rolagem da página inteira; conferir telas longas no celular.
+
+## PLANO DE 26/11
+1. Revisar e commitar a correção de B1–B4 (back primeiro, depois front), backup do banco da web e push.
+2. Conferir na web: PR manual mantido após aprovar o SR; Excel e minuta com "PR informado à mão"; `/sr` com SR gravado mostra o PR manual.
+3. Antes de mostrar ao chefe: `VITE_API_URL`, `CORS_ORIGINS`, `JWT_SECRET`, `PERMITIR_CADASTRO=0`, `PERFIS_ATIVOS`; passar as telas no escuro e no estreito.
+4. Se sobrar tempo: B5, ligar o PR manual no cartão do SR do Painel, Balanceamento no front (grupo "Abate o CGR (−)").
+5. Sem prazo: diferença de R$ 1.019.232,55 no SCG de julho; Saturno MMBTU→m³; nota faltante no "Processar em lote".
+
+## CORREÇÃO DOS BUGS ACHADOS EM 25/11 (revisão do que subiu)
+- [x] B1 (grave) Cascata do SR regrava o PR manual por cima: se o PR salvo é `origem="manual"`, a cascata NÃO regrava o PR (mantém o manual e avisa na prévia "PR manual mantido: motivo"); só `DELETE /pr/manual` volta ao automático. Teste pytest.
+- [x] B2 (médio) Excel Final e minuta recalculam o PR e ignoram o manual: com PR salvo manual, Quadro 7/aba PR usam o valor manual e escrevem "PR informado à mão: motivo"; Quadro 10 não acusa "Diverge" por isso. Teste pytest.
+- [x] B3 (médio) `/sr` com SR já gravado não mostra o PR manual nem "Voltar ao automático": buscar a origem do PR também quando o SR vem do salvo.
+- [x] B4 (baixo) Dois "Informar PR" para a mesma chave (Mai e Jun): só o 1º mês da chave mostra o campo; ids únicos.
 
 ## PLANO DE 25/11 (hoje, ≈ 5 h, back primeiro, depois front; sem commit, sem push; teste vermelho → verde)
 
@@ -977,7 +1008,7 @@ e agora entra a conferência da planilha. Setembro é o primeiro teste com tudo 
 |---|---|---|---|
 | A | Back: salvar CGR/CGF/RET/RP grava a coluna `scg` (`recalcular_scg`) + reparo do histórico | Luiz | em andamento |
 | B | Back: SR do trimestre recalculado depois do SCG; com pendência nada é gravado | Luiz | em andamento |
-| C | Front: tela SCG (botão "Salvar" destrava quando o `scg` cru difere; card mostra "não gravado" em vez de R$ 0,00) | Jose | em andamento |
+| C | Front: tela SCG (botão "Salvar" destrava quando o `scg` cru difere;aça card mostra "não gravado" em vez de R$ 0,00) | Jose | em andamento |
 | D | Front: PMPV lembra linhas e resultado ao trocar de página (IndexedDB, `src/utils/lembrar.ts`) | Jose | em andamento |
 
 Diagnóstico (lido no código, ainda **não confirmado no banco**):
