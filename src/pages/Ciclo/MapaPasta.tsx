@@ -3,18 +3,22 @@ import { useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { num } from "../../utils/format";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa } from "../../utils/pastaCiclo";
+import { avisoDePastaDeOutroTrimestre } from "../../utils/pastaOutroTrimestre";
+import { Alert } from "../../components/ui/Alert";
 import { ICONE } from "./situacaoUI";
 
-export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrada = false }: {
+export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrada = false, aoAbrirTrimestre }: {
   mapa: ReturnType<typeof mapaDoTrimestre>; meses: string[]; raiz: string; total: number;
   processar?: () => void; // ausente: Painel ainda carregando
   aberto: boolean;        // Processar já aberto abaixo: o botão vira "Recomeçar"
   lembrada?: boolean;     // só os nomes foram lembrados: o navegador não guarda os arquivos depois de recarregar
+  aoAbrirTrimestre?: (ano: number, tri: number) => void; // leva ao trimestre da pasta quando ela é de outro
 }) {
   const [aberta, setAberta] = useState<CelulaMapa | null>(null);
   const etapasMapa: Etapa[] = ["auditoria", "cgf", "ret", "conciliacao"];
   const celula = (e: Etapa, m: string) => mapa.celulas.find((c) => c.etapa === e && c.periodo === m)!;
   const problemas = mapa.celulas.filter((c) => c.situacao !== "ok").length;
+  const outroTri = avisoDePastaDeOutroTrimestre(meses, mapa.mesesDaPasta);
   return (
     <div className="mt-5">
       <p className="text-sm text-zinc-400">
@@ -22,6 +26,18 @@ export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrad
         {problemas ? <span className="text-amber-200">{problemas} ponto(s) para conferir</span> : <span className="text-emerald-300">tudo encontrado</span>}
         {" "}· {num(mapa.ignorados)} de outros meses ignorados
       </p>
+      {outroTri && (
+        <Alert variant="warning" className="mt-3">
+          <strong>{outroTri.titulo}</strong> {outroTri.passo}
+          {aoAbrirTrimestre && (
+            <span className="mt-2 block">
+              <Button variant="solid" size="sm" onClick={() => aoAbrirTrimestre(outroTri.trimestre.ano, outroTri.trimestre.tri)}>
+                Abrir {outroTri.trimestre.rotulo}
+              </Button>
+            </span>
+          )}
+        </Alert>
+      )}
       {mapa.semMes.length > 0 && (
         <p className="mt-1 text-sm text-amber-200">
           ⚠ {mapa.semMes.length === 1 ? "Esta pasta não tem" : "Estas pastas não têm"} o mês no nome e não foram usadas:{" "}

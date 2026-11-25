@@ -3,7 +3,8 @@
  * audita as notas desse mês e mostra a comparação (CGR, empresas, notas que faltam ou diferem).
  * As notas vêm SEMPRE da pasta do ciclo trazida lá em cima, em "Importar da pasta do ciclo";
  * sem ela, a seção só avisa e leva o usuário até lá (a pasta é escolhida num lugar só).
- * A comparação não grava nada; só o botão "Incluir esta nota" (nota só na planilha) grava. */
+ * A comparação não grava nada. Depois de conferir, o bloco "Passo final: gravar o mês" (GravarMes) grava o mês; o botão
+ * "Incluir esta nota" (nota só na planilha) só vale em mês já gravado. */
 
 // ── Importações: peças prontas que este arquivo usa ───────────────────────────
 // React: useMemo guarda uma conta pronta (só refaz se algo mudar); useRef aponta para um
@@ -26,6 +27,8 @@ import { avisarAtencao, avisarEnviando, avisarSucesso, concluirAviso, fecharAvis
 import { ID_QUADRO_COMPARACAO, irParaSecao } from "../../components/ui/useIrParaSecao"; // "Ver diferenças" no toast leva ao quadro
 import { resultadoDaConferencia, type ResultadoDaConferencia } from "./conferenciaPlanilha";
 import { auditarMes, type AuditoriaDoMes } from "./auditoriaDoMes"; // a função que fala com o servidor
+import { GravarMes } from "./GravarMes"; // o passo final: gravar o mês depois de conferir
+import { mesJaGravado } from "./gravarDoMes";
 
 // Classes de estilo do "cartão" da seção (borda fina e fundo do painel), as mesmas do resto do Painel.
 const PANEL = "rounded-xl border border-white/[0.07] bg-panel";
@@ -71,7 +74,7 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
   caminhos: string[] | null;
   arquivos: Map<string, ArquivoDaPastaCiclo>;
   auditoria: AuditoriaHistoricoLinha[];
-  /** Depois de "Incluir esta nota": o Painel recarrega as etapas (o CGR gravado do mês mudou). */
+  /** Depois de gravar o mês ou de "Incluir esta nota": o Painel recarrega as etapas (o CGR gravado do mês mudou). */
   aoIncluirNota?: () => void;
   /** A planilha escolhida (ou null): o Painel usa a mesma no relatório do trimestre. */
   aoTrocarPlanilha?: (f: File | null) => void;
@@ -154,7 +157,8 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
 
   // ── Valores derivados (contas simples em cima da memória) ──
   const ocupado = fase === "lendo" || fase === "processando";   // há trabalho em andamento: trava os botões
-  const cgrGravado = ativo ? auditoria.find((h) => h.periodo === ativo)?.cgr_gravado ?? null : null; // CGR salvo do mês
+  const linhaDoMes = ativo ? auditoria.find((h) => h.periodo === ativo) : undefined;               // o que o mês tem gravado
+  const cgrGravado = linhaDoMes?.cgr_gravado ?? null;                                              // CGR salvo do mês
   // O botão "Comparar" só liga com planilha, mês e as notas do mês abertas na pasta do ciclo.
   const mesSemAba = (m: string) => !!conferencia && conferencia.desfecho !== "erro" && conferencia.meses.some((x) => x.periodo === m && !x.tem);
   const planilhaRecusada = conferencia?.desfecho === "erro"; // o servidor não conseguiu abrir: escolha outra
@@ -190,8 +194,9 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
       const memoria = await carregarNaMemoria(enviar, (feitos, total) => setLidos({ feitos, total }));
       setFase("processando");
       // 3) Manda para o servidor auditar e comparar com a planilha.
-      //    O null no 4º lugar quer dizer "não compare com o valor gravado no banco": aqui o gabarito é só a planilha.
-      const r = await auditarMes(memoria, raiz, ativo, null, false, planilha);
+      //    O gabarito da comparação é a planilha; o CGR gravado (4º lugar, `sempreComparar`) só traz, para o passo final
+      //    "Gravar o mês", o que a gravação trocaria ou apagaria (empresa gravada que não veio na pasta).
+      const r = await auditarMes(memoria, raiz, ativo, cgrGravado, true, planilha);
       // 4) Confere a resposta. Erro de leitura ou pasta de OUTRO mês: não mostra comparação.
       if (r.erros.length) {
         setErro(`O servidor não conseguiu auditar ${ativo}: ${r.erros.join(" ")}`);
@@ -223,8 +228,8 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
       <p className="mt-1 max-w-2xl text-sm text-zinc-400">
         Antes de seguir para o SR, confira o CGR de um mês contra a planilha da Conta Gráfica, igual à tela da Auditoria. As notas do mês
         {" "}vêm da pasta do ciclo trazida no bloco “Processar a pasta”, são lidas de novo e comparadas com a planilha; a comparação
-        {" "}<b className="text-zinc-200">não grava nada</b>. Só o botão
-        {" "}<b className="text-zinc-200">Incluir esta nota</b> (nota que está só na planilha) grava a nota no CGR do mês.
+        {" "}<b className="text-zinc-200">não grava nada</b>. Quando terminar de conferir, o
+        {" "}<b className="text-zinc-200">passo final</b> logo abaixo do resultado grava o mês.
       </p>
 
       <div className="mt-4 space-y-4">
@@ -361,15 +366,15 @@ export function CompararPlanilha({ meses, caminhos, arquivos, auditoria, aoInclu
             )}
             {res.comparacao ? (
               // O quadro "Tudo confere / Há divergências" é o mesmo componente da tela da Auditoria.
-              <ComparacaoPlanilha comparacao={res.comparacao} aoIncluirNota={aoIncluirNota} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
+              <ComparacaoPlanilha comparacao={res.comparacao} aoIncluirNota={aoIncluirNota} mesGravado={mesJaGravado(linhaDoMes)} className="rounded-xl border border-white/[0.07] bg-white/[0.02] p-4" />
             ) : (
               // Sem comparação: planilha ilegível ou sem aba do mês. Mostra o motivo que o servidor deu.
               <p className="text-sm text-amber-200">{res.planilhaIlegivel ?? res.avisoComparacao ?? "A planilha não pôde ser comparada."}</p>
             )}
-            <p className="text-xs text-zinc-500">
-              Esta comparação não grava nada (só o botão “Incluir esta nota” grava). Se houver divergência com a planilha, o ciclo gravado continua com ela até ser corrigido:
-              cabe ao analista analisar os dados antes de gravar.
-            </p>
+            {/* O passo final: conferiu, agora grava. Sem isso a conferência terminava sem saída. */}
+            <GravarMes key={`gravar-${ativo}-${res.r.itens.length}-${res.r.totais.cgr_liquido}`} periodo={ativo} res={res} linha={linhaDoMes}
+              planilhaEscolhida={!!planilha} aoGravar={() => aoIncluirNota?.()}
+              className="rounded-xl border border-sky-400/25 bg-sky-500/[0.04] p-4" />
             <div className="flex flex-wrap gap-2">
               <Button variant="ghost" onClick={() => { zerar(); }}>Comparar de novo</Button>
               <Button variant="ghost" onClick={() => { zerar(); setAtivo(null); }}>Fechar</Button>

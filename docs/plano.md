@@ -1,3 +1,79 @@
+## PLANO DE 25/11 (hoje, ≈ 5 h, back primeiro, depois front; sem commit, sem push; teste vermelho → verde)
+
+**Por que não dava para gravar (achado de 25/11, lido no código, não palpite):** o analista confere a planilha em "Comparar com a planilha" e a tela termina ali. O resultado só tem "Comparar de novo" e "Fechar" (`Ciclo/CompararPlanilha.tsx:373-376`), com o texto "Esta comparação não grava nada (só o botão 'Incluir esta nota' grava)" (`:369-371`). O único botão de gravar na tela é "Incluir esta nota", que grava UMA nota, não o mês (`Auditoria/ComparacaoPlanilha.tsx:464-466`, `incluir()` em `:440-455`). O botão "Gravar Out/2026" existe, mas em outro lugar: `Ciclo/AuditarMes.tsx:409-411`, dentro do passo 2, e só depois de arrastar a pasta de novo e auditar de novo (`AuditarMes.tsx:261`, fase "resultado"). Ou seja, o usuário lê as diferenças num lugar e a gravação mora em outro, sem ligação entre os dois. O Comparar já tem as notas lidas (`res.r.itens`) e não oferece gravá-las. Pior: o único botão que aparece grava só a nota, e o back (`incluir_nota`, `servicos_auditoria_lote.py:560-573`) não confere se o mês já foi gravado: soma as notas já gravadas (nenhuma) + a nova e grava o CGR. Num mês nunca gravado, o CGR vira só a nota (Out/26: −481.319,89). A mensagem "incluída · CGR do mês agora −R$ 481.319,89" (`ComparacaoPlanilha.tsx:462`) parece sucesso, e por isso o usuário perguntou "não tem a função de salvar não?". `salvar` (`servicos_auditoria_lote.py:442-468`) substitui as notas do mês, então regravar apaga a nota digitada (aviso já escrito na docstring de `incluir_nota`, mas não na tela).
+
+**FEITO em 25/11 (decisões do Leandro: bloco no fim do Comparar, recusar "Incluir esta nota" em mês nunca gravado, reincluir digitadas por padrão, qualquer analista regrava, Jul/26 só depois do fechamento de Out).** Back: `incluir_nota` recusa mês sem notas; `historico()` com `qtd_digitadas` e `cgr_digitadas` (`tests/test_incluir_nota_mes_vazio.py`, 8 testes). Front: `Ciclo/GravarMes.tsx` (bloco compartilhado) + `Ciclo/gravarDoMes.ts` (lógica pura, 15 testes); `AuditarMes` e `CompararPlanilha` usam o mesmo bloco; "Incluir esta nota" vira "Grave o mês antes de incluir" em mês nunca gravado; `utils/pastaOutroTrimestre.ts` + aviso no `MapaPasta`. Falta ver no navegador (disco C: cheio, sem Chrome headless) e o item 6 (produção).
+
+### 1. Gravar o mês logo após conferir (prioridade 1, ≈ 2 h 30)
+**Desenho (aprovar com o Leandro antes do front, ver pergunta 1):** no fim do resultado do Comparar, no lugar de "Comparar de novo / Fechar" como únicas saídas, entra um bloco final "Passo final: gravar o mês de Out/2026" com:
+- O que será gravado: CGR total (`res.r.totais.cgr_liquido`), nº de notas (`res.r.itens.length`), notas incluídas à mão (as "só na planilha" que o analista decidir incluir, com valor e motivo), diferença contra a planilha (`c.cgr_auditoria` x `fontes_cgr`) e o que já está gravado (`cgrGravado`, data).
+- Estados: nunca gravado ("Out/2026 ainda não foi gravado"); já gravado e igual ("Gravado em 25/11 14:02 · nada a mudar", botão ghost "Regravar"); já gravado e diferente ("Vai substituir R$ x por R$ y"); com divergência (texto atual do `AuditarMes` "Gravar com divergências", `:395-399`); sem notas lidas (botão desligado com o motivo).
+- Confirmação (reaproveita o `ConfirmarGravacao` / modal de `AuditarMes.tsx:449-478`), toast de sucesso e prévia da cascata (SR, PR, PV só com aprovação no Painel, como hoje).
+- Regravar com notas digitadas: antes de confirmar, lista "Estas notas digitadas serão apagadas: ND 550499 (TAG), −R$ 481.319,89, motivo '...'" e pede para reincluí-las na mesma gravação (marcadas por padrão, usando `decisao="incluir"` do `salvar`, que já grava a nota digitada junto, `:444-457`), em vez de apagar em silêncio.
+- A decisão por nota "só na planilha" (incluir/seguir sem) usa a lógica pura que já existe (`faltantesDoMes`, `decisaoParaEnviar`, `podeGravarComFaltantes`, `pendenciasDosMeses`, importadas em `AuditarMes.tsx:28`). Extrair o corpo de gravação do `AuditarMes` para um componente `GravarMes` (props: período, itens, comparação, CGR gravado, ao gravar) usado nos dois lugares, para não duplicar regra.
+**Back: precisa de mudança pequena e aditiva; o cálculo não muda.**
+- [x] 1a. (20 min) Vermelho: `incluir_nota` em mês sem notas gravadas levanta `ValueError("Este mês ainda não foi gravado. Grave a Auditoria de Out/2026 antes de incluir uma nota.")` (vira 4xx pelo handler, nunca 500); em mês gravado, soma certa e `qtd_itens` correto. Banco temporário, sem ciclar mês.
+- [x] 1b. (15 min) Verde: guarda no início de `incluir_nota` (`servicos_auditoria_lote.py`, depois de `atuais = ...`, antes de `incluir_auditoria_item`; a checagem tem de vir ANTES de inserir). Texto do erro com o período formatado.
+- [x] 1c. (20 min) Aditivo em `historico()` (`:477-494`) e no schema da linha: `qtd_digitadas` e `cgr_digitadas` (itens com `origem == "digitada"`), para o front avisar antes de regravar sem chamada extra. Teste: mês com 1 digitada. Contrato espelhado em `src/types/index.ts`.
+- [x] 1d. (10 min, só conferido: a nota digitada entra nas diferenças como "só no gravado"; o aviso das digitadas vem de `qtd_digitadas`) Verificar se `POST /auditoria/diferencas` (`routers/auditoria.py:232-244`) já lista a nota digitada como "gravada que some" (`apagadas` em `AuditarMes.tsx:216`). Se não listar, incluir nas diferenças e testar.
+**Front:**
+- [x] 1e. (20 min) Vitest primeiro, em módulo puro `gravarMes.ts` (estado do bloco: `nunca | igual | substitui | diverge | vazio`, texto do botão e do aviso, lista de digitadas que somem). Sem JSX.
+- [x] 1f. (60 min) Componente `GravarMes` + encaixe no fim do resultado de `CompararPlanilha.tsx:369-376` e troca do `AuditarMes` para usá-lo. O texto "Esta comparação não grava nada (só o botão…)" vira "Conferiu? Grave o mês logo abaixo." Botão principal único; "Comparar de novo" e "Fechar" ficam ghost.
+- [x] 1g. (15 min) `IncluirNota` (`ComparacaoPlanilha.tsx:428-498`): se `auditoria` do mês tem 0 notas gravadas, o botão "Incluir esta nota" é trocado por "Grave o mês antes de incluir" que rola até o bloco final; a mensagem de sucesso passa a "incluída · o mês tem N notas · CGR agora R$ x" (o back devolve `qtd_itens`). O erro do back também aparece em português, via `mensagemDeErro`.
+
+### 2. Mensagem amigável quando a pasta é de outro mês (item 7, ≈ 30 min, depois do item 1)
+- [x] 2a. Ler o que o sistema diz hoje: `Ciclo/auditoriaDoMes.ts:11` (o back leu outro mês no nome da pasta), `Processar.tsx:264` ("lidos como X, não Y. Use a tela RET"), `utils/pastaCiclo.ts` e `MapaPasta.tsx`. Não inventar o texto atual.
+- [x] 2b. Função pura `mensagemMesDiferente(mesDaPasta, trimestreAberto)` + teste: "Esta pasta é de Out/2026 e o trimestre aberto é Jul–Set/2026. Abra o trimestre Out–Dez ou traga a pasta de Jul–Set." e botão "Abrir Out–Dez/2026" (usa `linkDoCiclo`). Aplicar no mapa da pasta, Processar, Comparar e Auditar mês.
+
+### 3. Estorno ND 550499 (item 8, ≈ 20 min; vira texto e conferência, sem cálculo novo)
+- [ ] 3a. Spec: registrar em `plataforma-conta-grafica/docs/specs/SPEC_CGR_BALANCEAMENTO_PORTFOLIO.md` que o −R$ 481.319,89 de Out/26 (planilha linha 114) é o estorno da nota 550499 de Jul/26 (linha 97, +R$ 481.319,89).
+- [ ] 3b. Conferir no Jul/2026 gravado (só leitura) se a nota 550499 da TAG existe. Se faltar, o CGR de Jul/26 está 481.319,89 abaixo e a causa do estorno solto é essa; decidir com o Leandro (pergunta 3). Texto sugerido do motivo na tela: "estorno da nota 550499 de Jul/26". A diferença de R$ 1.019.232,55 no SCG de julho continua sem explicação e é outra coisa.
+
+### 4. Itens de 1 a 6 do plano anterior (balanceamento no front, ≈ 2 h, só depois de 1 a 3)
+- [ ] 4a. (60 min) Grupo "Abate o CGR (−)", subtotal negativo e texto de ajuda; "Incluir esta nota" aceita negativo (`incluirNota.ts` / `pedidoDeInclusao`; o back já aceita: só recusa zero, `:553`). Vitest, `tsc -b`, eslint.
+- [ ] 4b. (30 min) A prévia antes de gravar mostra "− Balanceamento" e o estorno em português simples (a prévia fica dentro do `GravarMes`).
+- [ ] 4c. (30 min) Navegador (Chrome headless isolado, tema escuro; vazio, erro, parcial) com a pasta real de Out/26, sem gravar.
+- [ ] 4d. Perguntas abertas de 24/11 (volume do Saturno, tolerância R$ 0,05, grafia Portifólio): só se o Leandro responder; senão ficam para amanhã.
+
+### 5. Testes (nada no banco real, nenhum mês é ciclado)
+- Back (`tests/test_incluir_nota_mes_vazio.py`, novo, banco temporário; rodar só os arquivos tocados com `Plataforma\.venv\Scripts\python.exe -m pytest <arquivo>`, a suíte inteira leva ~8 min e o disco está apertado; rodar completa uma vez no fim): incluir em mês vazio recusa com a frase exata; incluir em mês gravado soma certa; incluir negativo (estorno) em mês gravado; `historico()` traz `qtd_digitadas`/`cgr_digitadas`; `salvar(decisao="incluir")` regravando mantém a digitada reenviada e some a não reenviada; `/auditoria/incluir-nota` em mês vazio devolve 4xx (não 500).
+- Front (Vitest, `gravarMes.test.ts`, `mensagemMesDiferente.test.ts`, ajuste em `incluirNota.test.ts`): cada estado do bloco; texto do botão; lista de digitadas que somem; mês vazio desliga "Incluir esta nota"; valor negativo aceito em `pedidoDeInclusao`. No fim: `vitest run`, `tsc -b`, `eslint src`, `vite build`.
+
+### 6. Verificação de Out/2026 (localhost primeiro, produção só leitura)
+- [ ] 6a. Em produção, sem gravar: Auditoria CGR → Out/2026 e `GET /auditoria/historico`: se `qtd_notas = 1` e `cgr_gravado = −481.319,89`, confirmado que o CGR ficou só com o estorno.
+- [ ] 6b. Depois do deploy do back e do front: no Painel, Comparar Out/2026, conferir, usar o novo "Gravar o mês de Out/2026" (79 notas + as 7 da Balanceamento; alvo CGR 85.510.773,51 ± 0,05 contra a `copy.xlsx`) e reincluir o estorno de −481.319,89 na mesma gravação, com motivo citando a 550499 de Jul/26. Quem grava é o analista, depois de ver a prévia.
+- [ ] 6c. Conferir Fev–Set/2026 inalterados e que SR, PR e PV continuam esperando aprovação.
+
+### 7. Riscos
+- Gravar em produção troca as notas de Out/26 de uma vez: fazer só com o Leandro olhando a prévia; não regravar Jul–Set sem necessidade.
+- `GravarMes` compartilhado mexe no `AuditarMes`, que já funciona: cobrir com teste antes de mover o código e rever o passo 2 no navegador.
+- O Comparar lê os arquivos do navegador (`arquivos`), que somem ao recarregar a página (`CompararPlanilha.tsx:67`): sem arquivos, o bloco final diz "Traga a pasta de novo para gravar", nunca grava vazio.
+- Mês com notas digitadas e planilha que não tem a nota: o botão "reincluir" não pode reincluir sem CGR na planilha (o back recusa em `:450-451`).
+
+### 8. Perguntas ao Leandro (no máximo 5)
+1. O bloco "Gravar o mês" fica no fim do Comparar (recomendo, é onde o analista está quando decide) ou o Comparar só leva ao passo 2 com a pasta já lida? A recomendação é no próprio Comparar.
+2. "Incluir esta nota" em mês nunca gravado: recusar (recomendo, simples e seguro) ou gravar o mês e a nota juntos?
+3. Se a nota 550499 de Jul/26 faltar mesmo no Jul gravado: regravo Jul agora (CGR e SCG de julho mudam, e SR, PR, PV precisam de nova aprovação) ou deixo para depois do fechamento de Out?
+4. Regravar um mês com notas digitadas: reincluir por padrão (recomendo) ou apagar e exigir que o analista inclua de novo?
+5. Quem pode regravar um mês já gravado: qualquer analista ou só o perfil de aprovação (`docs/PERFIS.md`)?
+
+### 9. Mensagens de commit sugeridas (o Leandro faz; sem Co-Authored-By; back primeiro, mensagens separadas)
+Back (`plataforma-conta-grafica`):
+```
+git add Src/Services/auditoria/servicos_auditoria_lote.py Src/api/schemas/auditoria.py tests/test_incluir_nota_mes_vazio.py docs/specs/SPEC_CGR_BALANCEAMENTO_PORTFOLIO.md
+git commit -m "fix(auditoria): recusa incluir nota em mês que ainda não foi gravado e informa notas digitadas no histórico"
+git push origin main
+```
+Front (`Front_end`), depois que o back estiver no ar:
+```
+git add src/pages/Ciclo src/pages/Auditoria src/utils src/types/index.ts docs/plano.md
+git commit -m "feat(ciclo): passo final 'Gravar o mês' após a conferência da planilha, com aviso das notas digitadas e mensagem de pasta de outro mês"
+git push origin main
+```
+
+### Já visto em produção (24/11, 13:29, trimestre Out/2026, mantido)
+79 notas batem, 2 com valor diferente (Saturno 275589 e 275590, só o volume em m³, CGR igual), 0 só nos arquivos, 1 só na planilha (o estorno da TAG, linha 114). Balanceamento de Portifólio confere em 7/7 com −R$ 13.792.619,03. TAG: 59 notas na auditoria contra 60 na planilha, diferença R$ 481.319,91.
+
 **24/11 — Painel com trilha horizontal e CGR de Out/26 com a Balanceamento de Portifólio (spec escrita, código ainda não).** Painel: a trilha virou uma faixa no topo com nome e ideia de cada passo, o painel do passo usa a largura toda e "Ao fechar" fica embaixo; PV com vírgula decimal e botão "Regravar" quando já gravado; critica de UX aplicada (frase de envio, "N de 9 passos prontos", título do bloqueio nomeia o passo, alvos de 44px, `aria-current`). CGR de Out/26: o sistema lê as 7 notas da Balanceamento mas soma com o sinal errado (113.577.331,48 contra 85.510.773,51 da planilha `copy`); spec em `plataforma-conta-grafica/docs/specs/SPEC_CGR_BALANCEAMENTO_PORTFOLIO.md`. Decisões do usuário: a Balanceamento sempre subtrai; a subpasta `Termos` é ignorada; vale a planilha `copy`; o estorno da TAG (ND 550499) entra negativo, −481.319,89, por lançamento manual em "Incluir esta nota". Abertas: MMBTU→m³ do Saturno, nota cancelada/devolvida da Balanceamento, tolerância de R$ 0,05, efeito no custo médio/SCG/RPV, grafia Portifólio × Portfólio. Falta confirmar se o front aceita valor negativo no "Incluir esta nota".
 
 ## PLANO DE 24/11 (hoje, ≈ 3 h, só back, sempre teste vermelho → verde)
@@ -9,13 +85,6 @@
 - [ ] 6. (15 min) Atualizar este `plano.md` e preparar os comandos de commit do back.
 - Nada grava no banco em mês de ciclo durante os testes (banco temporário). Rodar `pytest` com `Plataforma\.venv\Scripts\python.exe` (a venv da pasta do back não tem fastapi); a suíte completa leva ~8 min e o disco C: está apertado.
 
-## PLANO DE 25/11 (amanhã, ≈ 4 h, front, conferência real e deploy)
-- [ ] 1. (60 min) Front: grupo "Abate o CGR (−)", subtotal negativo e texto de ajuda; "Incluir esta nota" aceita negativo; Vitest, tsc e eslint.
-- [ ] 2. (30 min) Prévia antes de gravar mostra "− Balanceamento" e o estorno, em português simples.
-- [ ] 3. (30 min) Conferir no navegador (tema escuro; vazio, erro, parcial) com a pasta real de Out/26, sem gravar.
-- [ ] 4. (30 min) Resolver o que as perguntas abertas liberarem (volume do Saturno, tolerância, grafia).
-- [ ] 5. (20 min) Atualizar `plano.md` e preparar os commits (back primeiro, front depois, mensagens separadas).
-- [ ] 6. (30 min) Deploy do back → auditoria de Out/26 em produção sem gravar → deploy do front → o analista confere a prévia e grava.
 
 **23/11 — Painel do Ciclo em duas colunas (fatias 2 a 7 do plano `zippy-hugging-river`).** Trilha à esquerda com "Ao fechar" no rodapé, passo aberto à direita (abre no próximo), SR/PR/PV com cartão próprio, "Processar a pasta" montado e escondido. Visto no Chrome headless isolado com back falso (1440px e 800px): troca de passo, `?abrir=pr`, `?aprovar=1`, faixa estreita. Corrigido na revisão: título duplicado em SR/PR/PV (o resumo só aparece se o passo está bloqueado) e, no estreito, o "Ao fechar" ficava entre a faixa e o passo (agora vai para o fim) e o chip do passo aberto fica à vista. `atalhoSCG.ts` removido (sem uso). Falta: ver contra o back real e o Processar com pasta de verdade; limpeza do texto da tarifa média (aguarda decisão da MB 0,5410).
 
