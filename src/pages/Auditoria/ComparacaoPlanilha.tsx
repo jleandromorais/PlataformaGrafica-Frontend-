@@ -5,9 +5,10 @@ import { incluirNotaAuditoria } from "../../api";
 import { mensagemDeErro } from "../../api/client";
 import { Conferencia } from "../../components/ui/Conferencia";
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
-import { ID_QUADRO_COMPARACAO, useIrParaSecao } from "../../components/ui/useIrParaSecao";
+import { ID_QUADRO_COMPARACAO, irParaSecao, useIrParaSecao } from "../../components/ui/useIrParaSecao";
 import { brl, num } from "../../utils/format";
 import { pedidoDeInclusao, podeIncluirNota } from "./incluirNota";
+import { ID_GRAVAR_MES } from "../Ciclo/gravarDoMes";
 import { TOL, cgrDaNota, cgrDifere, empresaDa, parearMesmoValor, resumoDaComparacao, separarAvisos, type SecaoDaComparacao } from "./comparacaoResumo";
 import { Button } from "../../components/ui/Button";
 
@@ -25,12 +26,14 @@ const textoDaNota = (n: Record<string, unknown>) => {
  *  - por_supridor: planilha só com totais por supridor (volume e CGR);
  *  - generico: só presença das notas.
  * Em qualquer um, "Mostrar diferenças" abre o porquê de cada supridor com diferença.
- * A comparação não grava nada; só o botão "Incluir esta nota" (nota que só está na planilha) grava. */
-export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: {
+ * A comparação não grava nada; só o botão "Incluir esta nota" (nota que só está na planilha) grava, e só em mês já gravado. */
+export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota, mesGravado = true }: {
   comparacao: AuditoriaComparacao;
   className: string;
   /** Chamado depois de incluir uma nota: quem usa recarrega o histórico/CGR gravado. */
   aoIncluirNota?: () => void;
+  /** O mês já tem notas gravadas? Sem isso o back recusa "Incluir esta nota" (o CGR viraria só a nota): o botão leva ao passo "Gravar o mês". */
+  mesGravado?: boolean;
 }) {
   const [mostrarDif, setMostrarDif] = useState(false);
   // Regra única: tudo que mostra um problema é clicável e leva ao detalhe (rola, abre o que está fechado e destaca por ~2 s).
@@ -221,7 +224,7 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
               <li key={i}>
                 {/* Só a nota da planilha com CGR (modelo por nota) pode ser incluída no mês. */}
                 {c.periodo && podeIncluirNota(n as NotaSoNaPlanilha)
-                  ? <IncluirNota nota={n as NotaSoNaPlanilha} texto={textoDaNota(n)} periodo={c.periodo} aoIncluir={aoIncluirNota} />
+                  ? <IncluirNota nota={n as NotaSoNaPlanilha} texto={textoDaNota(n)} periodo={c.periodo} aoIncluir={aoIncluirNota} mesGravado={mesGravado} />
                   : textoDaNota(n)}
               </li>
             ))}
@@ -425,14 +428,14 @@ export function ComparacaoPlanilha({ comparacao: c, className, aoIncluirNota }: 
 
 /** Uma nota que só está na planilha, com o botão "Incluir esta nota" e a confirmação em duas etapas
  * (mesmo jeito do aviso de possível duplicata). Incluir GRAVA a nota no CGR do mês. */
-function IncluirNota({ nota, texto, periodo, aoIncluir }: {
-  nota: NotaSoNaPlanilha; texto: string; periodo: string; aoIncluir?: () => void;
+function IncluirNota({ nota, texto, periodo, aoIncluir, mesGravado }: {
+  nota: NotaSoNaPlanilha; texto: string; periodo: string; aoIncluir?: () => void; mesGravado: boolean;
 }) {
   const [confirmando, setConfirmando] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [incluindo, setIncluindo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [cgrNovo, setCgrNovo] = useState<number | null>(null);   // CGR do mês depois de incluir
+  const [cgrNovo, setCgrNovo] = useState<{ valor: number; notas: number } | null>(null);   // CGR do mês e nº de notas depois de incluir
   const { previa, mostrarCascata } = usePreviaCascata("font-sans"); // SR, PR e PV: aprovar no Painel
 
   const pedido = pedidoDeInclusao(nota, motivo);
@@ -443,7 +446,7 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
     setErro(null);
     try {
       const r = await incluirNotaAuditoria(periodo, pedido);
-      setCgrNovo(r.valor_gravado);
+      setCgrNovo({ valor: r.valor_gravado, notas: r.qtd_itens });
       mostrarCascata(r.cascata);
       setConfirmando(false);
       aoIncluir?.();
@@ -459,7 +462,12 @@ function IncluirNota({ nota, texto, periodo, aoIncluir }: {
       <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span>{texto}</span>
         {cgrNovo !== null ? (
-          <span className="font-sans font-medium text-emerald-300">incluída · CGR do mês agora {brl(cgrNovo)}</span>
+          <span className="font-sans font-medium text-emerald-300">incluída · o mês tem {cgrNovo.notas} notas · CGR agora {brl(cgrNovo.valor)}</span>
+        ) : !mesGravado ? (
+          // O back recusa: sem notas gravadas o CGR do mês viraria só esta nota. Primeiro grava-se o mês.
+          <Button variant="ghost" size="sm" onClick={() => { irParaSecao(ID_GRAVAR_MES); }}>
+            Grave o mês antes de incluir
+          </Button>
         ) : !confirmando && (
           <Button variant="warning" size="sm" onClick={() => { setConfirmando(true); setErro(null); }}>
             Incluir esta nota

@@ -229,6 +229,7 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
   ignorados: number;
   semEtapa: number;
   semMes: string[]; // pastas de alguma etapa sem mês no nome (ex.: "09 -nf")
+  mesesDaPasta: string[]; // meses reconhecidos nos nomes (de qualquer trimestre), sem repetir
 } {
   const ano = Number(meses[0].split("/")[1]);
   const lista = caminhos.map((c) => classificar(c, ano));
@@ -265,5 +266,6 @@ export function mapaDoTrimestre(caminhos: string[], meses: string[]): {
     ignorados: reconhecidos.filter((a) => !a.periodo || !meses.includes(a.periodo)).length,
     semEtapa: lista.length - reconhecidos.length,
     semMes: [...new Set(reconhecidos.filter((a) => !a.periodo).map((a) => a.conjunto))],
+    mesesDaPasta: [...new Set(reconhecidos.flatMap((a) => (a.periodo ? [a.periodo] : [])))],
   };
 }

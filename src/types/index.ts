@@ -279,6 +279,9 @@ export interface AuditoriaHistoricoLinha {
   periodo: string;
   qtd_notas: number;
   cgr_gravado: number;
+  /** Notas incluídas à mão ("Incluir esta nota") e quanto somam no CGR; somem se o mês for regravado sem elas. Back antigo não manda. */
+  qtd_digitadas?: number;
+  cgr_digitadas?: number;
   data_atualizacao: string;
   periodo_valido: boolean;
   /** Nota que estava só na planilha quando o mês foi gravado, e o que o analista decidiu. */
