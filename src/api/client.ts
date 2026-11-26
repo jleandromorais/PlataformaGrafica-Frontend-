@@ -68,9 +68,31 @@ function juntar(acao: string, motivo: string): string {
  * servidor quando ele explica, senão de uma frase por tipo de falha. Status e
  * rota vão depois de SEPARADOR_DETALHE, fora do texto principal.
  */
+/** Erro que nasceu no navegador (não veio da API): o motivo para o usuário e o detalhe técnico.
+ * Antes voltava só o texto padrão, sem dizer por quê (ex.: o RP de Out/2026 em 26/11). */
+export function motivoDoNavegador(erro: unknown): { motivo: string; tecnico: string } | null {
+  if (!(erro instanceof Error) && !(typeof DOMException !== "undefined" && erro instanceof DOMException)) return null;
+  const { name, message } = erro as Error;
+  const tecnico = `erro no navegador · ${name}${message ? `: ${message}` : ""}`;
+  if (name === "NotFoundError" || name === "NotReadableError") {
+    return {
+      motivo: "não consegui abrir um arquivo da pasta no seu computador. Ele pode ter sido movido, renomeado ou alterado "
+        + "depois que a pasta foi carregada. Carregue a pasta de novo e processe outra vez.",
+      tecnico,
+    };
+  }
+  if (name === "NotAllowedError" || name === "SecurityError") {
+    return { motivo: "o navegador não deu permissão para ler a pasta. Carregue a pasta de novo e aceite o pedido de acesso.", tecnico };
+  }
+  return { motivo: "aconteceu um erro aqui no navegador. Recarregue a página e tente de novo; se continuar, mande um print desta mensagem para o suporte.", tecnico };
+}
+
 export function mensagemDeErro(erro: unknown, padrao: string): string {
   if (axios.isCancel(erro)) return ""; // cancelada pela própria tela: nada a mostrar
-  if (!axios.isAxiosError(erro)) return padrao;
+  if (!axios.isAxiosError(erro)) {
+    const local = motivoDoNavegador(erro);
+    return local ? juntar(padrao, local.motivo) + SEPARADOR_DETALHE + local.tecnico : padrao;
+  }
 
   const status = erro.response?.status;
   const detalhe = SEPARADOR_DETALHE + linhaTecnica(erro, status);
