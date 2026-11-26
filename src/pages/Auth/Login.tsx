@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { authApi } from "../../api/auth";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Lock, Mail } from "lucide-react";
 import { AuthShell } from "./AuthShell";
@@ -18,6 +19,13 @@ export default function LoginPage() {
   const [senha, setSenha] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // "Criar conta" só aparece com o cadastro aberto (fechado por padrão no servidor desde 26/11).
+  const [cadastroAberto, setCadastroAberto] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    authApi.cadastroAberto().then((a) => { if (vivo) setCadastroAberto(a); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   async function enviar(e: FormEvent) {
     e.preventDefault();
@@ -37,12 +45,14 @@ export default function LoginPage() {
     <AuthShell
       titulo="Entrar"
       subtitulo="Acesse a plataforma com seu e-mail e senha."
-      rodape={<>Não tem conta? <Link to="/cadastro" className="text-sky-400 hover:underline">Criar conta</Link></>}
+      rodape={cadastroAberto
+        ? <>Não tem conta? <Link to="/cadastro" className="text-sky-400 hover:underline">Criar conta</Link></>
+        : <>Não tem conta? Peça ao administrador do sistema.</>}
     >
       <form onSubmit={enviar} className="flex flex-col gap-4">
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         <Input label="E-mail" type="email" autoComplete="email" required autoFocus
-          icon={<Mail size={15} />} placeholder="voce@empresa.com"
+          icon={<Mail size={15} />} placeholder="voce@arpe.pe.gov.br"
           value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input label="Senha" type="password" autoComplete="current-password" required
           icon={<Lock size={15} />} placeholder="Sua senha"

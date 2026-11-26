@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
+import { authApi } from "../../api/auth";
 import { Link, useNavigate } from "react-router-dom";
 import { Lock, Mail, User } from "lucide-react";
 import { AuthShell } from "./AuthShell";
@@ -18,6 +19,13 @@ export default function CadastroPage() {
   const [confirmar, setConfirmar] = useState("");
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  // Quem abre /cadastro direto com o cadastro fechado vê o aviso antes de preencher tudo.
+  const [fechado, setFechado] = useState(false);
+  useEffect(() => {
+    let vivo = true;
+    authApi.cadastroAberto().then((a) => { if (vivo) setFechado(!a); }).catch(() => {});
+    return () => { vivo = false; };
+  }, []);
 
   const senhaCurta = senha.length > 0 && senha.length < 8;
   const naoConfere = confirmar.length > 0 && confirmar !== senha;
@@ -45,12 +53,17 @@ export default function CadastroPage() {
       rodape={<>Já tem conta? <Link to="/login" className="text-sky-400 hover:underline">Entrar</Link></>}
     >
       <form onSubmit={enviar} className="flex flex-col gap-4">
+        {fechado && (
+          <Alert variant="warning">
+            O cadastro de novos usuários está desativado. Peça a um administrador para criar sua conta.
+          </Alert>
+        )}
         {erro && <Alert variant="error" className="whitespace-pre-line">{erro}</Alert>}
         <Input label="Nome" autoComplete="name" required autoFocus
           icon={<User size={15} />} placeholder="Seu nome"
           value={nome} onChange={(e) => setNome(e.target.value)} />
         <Input label="E-mail" type="email" autoComplete="email" required
-          icon={<Mail size={15} />} placeholder="voce@empresa.com"
+          icon={<Mail size={15} />} placeholder="voce@arpe.pe.gov.br"
           value={email} onChange={(e) => setEmail(e.target.value)} />
         <Input label="Senha" type="password" autoComplete="new-password" required
           icon={<Lock size={15} />} placeholder="Mínimo de 8 caracteres"
@@ -60,7 +73,7 @@ export default function CadastroPage() {
           icon={<Lock size={15} />} placeholder="Digite a senha novamente"
           error={naoConfere ? "As senhas não coincidem." : undefined}
           value={confirmar} onChange={(e) => setConfirmar(e.target.value)} />
-        <Button type="submit" variant="solid" size="lg" loading={enviando} className="mt-1 w-full justify-center text-sm">Criar conta</Button>
+        <Button type="submit" variant="solid" size="lg" loading={enviando} disabled={fechado} className="mt-1 w-full justify-center text-sm">Criar conta</Button>
       </form>
     </AuthShell>
   );

@@ -1,10 +1,29 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
+import { Alert } from "../components/ui/Alert";
+import { Button } from "../components/ui/Button";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "./AuthContext";
 
 export function RequireAuth() {
-  const { usuario, carregando } = useAuth();
+  const { usuario, carregando, semConexao, tentarDeNovo, sair } = useAuth();
   const local = useLocation();
+
+  if (!carregando && !usuario && semConexao) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-canvas p-4">
+        <div className="w-full max-w-md space-y-4">
+          <Alert variant="error">
+            Sem conexão com o servidor. Verifique sua internet; se ela estiver normal, o sistema pode estar sendo
+            atualizado: aguarde 1 a 2 minutos. Você continua conectado.
+          </Alert>
+          <div className="flex gap-2">
+            <Button variant="solid" onClick={tentarDeNovo}>Tentar de novo</Button>
+            <Button variant="ghost" onClick={sair}>Entrar com outra conta</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (carregando) {
     // Confirmando a sessão: esqueleto no formato da tela (menu lateral + conteúdo), não um texto solto.

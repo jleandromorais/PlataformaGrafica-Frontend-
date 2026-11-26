@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { authApi, type CadastroPayload, type Usuario } from "../api/auth";
 import { api } from "../api/client";
+import { deveApagarToken } from "./sessao";
 
 const CHAVE = "cg_token";
 
@@ -26,6 +27,9 @@ function guardarToken(token: string | null) {
 interface AuthCtx {
   usuario: Usuario | null;
   carregando: boolean;
+  /** Havia sessão guardada, mas o servidor não respondeu (internet ou servidor reiniciando). */
+  semConexao: boolean;
+  tentarDeNovo: () => void;
   entrar: (email: string, senha: string) => Promise<void>;
   cadastrar: (dados: CadastroPayload) => Promise<void>;
   sair: () => void;
@@ -42,17 +46,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUsuario(null);
   }, []);
 
-  // Restaura a sessão ao abrir o app.
-  useEffect(() => {
+  const [semConexao, setSemConexao] = useState(false);
+
+  // Restaura a sessão ao abrir o app. Só um 401 apaga o token: sem internet, a pessoa tenta de novo sem relogar.
+  const buscarSessao = useCallback(() => {
     const token = lerToken();
     if (!token) return;
     guardarToken(token);
     authApi
       .me()
-      .then(setUsuario)
-      .catch(() => guardarToken(null))
+      .then((u) => { setUsuario(u); setSemConexao(false); })
+      .catch((err) => (deveApagarToken(err) ? guardarToken(null) : setSemConexao(true)))
       .finally(() => setCarregando(false));
   }, []);
+  useEffect(buscarSessao, [buscarSessao]);
+  const restaurar = useCallback(() => {
+    setCarregando(true);
+    setSemConexao(false);
+    buscarSessao();
+  }, [buscarSessao]);
 
   // Token vencido/inválido em qualquer chamada: volta para o login.
   useEffect(() => {
@@ -76,11 +88,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       usuario,
       carregando,
+      semConexao,
+      tentarDeNovo: restaurar,
       entrar: async (email, senha) => abrirSessao(await authApi.login(email, senha)),
       cadastrar: async (dados) => abrirSessao(await authApi.cadastro(dados)),
       sair,
     }),
-    [usuario, carregando, abrirSessao, sair],
+    [usuario, carregando, semConexao, restaurar, abrirSessao, sair],
   );
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;

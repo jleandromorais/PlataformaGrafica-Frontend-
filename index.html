@@ -8,16 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Conta Gráfica ARPE</title>
-    <script>
-      // Aplica o tema antes de desenhar a página (evita piscar claro↔escuro).
-      // Escuro é o padrão; o claro vale só para quem escolheu no menu.
-      (function () {
-        var t = null;
-        try { t = localStorage.getItem("cg_tema"); } catch (e) {}
-        var escuro = t !== "claro";
-        document.documentElement.dataset.theme = escuro ? "dark" : "light";
-      })();
-    </script>
+    <script src="/tema.js"></script>
   </head>
   <body>
     <div id="root"></div>

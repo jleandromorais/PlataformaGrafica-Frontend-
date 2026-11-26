@@ -24,4 +24,6 @@ export const authApi = {
   cadastro: (dados: CadastroPayload) =>
     api.post<Sessao>("/auth/cadastro", dados).then((r) => r.data),
   me: () => api.get<Usuario>("/auth/me").then((r) => r.data),
+  /** Público: o cadastro está aberto? (a tela de login só mostra "Criar conta" quando está). */
+  cadastroAberto: () => api.get<{ aberto: boolean }>("/auth/cadastro-aberto").then((r) => r.data.aberto),
 };
