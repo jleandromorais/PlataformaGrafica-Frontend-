@@ -4,11 +4,13 @@ import { Button } from "../../components/ui/Button";
 import { num } from "../../utils/format";
 import { NOMES_ETAPA, mapaDoTrimestre, type CelulaMapa, type Etapa } from "../../utils/pastaCiclo";
 import { avisoDePastaDeOutroTrimestre } from "../../utils/pastaOutroTrimestre";
+import { avisoDeCaminhosLongos } from "../../utils/caminhoLongo";
 import { Alert } from "../../components/ui/Alert";
 import { ICONE } from "./situacaoUI";
 
-export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrada = false, aoAbrirTrimestre }: {
+export function MapaPasta({ mapa, meses, raiz, total, caminhos = [], processar, aberto, lembrada = false, aoAbrirTrimestre }: {
   mapa: ReturnType<typeof mapaDoTrimestre>; meses: string[]; raiz: string; total: number;
+  caminhos?: string[];    // caminhos dentro da pasta: avisa quando algum é longo demais para o navegador ler
   processar?: () => void; // ausente: Painel ainda carregando
   aberto: boolean;        // Processar já aberto abaixo: o botão vira "Recomeçar"
   lembrada?: boolean;     // só os nomes foram lembrados: o navegador não guarda os arquivos depois de recarregar
@@ -19,6 +21,7 @@ export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrad
   const celula = (e: Etapa, m: string) => mapa.celulas.find((c) => c.etapa === e && c.periodo === m)!;
   const problemas = mapa.celulas.filter((c) => c.situacao !== "ok").length;
   const outroTri = avisoDePastaDeOutroTrimestre(meses, mapa.mesesDaPasta);
+  const longos = avisoDeCaminhosLongos(caminhos);
   return (
     <div className="mt-5">
       <p className="text-sm text-zinc-400">
@@ -36,6 +39,12 @@ export function MapaPasta({ mapa, meses, raiz, total, processar, aberto, lembrad
               </Button>
             </span>
           )}
+        </Alert>
+      )}
+      {longos && (
+        <Alert variant="warning" className="mt-3">
+          <strong>{longos.titulo}</strong> {longos.passo}
+          <span className="mt-1 block text-xs">O mais longo: “{longos.exemplo}”.</span>
         </Alert>
       )}
       {mapa.semMes.length > 0 && (

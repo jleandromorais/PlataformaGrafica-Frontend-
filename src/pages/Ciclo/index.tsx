@@ -707,7 +707,7 @@ export default function CicloPage() {
                 {/* Conferência do mês: total de cada etapa x mês anterior, antes de processar e gravar. */}
                 {mapa && !ocupadoPasta && <ConferenciaDoMes key={meses[0]} meses={meses} versao={versao} />}
                 {mapa && !ocupadoPasta && (
-                  <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} aberto={processando} lembrada={semArquivos} aoAbrirTrimestre={irPara}
+                  <MapaPasta mapa={mapa} meses={meses} raiz={raiz} total={caminhos!.length} caminhos={caminhos!} aberto={processando} lembrada={semArquivos} aoAbrirTrimestre={irPara}
                     processar={dados ? (processando ? recomecarProcessar : () => setProcessando(true)) : undefined} />
                 )}
                 {mapa && !ocupadoPasta && processando && dados && (
