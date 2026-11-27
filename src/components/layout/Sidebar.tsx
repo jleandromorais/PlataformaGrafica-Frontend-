@@ -13,10 +13,10 @@ export function Brand({ compact = false }: { compact?: boolean }) {
       <img src="/arpe-simbolo.png" alt="" aria-hidden className={`shrink-0 ${compact ? "h-8 w-8" : "h-10 w-10"}`} />
       <div className="flex flex-col">
         <span className="text-[0.95rem] font-bold leading-tight text-white">
-          Conta Gráfica <span className="font-extrabold">ARPE</span>
+          Equilibrium <span className="font-extrabold">ARPE</span>
         </span>
         {!compact && (
-          <span className="mt-0.5 text-[0.68rem] leading-tight text-zinc-500">Agência de Regulação de Pernambuco</span>
+          <span className="mt-0.5 text-[0.68rem] leading-tight text-zinc-500">Conta Gráfica · Agência de Regulação de Pernambuco</span>
         )}
       </div>
     </div>
