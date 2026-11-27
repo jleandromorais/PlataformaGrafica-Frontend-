@@ -3,6 +3,7 @@
 import type { AuditoriaComparacao, AuditoriaHistoricoLinha } from "../../types";
 import { brl } from "../../utils/format";
 import type { AuditoriaDoMes } from "./auditoriaDoMes";
+import { temDiferenca as temDiferencaNasNotas } from "./digitadasDoProcessar";
 import type { Decisao, FaltantesDoMes } from "./notasFaltantes";
 
 /** Id do bloco "Gravar o mês": os botões "Grave o mês antes de incluir" levam até ele. */
@@ -33,11 +34,15 @@ export function estadoDaGravacao(i: { cgrCalculado: number; qtdNotas: number; li
   return mesmasNotas && Math.abs(i.cgrCalculado - semDigitadas) < CENTAVO ? "igual" : "substitui";
 }
 
-/** Divergência do mês: notas ou empresas diferentes do gravado, PDF não lido ou empresa gravada que sai do mês. */
+/** Tolerância do back para "valor diferente" (TOL_VALOR em explicador_diferencas.py): abaixo disso é arredondamento. */
+const TOL_DIFERENCA = 1;
+
+/** Divergência do mês: notas ou empresas diferentes do gravado, PDF não lido ou empresa gravada que sai do mês.
+ * Vem dos dados da comparação, nunca do `resumo`: o back sempre manda uma frase, até "As notas batem com as gravadas.". */
 export function divergenciaDoMes(res: AuditoriaDoMes) {
   const d = res.diferencas;
   const apagadas = d?.tem_notas_gravadas ? d.por_empresa.filter((e) => e.processado === 0 && e.gravado !== 0) : [];
-  const temDiferenca = !!d && (d.resumo.length > 0 || d.notas.length > 0);
+  const temDiferenca = temDiferencaNasNotas(d) || (!!d?.tem_notas_gravadas && Math.abs(d.diferenca) > TOL_DIFERENCA);
   return { apagadas, temDiferenca, divergencia: temDiferenca || !!res.naoLidos || apagadas.length > 0 };
 }
 
@@ -51,6 +56,15 @@ export function digitadasDoMes(linha: AuditoriaHistoricoLinha | null | undefined
 /** Regravar um mês com notas digitadas: já começa em "incluir no cálculo" (as notas voltam), se a planilha traz todas. */
 export function decisaoInicial(linha: AuditoriaHistoricoLinha | null | undefined, faltantes: FaltantesDoMes): Decisao | null {
   return (linha?.qtd_digitadas ?? 0) > 0 && faltantes.paraIncluir ? "incluir" : null;
+}
+
+/** Por que as notas digitadas saem ao regravar, conforme o caso (o botão "Incluir esta nota" não existe no Painel). */
+export function textoDasDigitadasApagadas(i: { planilhaEscolhida: boolean; decisao: Decisao | null; falta: number; planilhaTemCGR: boolean }): string {
+  if (!i.planilhaEscolhida) return "Escolha a planilha em “Comparar com a planilha” antes de gravar, para o sistema poder reincluí-la.";
+  if (i.decisao === "seguir_sem") return "Você escolheu “Seguir sem ela”: a nota digitada sai do CGR.";
+  if (i.falta === 0) return "A planilha não acusa mais nota faltando, então a nota real já está entre as lidas da pasta: a digitada é trocada por ela.";
+  if (!i.planilhaTemCGR) return "A planilha não traz o CGR da nota faltante, então a digitada não volta sozinha. Confira antes de gravar.";
+  return "Para ela voltar, escolha “Incluir no cálculo” na nota faltante acima.";
 }
 
 /** Notas lidas dos arquivos menos a 1ª fonte da planilha (a mesma conta do quadro da comparação). null = sem planilha para comparar. */

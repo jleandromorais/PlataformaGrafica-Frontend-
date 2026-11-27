@@ -3,9 +3,21 @@ import type { AuditoriaComparacao, AuditoriaHistoricoLinha } from "../../types";
 import type { AuditoriaDoMes } from "./auditoriaDoMes";
 import {
   dataDaGravacao, decisaoInicial, diferencaParaPlanilha, digitadasDoMes, divergenciaDoMes, estadoDaGravacao, mesJaGravado,
-  MOTIVO_REINCLUSAO, rotuloDoBotao, textoDoEstado, tituloDaConfirmacao,
+  MOTIVO_REINCLUSAO, rotuloDoBotao, textoDasDigitadasApagadas, textoDoEstado, tituloDaConfirmacao,
 } from "./gravarDoMes";
 import { faltantesDoMes } from "./notasFaltantes";
+
+describe("textoDasDigitadasApagadas (N2)", () => {
+  const base = { planilhaEscolhida: true, decisao: null, falta: 1, planilhaTemCGR: true } as const;
+  it("nunca manda usar “Incluir esta nota”", () => {
+    for (const c of [base, { ...base, falta: 0 }, { ...base, decisao: "seguir_sem" as const }, { ...base, planilhaTemCGR: false }, { ...base, planilhaEscolhida: false }]) {
+      expect(textoDasDigitadasApagadas(c)).not.toMatch(/Incluir esta nota/);
+    }
+  });
+  it("sem planilha pede a planilha", () => { expect(textoDasDigitadasApagadas({ ...base, planilhaEscolhida: false })).toMatch(/Comparar com a planilha/); });
+  it("escolheu seguir sem: sai do CGR", () => { expect(textoDasDigitadasApagadas({ ...base, decisao: "seguir_sem" })).toMatch(/sai do CGR/); });
+  it("nota real chegou na pasta: é trocada", () => { expect(textoDasDigitadasApagadas({ ...base, falta: 0 })).toMatch(/trocada/); });
+});
 
 const linha = (p: Partial<AuditoriaHistoricoLinha> = {}): AuditoriaHistoricoLinha => ({
   periodo: "Out/2026", qtd_notas: 80, cgr_gravado: 1000, data_atualizacao: "2026-11-25 14:02", periodo_valido: true, ...p,
@@ -50,6 +62,40 @@ describe("divergenciaDoMes", () => {
     const r = divergenciaDoMes(res({ diferencas: d as never }));
     expect(r.apagadas.map((e) => e.empresa)).toEqual(["GALP"]);
     expect(r.divergencia).toBe(true);
+  });
+  // O back sempre manda um resumo, mesmo sem diferença (diferencas_auditoria.py: _resumo).
+  const bate = {
+    tem_notas_gravadas: true, cgr_gravado_notas: 1000, cgr_processado: 1000, diferenca: 0,
+    por_empresa: [], notas: [], qtd_notas_diferentes: 0, resumo: ["As notas batem com as gravadas."],
+  };
+  it("as notas batem: o resumo do back não vira divergência", () => {
+    const r = divergenciaDoMes(res({ diferencas: bate as never }));
+    expect(r.temDiferenca).toBe(false);
+    expect(r.divergencia).toBe(false);
+  });
+  it("só a frase das notas à mão no resumo: não diverge", () => {
+    const d = { ...bate, resumo: ["As notas batem com as gravadas.", "1 nota incluída à mão (R$ 10,00) não vem nos arquivos: ..."] };
+    expect(divergenciaDoMes(res({ diferencas: d as never })).divergencia).toBe(false);
+  });
+  it("nota com valor diferente diverge", () => {
+    const d = {
+      ...bate, cgr_processado: 1200, diferenca: 200, qtd_notas_diferentes: 1, resumo: ["TAG: R$ 200,00 — NF 1 valor diferente"],
+      por_empresa: [{ empresa: "TAG", gravado: 1000, processado: 1200, diferenca: 200 }],
+      notas: [{ empresa: "TAG", tipo: "NF-e", numero: "1", situacao: "valor_diferente", gravado: 1000, processado: 1200, diferenca: 200, ocr: false }],
+    };
+    const r = divergenciaDoMes(res({ diferencas: d as never }));
+    expect(r.temDiferenca).toBe(true);
+    expect(r.divergencia).toBe(true);
+  });
+  it("nota só no gravado ou só no processado diverge", () => {
+    for (const situacao of ["so_no_gravado", "so_no_processado"]) {
+      const d = { ...bate, notas: [{ empresa: "TAG", tipo: "NF-e", numero: "2", situacao, gravado: 0, processado: 50, diferenca: 50, ocr: false }] };
+      expect(divergenciaDoMes(res({ diferencas: d as never })).divergencia).toBe(true);
+    }
+  });
+  it("diferença de CGR acima da tolerância diverge; arredondamento não", () => {
+    expect(divergenciaDoMes(res({ diferencas: { ...bate, diferenca: 0.4 } as never })).divergencia).toBe(false);
+    expect(divergenciaDoMes(res({ diferencas: { ...bate, diferenca: 5 } as never })).divergencia).toBe(true);
   });
 });
 

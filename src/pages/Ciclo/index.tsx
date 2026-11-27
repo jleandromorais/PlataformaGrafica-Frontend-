@@ -55,6 +55,7 @@ import { Button } from "../../components/ui/Button";
 import { classesDoBotao } from "../../components/ui/estilosBotao";
 import { DivergenciaSCG } from "./DivergenciaSCG";
 import { calcularProximoPasso, proximoDoBack, type ChavePasso, type DestinoBloqueio } from "./proximoPasso";
+import { alertaDoRP, valorDoRP } from "./rpDoMes";
 import { trimestreSugerido } from "./trimestreSugerido";
 import { escolherPlanilha, planilhaDoTrimestre, type PlanilhaEscolhida } from "./planilhaDoTrimestre";
 
@@ -214,8 +215,7 @@ function etapas(d: Dados, meses: string[], mesesPR: string[], auditarMes: ReactN
     { chave: "ret" as const, titulo: "RET — Encargos de transporte", descricao: "NDs e faturas de transporte (EAT + EC)", link: linkDoCiclo(rotaDaEtapa("ret"), meses[0]),
       ...porMes(d.ret, meses, (l) => brl(l.ret_gravado)) },
     etapaMensal("rp", "RP — Conciliação de penalidades", "Receitas (inclui TOP) e despesas de penalidade", d.concilia,
-      meses, (l) => brl(l.rp_gravado),
-      (l) => (Math.abs(l.rp_dos_itens - l.rp_gravado) > 1 ? "O RP gravado difere da soma dos itens." : null)),
+      meses, valorDoRP, alertaDoRP),
     { ...etapaMensal("scg", "SCG — Saldo da Conta Gráfica", "SCG = RPV + RET + RP, por mês", d.scg, meses,
       (l) => brl(l.scg), (l) => (l.diverge ? "Os módulos e o valor gravado não batem." : null)), extra: divergenciaScg },
     {
