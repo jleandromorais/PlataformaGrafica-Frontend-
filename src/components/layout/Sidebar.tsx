@@ -10,7 +10,7 @@ import { GRUPOS_DO_MENU, MODULOS } from "./modulos";
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <img src="/arpe-simbolo.png" alt="" aria-hidden className={`shrink-0 ${compact ? "h-8 w-8" : "h-10 w-10"}`} />
+      <img src="/equilibrium-simbolo.png" alt="" aria-hidden className={`shrink-0 ${compact ? "h-8 w-8" : "h-10 w-10"}`} />
       <div className="flex flex-col">
         <span className="text-[0.95rem] font-bold leading-tight text-white">
           Equilibrium <span className="font-extrabold">ARPE</span>

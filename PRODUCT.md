@@ -54,7 +54,7 @@ O sucesso tem duas partes:
 ## Brand Commitments
 
 - **Nome:** "Equilibrium ARPE", com o subtítulo "Conta Gráfica" (desde 27/11/2026; antes era "Conta Gráfica ARPE"). O objetivo da Conta Gráfica é levar o saldo entre custo do gás e tarifa ao equilíbrio. "Conta Gráfica" continua sendo o nome do conceito regulatório dentro das telas.
-- **Logo:** o símbolo e o logo da ARPE ficam no menu, no favicon e no login (`public/arpe-logo.png`, `public/arpe-logo-escuro.png`, `public/arpe-simbolo.png`).
+- **Logo:** desde 27/11/2026, o símbolo do Equilibrium (infinito colorido) fica no menu, no favicon e no topo do login (`public/equilibrium-simbolo.png`, `public/equilibrium-favicon.png`). O logo oficial da ARPE continua no login, menor, abaixo do nome (`public/arpe-logo.png`, `public/arpe-logo-escuro.png`).
 - **Visual:** o usuário rejeita aparência "com cara de IA" e quer uma ferramenta de trabalho sóbria e humana.
 - **Tema:** escuro é o padrão (decisão de 03/11/2026); o claro ARPE fica como opção no menu.
 - **Idioma:** toda a interface é em português do Brasil.

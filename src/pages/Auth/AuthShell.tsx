@@ -10,14 +10,15 @@ export function AuthShell({ titulo, subtitulo, children, rodape }: {
     <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-10">
       <div className="w-full max-w-[26rem]">
         <div className="mb-8 flex flex-col items-center gap-4">
-          {/* O "ARPE" do logo é marinho: no tema escuro usa a versão com o texto claro
-              (public/arpe-logo-escuro.png), sem placa branca em volta. */}
-          <img src="/arpe-logo.png" alt="ARPE — Agência de Regulação de Pernambuco" className="h-28 w-auto dark:hidden" />
-          <img src="/arpe-logo-escuro.png" alt="ARPE — Agência de Regulação de Pernambuco" className="hidden h-28 w-auto dark:block" />
+          <img src="/equilibrium-simbolo.png" alt="" aria-hidden className="h-24 w-24" />
           <div className="text-center">
             <p className="text-lg font-bold text-white">Equilibrium <span className="font-extrabold">ARPE</span></p>
             <p className="text-sm text-zinc-500">Conta Gráfica do gás natural</p>
           </div>
+          {/* Logo oficial da agência, menor, abaixo do nome. O "ARPE" do logo é marinho:
+              no tema escuro usa a versão com o texto claro (public/arpe-logo-escuro.png). */}
+          <img src="/arpe-logo.png" alt="ARPE — Agência de Regulação de Pernambuco" className="h-12 w-auto dark:hidden" />
+          <img src="/arpe-logo-escuro.png" alt="ARPE — Agência de Regulação de Pernambuco" className="hidden h-12 w-auto dark:block" />
         </div>
         <div className="sem-hover rounded-xl border border-white/[0.08] bg-panel p-7 shadow-[0_1px_2px_rgba(16,39,89,0.06),0_8px_24px_-12px_rgba(16,39,89,0.12)]">
           <h1 className="text-xl font-semibold text-white">{titulo}</h1>
