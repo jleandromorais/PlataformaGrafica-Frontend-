@@ -59,3 +59,20 @@ describe("digitadas no Processar a pasta", () => {
     expect(textoDasMantidas({ qtd: 3, cgr: 10 })).toMatch(/^inclui 3 notas incluídas à mão \(.*\), mantidas ao gravar$/);
   });
 });
+
+describe("escolha do analista: incluir ou não a nota feita à mão (estorno ND 550499 de Out/26)", () => {
+  const est = { qtd: 1, cgr: -481319.89 };
+  it("marcada (ou sem escolha) soma a nota; desmarcada, não", async () => {
+    const { valorComDigitadas } = await import("./digitadasDoProcessar");
+    expect(valorComDigitadas(85992093.43, est, true)).toBeCloseTo(85510773.54, 2);
+    expect(valorComDigitadas(85992093.43, est, undefined)).toBeCloseTo(85510773.54, 2);
+    expect(valorComDigitadas(85992093.43, est, false)).toBeCloseTo(85992093.43, 2);
+    expect(valorComDigitadas(100, undefined, true)).toBe(100);
+  });
+  it("textos da caixa e do aviso", async () => {
+    const { rotuloDaEscolhaDigitadas, textoDasDigitadasFora } = await import("./digitadasDoProcessar");
+    expect(rotuloDaEscolhaDigitadas(est)).toMatch(/^Incluir a nota feita à mão \(.*481\.319,89\) no CGR$/);
+    expect(rotuloDaEscolhaDigitadas({ qtd: 2, cgr: 10 })).toMatch(/^Incluir as 2 notas/);
+    expect(textoDasDigitadasFora(est)).toMatch(/fica fora e é apagada do mês ao gravar/);
+  });
+});

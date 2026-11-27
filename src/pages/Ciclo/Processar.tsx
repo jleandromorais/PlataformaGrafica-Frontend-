@@ -13,7 +13,8 @@ import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import type { Cascata } from "../../types";
 import { auditarMes } from "./auditoriaDoMes";
 import {
-  avisosDasQueChegaram, digitadasAoGravar, digitadasDaLinha, gravadoDaPasta, temDiferenca, textoDasMantidas,
+  avisosDasQueChegaram, digitadasAoGravar, digitadasDaLinha, gravadoDaPasta, rotuloDaEscolhaDigitadas, temDiferenca,
+  textoDasDigitadasFora, valorComDigitadas,
 } from "./digitadasDoProcessar";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { avisarAtencao, avisarErro, avisarSucesso } from "../../components/ui/avisos";
@@ -63,6 +64,8 @@ interface Celula {
   concilia?: ConciliaResultado;
   soPdf?: string[];           // Auditoria: empresas só com PDF (lidas por OCR)
   diferencas?: AuditoriaDiferencas; // Auditoria: onde difere das notas gravadas
+  digitadas?: { qtd: number; cgr: number }; // Auditoria: notas incluídas à mão no mês (não vêm na pasta)
+  manterDigitadas?: boolean;  // escolha do analista: elas entram no CGR ao gravar? (ausente = sim)
   errosBack?: string[];       // frases de erro que o back devolveu (campo `erros`), já com etapa, mês e valores
 }
 
@@ -185,6 +188,12 @@ export function ProcessarTrimestre({
   const atualizar = (alvo: Celula, mudanca: Partial<Celula>) =>
     setCelulas((cs) => cs.map((c) => (c.etapa === alvo.etapa && c.periodo === alvo.periodo ? { ...c, ...mudanca } : c)));
   const alternar = (c: Celula) => atualizar(c, { escolhida: !c.escolhida });
+  /** Incluir ou não as notas feitas à mão do mês: o Resultado muda na hora e a gravação segue a escolha. */
+  const alternarDigitadas = (c: Celula) => {
+    if (!c.auditoria) return;
+    const manter = c.manterDigitadas === false;
+    atualizar(c, { manterDigitadas: manter, valor: valorComDigitadas(c.auditoria.totais.cgr_liquido, c.digitadas, manter) });
+  };
   /** Abre do disco só os arquivos desta etapa-mês, na hora de enviar (a pasta só listou os nomes).
    * `caminho`: como o arquivo vai para o backend; `so`: filtra (ex.: só receitas). */
   async function abrir(c: Celula, caminho: (a: ArquivoClassificado, f: File) => string, so?: (a: ArquivoClassificado) => boolean) {
@@ -214,12 +223,12 @@ export function ProcessarTrimestre({
         ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): a nota não entrou no CGR. Marque só se puder gravar assim.`] : []),
         ...outros,
       ].slice(0, 3);
-      const textoMantidas = textoDasMantidas(mantidas);
       return {
-        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido + mantidas.cgr, avisos,
+        estado: "processada", auditoria: r, valor: valorComDigitadas(r.totais.cgr_liquido, mantidas, true), avisos,
+        digitadas: mantidas.qtd ? { qtd: mantidas.qtd, cgr: mantidas.cgr } : undefined, manterDigitadas: true,
         diferencas: temDiferenca(diferencas) ? diferencas : undefined, escolhida: c.escolhida && !naoLidos,
         errosBack: unicos([...(r.erros ?? []), ...(diferencas?.erros ?? [])]),
-        detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)${textoMantidas ? ` · ${textoMantidas}` : ""}`,
+        detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
       };
     }
     if (c.etapa === "cgf") {
@@ -352,8 +361,9 @@ export function ProcessarTrimestre({
       atualizar(c, { estado: "gravando" });
       try {
         if (c.auditoria) {
-          // As notas incluídas à mão do mês continuam (o back só troca a que veio na pasta).
-          const s = await salvarAuditoria(c.periodo, c.auditoria.itens, undefined, true);
+          // Notas incluídas à mão: continuam se o analista deixou marcado (o back só troca a que veio na pasta);
+          // desmarcado, saem do mês.
+          const s = await salvarAuditoria(c.periodo, c.auditoria.itens, undefined, c.manterDigitadas !== false);
           atualizar(c, { estado: "gravada", valor: s.cgr_liquido });
           cascataDoSalvar = s.cascata ?? cascataDoSalvar;
         } else if (c.cgf) {
@@ -482,6 +492,19 @@ export function ProcessarTrimestre({
                         {c.estado === "gravada" && "Gravada."}
                         {(c.estado === "erro" || c.estado === "bloqueada") && <span className="text-amber-200">{c.motivo}</span>}
                         {c.detalhe && <span className="block text-xs text-zinc-500">{c.detalhe}</span>}
+                        {!!c.digitadas?.qtd && c.auditoria && (
+                          <span className="mt-1 block text-xs">
+                            <label className={`inline-flex items-center gap-2 ${c.estado === "processada" && !ocupado ? "cursor-pointer" : ""}`}>
+                              <input type="checkbox" checked={c.manterDigitadas !== false}
+                                disabled={c.estado !== "processada" || ocupado} onChange={() => alternarDigitadas(c)}
+                                className="h-3.5 w-3.5 accent-marinho disabled:opacity-40" />
+                              <span className="text-zinc-200">{rotuloDaEscolhaDigitadas(c.digitadas)}</span>
+                            </label>
+                            {c.manterDigitadas === false && (
+                              <span className="block text-amber-200">⚠ {textoDasDigitadasFora(c.digitadas)}</span>
+                            )}
+                          </span>
+                        )}
                         {!!c.soPdf?.length && (
                           <span className="block text-xs text-zinc-500">Só PDF: {c.soPdf.join(", ")}</span>
                         )}

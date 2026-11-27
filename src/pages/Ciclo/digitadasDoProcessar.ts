@@ -45,6 +45,24 @@ export function textoDasMantidas(m: { qtd: number; cgr: number }): string {
     : `inclui ${m.qtd} notas incluídas à mão (${brl(m.cgr)}), mantidas ao gravar`;
 }
 
+/** O analista escolhe, na linha da Auditoria, se as notas à mão entram no valor a gravar.
+ * `manter` ausente = sim (como sempre foi). */
+export function valorComDigitadas(cgrDaPasta: number, m: { qtd: number; cgr: number } | undefined, manter: boolean | undefined): number {
+  return cgrDaPasta + (m?.qtd && manter !== false ? m.cgr : 0);
+}
+
+/** Rótulo da caixa de escolha e o aviso quando ela fica desmarcada. */
+export function rotuloDaEscolhaDigitadas(m: { qtd: number; cgr: number }): string {
+  return m.qtd === 1
+    ? `Incluir a nota feita à mão (${brl(m.cgr)}) no CGR`
+    : `Incluir as ${m.qtd} notas feitas à mão (${brl(m.cgr)}) no CGR`;
+}
+export function textoDasDigitadasFora(m: { qtd: number; cgr: number }): string {
+  return m.qtd === 1
+    ? `A nota feita à mão (${brl(m.cgr)}) fica fora e é apagada do mês ao gravar.`
+    : `As ${m.qtd} notas feitas à mão (${brl(m.cgr)}) ficam fora e são apagadas do mês ao gravar.`;
+}
+
 /** Aviso para cada digitada que agora veio na pasta. */
 export function avisosDasQueChegaram(chegaram: string[]): string[] {
   return chegaram.map((n) => `A nota ${n}, incluída à mão antes, veio na pasta: ao gravar, a da pasta substitui a digitada (não conta duas vezes).`);
