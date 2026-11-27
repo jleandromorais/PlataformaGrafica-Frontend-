@@ -12,6 +12,9 @@ import {
 import { usePreviaCascata } from "../../components/ui/usePreviaCascata";
 import type { Cascata } from "../../types";
 import { auditarMes } from "./auditoriaDoMes";
+import {
+  avisosDasQueChegaram, digitadasAoGravar, digitadasDaLinha, gravadoDaPasta, temDiferenca, textoDasMantidas,
+} from "./digitadasDoProcessar";
 import { ModalAviso } from "../../components/ui/ModalAviso";
 import { avisarAtencao, avisarErro, avisarSucesso } from "../../components/ui/avisos";
 import { faixaDosMeses } from "../../utils/rotulos";
@@ -199,17 +202,24 @@ export function ProcessarTrimestre({
       // Como a tela da Auditoria: modo XML (lê também os PDFs), todas as empresas, sem planilha.
       const envio = await abrir(c, (a) => envioDaAuditoria(a).caminho);
       const pastaRaiz = c.arquivos[0] ? envioDaAuditoria(c.arquivos[0]).raiz : "";
-      const { r, erros, outroMes, naoLidos, avisos: outros, diferencas } = await auditarMes(envio, pastaRaiz, c.periodo, c.gravado);
+      // Notas incluídas à mão não vêm na pasta: compara com o gravado SEM elas e as mantém ao gravar.
+      const dig = digitadasDaLinha(auditoria.find((h) => h.periodo === c.periodo));
+      const { r, erros, outroMes, naoLidos, avisos: outros, diferencas } =
+        await auditarMes(envio, pastaRaiz, c.periodo, gravadoDaPasta(c.gravado, dig), !!dig);
       if (erros.length) return { estado: "erro", motivo: erros.join(" ") };
       if (outroMes) return { estado: "erro", motivo: `As notas parecem ser de ${outroMes}. Use a tela da Auditoria.` };
+      const mantidas = digitadasAoGravar(dig, diferencas);
       const avisos = [
+        ...avisosDasQueChegaram(mantidas.chegaram),
         ...(naoLidos ? [`${naoLidos} PDF(s) não lido(s): a nota não entrou no CGR. Marque só se puder gravar assim.`] : []),
         ...outros,
       ].slice(0, 3);
+      const textoMantidas = textoDasMantidas(mantidas);
       return {
-        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido, avisos, diferencas, escolhida: c.escolhida && !naoLidos,
+        estado: "processada", auditoria: r, valor: r.totais.cgr_liquido + mantidas.cgr, avisos,
+        diferencas: temDiferenca(diferencas) ? diferencas : undefined, escolhida: c.escolhida && !naoLidos,
         errosBack: unicos([...(r.erros ?? []), ...(diferencas?.erros ?? [])]),
-        detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)`,
+        detalhe: `${r.qtd_xml_lidos} XML · ${r.qtd_pdf_lidos} PDF · ${r.totais.por_empresa.length} empresa(s)${textoMantidas ? ` · ${textoMantidas}` : ""}`,
       };
     }
     if (c.etapa === "cgf") {
@@ -342,7 +352,8 @@ export function ProcessarTrimestre({
       atualizar(c, { estado: "gravando" });
       try {
         if (c.auditoria) {
-          const s = await salvarAuditoria(c.periodo, c.auditoria.itens);
+          // As notas incluídas à mão do mês continuam (o back só troca a que veio na pasta).
+          const s = await salvarAuditoria(c.periodo, c.auditoria.itens, undefined, true);
           atualizar(c, { estado: "gravada", valor: s.cgr_liquido });
           cascataDoSalvar = s.cascata ?? cascataDoSalvar;
         } else if (c.cgf) {

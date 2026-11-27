@@ -273,6 +273,11 @@ export interface AuditoriaDiferencas {
   }[];
   qtd_notas_diferentes: number;
   resumo: string[];
+  /** Notas incluídas à mão que continuam no mês: ficam fora da comparação (o back antigo não manda). */
+  qtd_digitadas?: number;
+  cgr_digitadas?: number;
+  /** Todas as digitadas do mês; `chegou_na_pasta` = a nota real veio agora e, ao gravar, substitui a digitada. */
+  digitadas?: { empresa: string; tipo: string; numero: string; cgr_liquido: number; motivo: string; chegou_na_pasta: boolean }[];
 }
 
 export interface AuditoriaHistoricoLinha {

@@ -170,9 +170,12 @@ export interface NotaFaltante {
 export interface DecisaoDeFaltantes { faltantes: NotaFaltante[]; decisao: "incluir" | "seguir_sem"; motivo?: string }
 
 /** Grava o CGR (recalculado no servidor) e os itens do período. Com `faltas`, grava junto a escolha sobre as notas que só estão na planilha. */
-export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[], faltas?: DecisaoDeFaltantes) =>
-  api.post<ComCascata<{ cgr_liquido: number; rpv: number; qtd_itens: number }>>("/auditoria/salvar",
-    { periodo, itens, ...(faltas ? { faltantes: faltas.faltantes, decisao_faltantes: faltas.decisao, motivo_faltantes: faltas.motivo } : {}) }).then((r) => r.data);
+/** `manterDigitadas` (Processar a pasta): as notas incluídas à mão já gravadas no mês continuam, com as decisões delas;
+ * a digitada cuja nota real veio na pasta (mesma empresa + tipo + número) é trocada pela real. */
+export const salvarAuditoria = (periodo: string, itens: AuditoriaItem[], faltas?: DecisaoDeFaltantes, manterDigitadas = false) =>
+  api.post<ComCascata<{ cgr_liquido: number; rpv: number; qtd_itens: number; qtd_digitadas_mantidas?: number; digitadas_trocadas?: string[] }>>("/auditoria/salvar",
+    { periodo, itens, ...(faltas ? { faltantes: faltas.faltantes, decisao_faltantes: faltas.decisao, motivo_faltantes: faltas.motivo } : {}),
+      ...(manterDigitadas ? { manter_digitadas: true } : {}) }).then((r) => r.data);
 
 /** Onde as notas processadas diferem das gravadas no mês, por empresa e nota. Não grava. */
 export const diferencasAuditoria = (periodo: string, itens: AuditoriaItem[]) =>
